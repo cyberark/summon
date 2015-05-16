@@ -1,6 +1,7 @@
 secrets.yml
-
+pkg
 .godeps
+
 # Created by https://www.gitignore.io
 
 ### OSX ###

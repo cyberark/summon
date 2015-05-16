@@ -14,3 +14,13 @@ To isolate pinned dependencies to this project:
 2. Run `source gvp in; gpm` to set local GOPATH and install dependencies.
 
 Run the project with `go run *.go`.
+
+## Building
+
+To build 64bit versions for Linux, OSX and Windows:
+
+```
+./build.sh
+```
+
+Binaries will be placed in `pkg/`.
