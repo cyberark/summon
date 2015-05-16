@@ -18,8 +18,6 @@ View help and other flags with `cauldron -h`.
 
 ## Development
 
-To isolate pinned dependencies to this project:
-
 1. Install [gpm](https://github.com/pote/gpm), [gpm-local](https://github.com/technosophos/gpm-local) and [gvp](https://github.com/pote/gvp)
 2. Set your local GOPATH and install dependencies: `source gvp in; gpm`
 3. Alias the local project into .godeps: `gpm local name github.com/conjurinc/cauldron`
