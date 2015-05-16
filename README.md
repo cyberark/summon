@@ -4,7 +4,17 @@ Parse secrets.yml to export environment variables fetched from a trusted store
 
 ## Usage
 
-TODO
+*Very much WIP*
+
+By default, cauldron will look for `secrets.yml` in the directory it is called from.
+
+You can specify a location with the `-f` flag, like so:
+
+```
+cauldron -f=/etc/mysecrets.yml
+```
+
+View help and other flags with `cauldron -h`.
 
 ## Development
 
