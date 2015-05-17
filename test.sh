@@ -2,8 +2,10 @@
 
 docker build -t cauldron/build .
 
+projectpath="/goroot/src/github.com/conjurinc/cauldron"
+
 docker run --rm \
--v "$(pwd)":/usr/src/cauldron \
--w /usr/src/cauldron \
+-v "$(pwd)":"${projectpath}" \
+-w "${projectpath}" \
 cauldron/build \
-gpm && gpm local name github.com/conjur/cauldron; go test ./...
+bash -c "go get $(<Godeps) && go build ./... && go test ./..."
