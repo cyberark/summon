@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestParseValidYML(t *testing.T) {
+func TestParseFromString(t *testing.T) {
 	input := `
   SENTRY_API_KEY: $env/sentry/api_key
   PRIVATE_KEY_FILE: !file $env/aws/ec2/private_key
@@ -15,7 +15,7 @@ func TestParseValidYML(t *testing.T) {
 		"PRIVATE_KEY_FILE": "file $env/aws/ec2/private_key",
 	}
 
-	yml, err := parse(input)
+	yml, err := ParseFromString(input)
 	if err != nil {
 		t.Error(err)
 	}
