@@ -24,7 +24,7 @@ View help and other flags with `cauldron -h`.
 
 Run the project with `go run *.go`.
 
-Run tests with `./test.sh`.
+Run tests with `go test ./...` or `./test.sh` (for CI).
 
 ## Building
 
