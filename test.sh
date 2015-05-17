@@ -8,4 +8,4 @@ docker run --rm \
 -v "$(pwd)":"${projectpath}" \
 -w "${projectpath}" \
 cauldron/build \
-bash -c "go get $(<Godeps) && go build ./... && go test ./..."
+bash -c "xargs -L1 go get <Godeps && go build ./... && go test ./..."
