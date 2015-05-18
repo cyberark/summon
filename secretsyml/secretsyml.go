@@ -41,6 +41,6 @@ func parse(ymlContent string, subs map[string]string) (map[string]string, error)
 func applySubstitutions(ymlContent *string, subs map[string]string) {
 	for key, val := range subs {
 		println(key, val)
-		ymlContent = strings.Replace(ymlContent, key, val, -1)
+		*ymlContent = strings.Replace(*ymlContent, key, val, -1)
 	}
 }
