@@ -18,9 +18,11 @@ View help and other flags with `cauldron -h`.
 
 ## Development
 
-1. Install [gpm](https://github.com/pote/gpm), [gpm-local](https://github.com/technosophos/gpm-local) and [gvp](https://github.com/pote/gvp)
-2. Set your local GOPATH and install dependencies: `source gvp in; gpm`
-3. Alias the local project into .godeps: `gpm local name github.com/conjurinc/cauldron`
+Install dependencies
+
+```
+xargs -L1 go get <Godeps
+```
 
 Run the project with `go run *.go`.
 
