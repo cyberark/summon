@@ -2,18 +2,18 @@ package cauldron
 
 import (
 	"fmt"
-	"github.com/conjurinc/cauldron/backend"
 	"github.com/conjurinc/cauldron/command"
+	"github.com/conjurinc/cauldron/secretsyml"
 	"os"
 )
 
 type Cauldron struct {
 	Name    string
 	Version string
-	Fetcher backend.Fetch
+	Fetcher secretsyml.Fetch
 }
 
-func NewCauldron(name string, version string, fetcher backend.Fetch) Cauldron {
+func NewCauldron(name string, version string, fetcher secretsyml.Fetch) Cauldron {
 	return Cauldron{
 		Name:    name,
 		Version: version,

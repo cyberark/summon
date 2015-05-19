@@ -1,13 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/conjurinc/cauldron"
 )
 
 func ExampleFetch(secret string) (string, error) {
-	return "dummy", errors.New("403 permission denied!")
+	return "dummy", nil
 }
 
 func main() {

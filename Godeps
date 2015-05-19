@@ -1,4 +1,4 @@
-gopkg.in/yaml.v2
+gopkg.in/yaml.v1
 github.com/codegangsta/cli
 
 github.com/jstemmer/go-junit-report
