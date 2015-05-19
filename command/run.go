@@ -1,15 +1,18 @@
 package command
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/conjurinc/cauldron/backend"
 	"github.com/conjurinc/cauldron/secretsyml"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 )
+
+var tempfiles []string
 
 func CreateRunCommand(backend backend.Backend) cli.Command {
 	cmd := cli.Command{
@@ -66,23 +69,53 @@ func CreateRunCommand(backend backend.Backend) cli.Command {
 
 		env := os.Environ()
 		for key, namespace := range secrets {
-			namespaceNoPrefix := strings.Replace(namespace, "file ", "", 1)
-			secretval, _ := backend.Fetch(namespaceNoPrefix)
-			env = append(env, fmt.Sprintf("%s=%s", strings.ToUpper(key), secretval))
+			envvar, err := fetchToEnviron(key, namespace, backend)
+			if err != nil {
+				fmt.Println(err.Error())
+				break
+			}
+			env = append(env, envvar)
 		}
 
-		binary, lookErr := exec.LookPath(c.Args().First())
-		if lookErr != nil {
-			panic(lookErr)
+		cmdOutput := &bytes.Buffer{}
+		runner := exec.Command(c.Args()[0], c.Args()[1:]...)
+		runner.Env = env
+		runner.Stdout = cmdOutput
+		err = runner.Start()
+		if err != nil {
+			panic(err)
+		}
+		runner.Wait()
+		for _, path := range tempfiles {
+			fmt.Println(path)
+			os.Remove(path)
 		}
 
-		execErr := syscall.Exec(binary, c.Args(), env)
-		if execErr != nil {
-			panic(execErr)
-		}
+		fmt.Print(string(cmdOutput.Bytes()))
 	}
 
 	return cmd
+}
+
+func fetchToEnviron(key string, namespace string, backend backend.Backend) (string, error) {
+	namespaceNoPrefix := strings.Replace(namespace, "file ", "", -1)
+	secretval, err := backend.Fetch(namespaceNoPrefix)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(namespace, "file ") {
+		f, err := ioutil.TempFile("", "cauldron")
+		f.Write([]byte(secretval))
+		defer f.Close()
+
+		if err != nil {
+			return "", err
+		}
+		secretval = f.Name()
+		tempfiles = append(tempfiles, secretval)
+	}
+
+	return fmt.Sprintf("%s=%s", strings.ToUpper(key), secretval), nil
 }
 
 func convertSubsToMap(subs []string) map[string]string {

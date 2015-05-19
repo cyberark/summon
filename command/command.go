@@ -8,11 +8,7 @@ import (
 )
 
 /*
-Start parses user input and returns
-* filepath: Path to secrets.yml
-* yaml: string literal of secrets.yml
-* subs: map of variables to be substituted in secrets.yml
-* ignores: list of paths to ignore if fetch error occurs
+Start defines and runs cauldron's command line interface
 */
 func Start(backendName string, backend backend.Backend) error {
 	app := cli.NewApp()
