@@ -67,36 +67,53 @@ func CreateRunCommand(fetcher backend.Fetch) cli.Command {
 			fmt.Errorf("error! %s", err)
 		}
 
+		erred := false
 		env := os.Environ()
 		for key, namespace := range secrets {
 			envvar, err := fetchToEnviron(key, namespace, fetcher)
 			if err != nil {
-				fmt.Println(err.Error())
-				break
+				erred = true
+				fmt.Printf("%s: %s\n", namespace, err.Error())
 			}
 			env = append(env, envvar)
 		}
 
-		cmdOutput := &bytes.Buffer{}
-		runner := exec.Command(c.Args()[0], c.Args()[1:]...)
-		runner.Env = env
-		runner.Stdout = cmdOutput
-		err = runner.Start()
-		if err != nil {
-			panic(err)
+		// Only print output of the command if no errors have occurred
+		output := runSubcommand(c.Args(), env)
+		if !erred {
+			fmt.Print(output)
+		} else {
+			os.Exit(1)
 		}
-		runner.Wait()
-		for _, path := range tempfiles {
-			fmt.Println(path)
-			os.Remove(path)
-		}
-
-		fmt.Print(string(cmdOutput.Bytes()))
 	}
 
 	return cmd
 }
 
+// runSubcommand executes a command with arguments in the context
+// of an environment populated with secret values.
+// On command exit, any tempfiles containing secrets are removed.
+func runSubcommand(args []string, env []string) string {
+	cmdOutput := &bytes.Buffer{}
+	runner := exec.Command(args[0], args[1:]...)
+	runner.Env = env
+	runner.Stdout = cmdOutput
+	err := runner.Start()
+	if err != nil {
+		panic(err)
+	}
+	runner.Wait()
+	for _, path := range tempfiles {
+		fmt.Println(path)
+		os.Remove(path)
+	}
+
+	return string(cmdOutput.Bytes())
+}
+
+// fetchToEnviron uses the fetcher to populate a string or file and returns
+// a string in %k=%v format, where %k=namespace of the secret and
+// %v=the secret value or path to a temporary file containing the secret
 func fetchToEnviron(key string, namespace string, fetcher backend.Fetch) (string, error) {
 	namespaceNoPrefix := strings.Replace(namespace, "file ", "", -1)
 	secretval, err := fetcher(namespaceNoPrefix)
@@ -118,6 +135,8 @@ func fetchToEnviron(key string, namespace string, fetcher backend.Fetch) (string
 	return fmt.Sprintf("%s=%s", strings.ToUpper(key), secretval), nil
 }
 
+// convertSubsToMap converts the list of substitutions passed in via
+// command line to a map
 func convertSubsToMap(subs []string) map[string]string {
 	out := make(map[string]string)
 	for _, sub := range subs {

@@ -9,12 +9,14 @@ import (
 
 type Cauldron struct {
 	Name    string
+	Version string
 	Fetcher backend.Fetch
 }
 
-func NewCauldron(name string, fetcher backend.Fetch) Cauldron {
+func NewCauldron(name string, version string, fetcher backend.Fetch) Cauldron {
 	return Cauldron{
 		Name:    name,
+		Version: version,
 		Fetcher: fetcher,
 	}
 }
@@ -24,5 +26,5 @@ func (c Cauldron) Run() error {
 		fmt.Println("You must specify a backend")
 		os.Exit(1)
 	}
-	return command.Start("dummy", c.Fetcher)
+	return command.Start(c.Name, c.Version, c.Fetcher)
 }
