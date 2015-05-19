@@ -5,14 +5,12 @@ import (
 	"github.com/conjurinc/cauldron"
 )
 
-type ExampleBackend struct{}
-
-func (e ExampleBackend) Fetch(secret string) (string, error) {
+func ExampleFetch(secret string) (string, error) {
 	return "dummy", nil
 }
 
 func main() {
-	c := cauldron.NewCauldron("dummy", ExampleBackend{})
+	c := cauldron.NewCauldron("example", ExampleFetch)
 	err := c.Run()
 
 	if err != nil {

@@ -2,30 +2,27 @@ package cauldron
 
 import (
 	"fmt"
+	"github.com/conjurinc/cauldron/backend"
 	"github.com/conjurinc/cauldron/command"
 	"os"
 )
 
-type Backend interface {
-	Fetch(string) (string, error)
-}
-
 type Cauldron struct {
 	Name    string
-	Backend Backend
+	Fetcher backend.Fetch
 }
 
-func NewCauldron(name string, backend Backend) Cauldron {
+func NewCauldron(name string, fetcher backend.Fetch) Cauldron {
 	return Cauldron{
 		Name:    name,
-		Backend: backend,
+		Fetcher: fetcher,
 	}
 }
 
 func (c Cauldron) Run() error {
-	if c.Backend == nil {
+	if c.Fetcher == nil {
 		fmt.Println("You must specify a backend")
 		os.Exit(1)
 	}
-	return command.Start("dummy", c.Backend)
+	return command.Start("dummy", c.Fetcher)
 }

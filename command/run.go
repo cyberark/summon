@@ -14,7 +14,7 @@ import (
 
 var tempfiles []string
 
-func CreateRunCommand(backend backend.Backend) cli.Command {
+func CreateRunCommand(fetcher backend.Fetch) cli.Command {
 	cmd := cli.Command{
 		Name:  "run",
 		Usage: "Run cauldron",
@@ -69,7 +69,7 @@ func CreateRunCommand(backend backend.Backend) cli.Command {
 
 		env := os.Environ()
 		for key, namespace := range secrets {
-			envvar, err := fetchToEnviron(key, namespace, backend)
+			envvar, err := fetchToEnviron(key, namespace, fetcher)
 			if err != nil {
 				fmt.Println(err.Error())
 				break
@@ -97,9 +97,9 @@ func CreateRunCommand(backend backend.Backend) cli.Command {
 	return cmd
 }
 
-func fetchToEnviron(key string, namespace string, backend backend.Backend) (string, error) {
+func fetchToEnviron(key string, namespace string, fetcher backend.Fetch) (string, error) {
 	namespaceNoPrefix := strings.Replace(namespace, "file ", "", -1)
-	secretval, err := backend.Fetch(namespaceNoPrefix)
+	secretval, err := fetcher(namespaceNoPrefix)
 	if err != nil {
 		return "", err
 	}

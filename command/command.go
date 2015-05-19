@@ -10,14 +10,14 @@ import (
 /*
 Start defines and runs cauldron's command line interface
 */
-func Start(backendName string, backend backend.Backend) error {
+func Start(backendName string, fetcher backend.Fetch) error {
 	app := cli.NewApp()
 	app.Name = "cauldron-" + backendName
 	app.Usage = "Expose secrets as environment variables with " + backendName + " backend"
 	app.Version = "0.1.0"
 
 	app.Commands = []cli.Command{
-		CreateRunCommand(backend),
+		CreateRunCommand(fetcher),
 	}
 	return app.Run(os.Args)
 }

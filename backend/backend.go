@@ -1,5 +1,3 @@
 package backend
 
-type Backend interface {
-	Fetch(string) (string, error)
-}
+type Fetch func(string) (string, error)
