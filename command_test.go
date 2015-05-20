@@ -1,4 +1,4 @@
-package command
+package cauldron
 
 import (
 	"bytes"
@@ -16,7 +16,8 @@ func TestStart(t *testing.T) {
 	buf := &bytes.Buffer{}
 	writer = buf
 
-	err := Start("testing", "0.0.0", fetcher)
+	cli := CLI{"testing", "0.0.0", fetcher}
+	err := cli.Start()
 	if err != nil {
 		t.Error(err.Error())
 	}

@@ -10,8 +10,8 @@ func ExampleFetch(secret string) (string, error) {
 }
 
 func main() {
-	c := cauldron.NewCauldron("example", "0.1.0", ExampleFetch)
-	err := c.Run()
+	c := cauldron.NewCLI("example", "0.1.0", ExampleFetch)
+	err := c.Start()
 
 	if err != nil {
 		fmt.Errorf("%s", err)
