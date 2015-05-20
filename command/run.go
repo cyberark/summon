@@ -41,7 +41,7 @@ func CreateRunCommand(fetcher secretsyml.Fetch) cli.Command {
 	}
 	cmd.Action = func(c *cli.Context) {
 		var (
-			secrets map[string]secretsyml.SecretSpec
+			secrets secretsyml.SecretsMap
 			err     error
 		)
 

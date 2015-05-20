@@ -13,6 +13,8 @@ type SecretSpec struct {
 	Path   string
 }
 
+type SecretsMap map[string]SecretSpec
+
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 	spec.IsFile = (tag == "!file")
 	if s, ok := value.(string); ok {
@@ -24,12 +26,12 @@ func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 }
 
 // ParseFromString parses a string in secrets.yml format to a map.
-func ParseFromString(content string, subs map[string]string) (map[string]SecretSpec, error) {
+func ParseFromString(content string, subs map[string]string) (SecretsMap, error) {
 	return parse(content, subs)
 }
 
 // ParseFromFile parses a file in secrets.yml format to a map.
-func ParseFromFile(filepath string, subs map[string]string) (map[string]SecretSpec, error) {
+func ParseFromFile(filepath string, subs map[string]string) (SecretsMap, error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
@@ -37,7 +39,7 @@ func ParseFromFile(filepath string, subs map[string]string) (map[string]SecretSp
 	return parse(string(data), subs)
 }
 
-func parse(ymlContent string, subs map[string]string) (map[string]SecretSpec, error) {
+func parse(ymlContent string, subs map[string]string) (SecretsMap, error) {
 	applySubstitutions(&ymlContent, subs)
 	out := make(map[string]SecretSpec)
 
