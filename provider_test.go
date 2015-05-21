@@ -3,6 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -58,9 +59,9 @@ func TestCallProvider(t *testing.T) {
 		t.Errorf("\nexpected\n%s\ngot\n%s", expected, out)
 	}
 	// Unsuccessful call to provider
-	expected = "ls: README.notafile: No such file or directory"
+	expected = "No such file or directory"
 	out, err = callProvider("ls", "README.notafile")
-	if out != expected || err == nil {
-		t.Errorf("\nexpected\n%s\ngot\n%s", expected, out)
+	if !strings.Contains(out, expected) || err == nil {
+		t.Errorf("'%s' does not contain '%s'", out, expected)
 	}
 }

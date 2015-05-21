@@ -80,7 +80,12 @@ func CreateRunCommand() cli.Command {
 		erred := false
 		env := os.Environ()
 		for key, spec := range secrets {
-			envvar, err := fetchToEnviron(key, spec, provider)
+			value, err := callProvider(provider, spec.Path)
+			if err != nil {
+				fmt.Println(value)
+				os.Exit(1)
+			}
+			envvar, err := formatForEnv(key, value, spec)
 			if err != nil {
 				erred = true
 				fmt.Printf("%s: %s\n", key, err.Error())
@@ -121,28 +126,22 @@ func runSubcommand(args []string, env []string) string {
 	return string(cmdOutput.Bytes())
 }
 
-// fetchToEnviron uses the provider to populate a string or file and returns
-// a string in %k=%v format, where %k=namespace of the secret and
+// formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
-func fetchToEnviron(key string, spec secretsyml.SecretSpec, provider string) (string, error) {
-	output, err := callProvider(provider, spec.Path)
-	if err != nil {
-		fmt.Println(output)
-		os.Exit(1)
-	}
+func formatForEnv(key string, value string, spec secretsyml.SecretSpec) (string, error) {
 	if spec.IsFile {
 		f, err := ioutil.TempFile("", "cauldron")
-		f.Write([]byte(output))
+		f.Write([]byte(value))
 		defer f.Close()
 
 		if err != nil {
 			return "", err
 		}
-		output = f.Name()
-		tempfiles = append(tempfiles, output)
+		value = f.Name()
+		tempfiles = append(tempfiles, value)
 	}
 
-	return fmt.Sprintf("%s=%s", strings.ToUpper(key), output), nil
+	return fmt.Sprintf("%s=%s", strings.ToUpper(key), value), nil
 }
 
 // convertSubsToMap converts the list of substitutions passed in via

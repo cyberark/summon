@@ -2,3 +2,5 @@ git
 .godeps
 pkg
 provider/provider
+cauldron
+junit.xml
