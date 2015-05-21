@@ -9,7 +9,7 @@ import (
 func TestResolveProvider(t *testing.T) {
 	// Giving no provider
 	provider, err := resolveProvider("")
-	if err.Error() != "Could not resolve a provider!" {
+	if err == nil {
 		t.Error("No error thrown on empty provider")
 	}
 
