@@ -1,6 +1,7 @@
 junit.xml
 *.sublime-*
 cauldron
+keychain
 secrets.yml
 pkg
 .godeps
