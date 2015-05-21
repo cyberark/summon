@@ -22,5 +22,7 @@ func TestStart(t *testing.T) {
 		t.Error(err.Error())
 	}
 
+	t.Logf("buffer=%q", buf.String())
+
 	//TODO: buf doesn't have content, find out why
 }

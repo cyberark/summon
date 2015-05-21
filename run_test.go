@@ -48,7 +48,7 @@ func TestFetchToEnvironString(t *testing.T) {
 
 	envvar, err := fetchToEnviron(
 		"DBPASS",
-		secretsyml.SecretSpec{Path: "mysql1/password", IsFile: false},
+		secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
 		fetcher,
 	)
 	if err != nil {
@@ -70,7 +70,8 @@ func TestFetchToEnvironFile(t *testing.T) {
 
 	envvar, err := fetchToEnviron(
 		"SSL_CERT",
-		secretsyml.SecretSpec{Path: "file certs/webtier1/private-cert", IsFile: true},
+        secretsyml.SecretSpec{Path: "file certs/webtier1/private-cert",
+            Kind: secretsyml.SecretFile},
 		fetcher,
 	)
 	if err != nil {

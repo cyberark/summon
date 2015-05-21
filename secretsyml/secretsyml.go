@@ -8,15 +8,56 @@ import (
 	"strings"
 )
 
+type secretKind uint8
+
+const (
+	SecretFile    secretKind = iota
+	SecretVar     secretKind = iota
+	SecretLiteral secretKind = iota	
+)
+
+func (k secretKind) String() string {
+	switch k {
+		case SecretFile: 	 return "File"
+		case SecretVar:  	 return "Var"
+		case SecretLiteral:	 return "Literal" 
+		default: panic("unreachable!")
+	}
+}
+
 type SecretSpec struct {
-	IsFile bool
+	Kind   secretKind
 	Path   string
 }
+
+func (s *SecretSpec) IsFile() bool {
+	return s.Kind == SecretFile
+}
+
+func (s *SecretSpec) IsVar() bool {
+	return s.Kind == SecretVar
+}
+
+func (s *SecretSpec) IsLiteral() bool {
+	return s.Kind == SecretLiteral
+}
+
 
 type SecretsMap map[string]SecretSpec
 
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
-	spec.IsFile = (tag == "!file")
+	var kind secretKind
+	switch tag {
+		case "!!str": 
+			kind = SecretLiteral
+		case "!file":
+			kind = SecretFile
+		case "!var":
+			kind = SecretVar
+		default:
+			return false
+	}
+	spec.Kind = kind
 	if s, ok := value.(string); ok {
 		spec.Path = s
 	} else {

@@ -115,11 +115,22 @@ func runSubcommand(args []string, env []string) string {
 // a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
 func fetchToEnviron(key string, spec secretsyml.SecretSpec, fetcher secretsyml.Fetch) (string, error) {
-	secretval, err := fetcher(spec.Path)
-	if err != nil {
-		return "", err
+	var secretval string
+	
+	
+	if spec.IsLiteral() {
+		// don't touch literals
+		secretval = spec.Path
+	}else{
+		// fetch other things
+		sv , err := fetcher(spec.Path)
+		if err != nil {
+			return "", err
+		}
+        secretval = sv
 	}
-	if spec.IsFile {
+	
+	if spec.IsFile() {
 		f, err := ioutil.TempFile("", "cauldron")
 		f.Write([]byte(secretval))
 		defer f.Close()
