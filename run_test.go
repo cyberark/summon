@@ -1,4 +1,4 @@
-package cauldron
+package main
 
 import (
 	"github.com/conjurinc/cauldron/secretsyml"

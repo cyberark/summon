@@ -1,19 +1,15 @@
-package cauldron
+package main
 
 import (
-	"bytes"
 	"testing"
 )
 
 // E2E test for the command line interface
 func TestStart(t *testing.T) {
 	yamlContent := "'AWS_PEM: !file $policy/aws/iam/user/robot/access_key_id'"
-	args = []string{"cauldron-testing", "run", "--yaml", yamlContent, "printenv", "AWS_PEM"}
-	buf := &bytes.Buffer{}
-	writer = buf
+	CLIArgs = []string{"cauldron-testing", "run", "-p", "dummyProvider", "--yaml", yamlContent, "printenv", "AWS_PEM"}
 
-	cli := CLI{"/dev/null"}
-	err := cli.Start()
+	err := RunCLI()
 	if err != nil {
 		t.Error(err.Error())
 	}

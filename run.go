@@ -1,4 +1,4 @@
-package cauldron
+package main
 
 import (
 	"bytes"
@@ -13,12 +13,16 @@ import (
 
 var tempfiles []string
 
-func CreateRunCommand(provider string) cli.Command {
+func CreateRunCommand() cli.Command {
 	cmd := cli.Command{
 		Name:  "run",
 		Usage: "Run cauldron",
 	}
 	cmd.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "p, provider",
+			Usage: "Path to provider for fetching secrets",
+		},
 		cli.StringFlag{
 			Name:  "f",
 			Value: "secrets.yml",
@@ -62,6 +66,12 @@ func CreateRunCommand(provider string) cli.Command {
 			secrets, err = secretsyml.ParseFromString(yamlInline, subs)
 		}
 
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+
+		provider, err := resolveProvider(c.String("provider"))
 		if err != nil {
 			fmt.Println(err.Error())
 			os.Exit(1)
