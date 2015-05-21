@@ -49,3 +49,18 @@ func TestResolveProvider(t *testing.T) {
 		t.Error("Multiple providers in path did not throw an error!")
 	}
 }
+
+func TestCallProvider(t *testing.T) {
+	// Successful call to provider
+	expected := "README.md"
+	out, err := callProvider("ls", "README.md")
+	if out != expected || err != nil {
+		t.Errorf("\nexpected\n%s\ngot\n%s", expected, out)
+	}
+	// Unsuccessful call to provider
+	expected = "ls: README.notafile: No such file or directory"
+	out, err = callProvider("ls", "README.notafile")
+	if out != expected || err == nil {
+		t.Errorf("\nexpected\n%s\ngot\n%s", expected, out)
+	}
+}

@@ -125,28 +125,24 @@ func runSubcommand(args []string, env []string) string {
 // a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
 func fetchToEnviron(key string, spec secretsyml.SecretSpec, provider string) (string, error) {
-	providerPath, err := exec.LookPath(provider)
+	output, err := callProvider(provider, spec.Path)
 	if err != nil {
-		return "", err
+		fmt.Println(output)
+		os.Exit(1)
 	}
-	output, err := exec.Command(providerPath, spec.Path).Output()
-	if err != nil {
-		return "", err
-	}
-	secretval := strings.TrimSpace(string(output[:]))
 	if spec.IsFile {
 		f, err := ioutil.TempFile("", "cauldron")
-		f.Write([]byte(secretval))
+		f.Write([]byte(output))
 		defer f.Close()
 
 		if err != nil {
 			return "", err
 		}
-		secretval = f.Name()
-		tempfiles = append(tempfiles, secretval)
+		output = f.Name()
+		tempfiles = append(tempfiles, output)
 	}
 
-	return fmt.Sprintf("%s=%s", strings.ToUpper(key), secretval), nil
+	return fmt.Sprintf("%s=%s", strings.ToUpper(key), output), nil
 }
 
 // convertSubsToMap converts the list of substitutions passed in via
