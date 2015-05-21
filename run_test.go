@@ -42,8 +42,7 @@ func TestRunSubcommand(t *testing.T) {
 
 // Test exporting a secret value to env
 func TestFetchToEnvironString(t *testing.T) {
-	pwd := pwd()
-	provider := pwd + "/provider/provider"
+	provider := "./provider/provider"
 
 	envvar, err := fetchToEnviron(
 		"DBPASS",
@@ -63,12 +62,11 @@ func TestFetchToEnvironString(t *testing.T) {
 
 // Test writing value to a tempfile and exporting the path
 func TestFetchToEnvironFile(t *testing.T) {
-	pwd := pwd()
-	provider := pwd + "/provider/provider"
+	provider := "./provider/provider"
 
 	envvar, err := fetchToEnviron(
 		"SSL_CERT",
-		secretsyml.SecretSpec{Path: "file certs/webtier1/private-cert", IsFile: true},
+		secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", IsFile: true},
 		provider,
 	)
 	if err != nil {
@@ -95,9 +93,4 @@ func TestFetchToEnvironFile(t *testing.T) {
 	if string(contents) != "mysecretvalue" {
 		t.Errorf("\nFile:\nexpected\n%s\ngot\n%s", "mysecretvalue", string(contents))
 	}
-}
-
-func pwd() string {
-	pwd, _ := os.Getwd()
-	return pwd
 }
