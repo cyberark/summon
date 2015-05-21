@@ -68,7 +68,7 @@ func getCmdError(cmd *exec.Cmd, service, account string) error {
                 msg = ps.String()
         }
 
-        return fmt.Errorf("Error fetching secret '%q' from service '%q': %q",
+        return fmt.Errorf("Error fetching secret %q from service %q: %s",
             account,service,msg)
     }
 
