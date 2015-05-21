@@ -13,7 +13,7 @@ import (
 
 var tempfiles []string
 
-func CreateRunCommand(fetcher secretsyml.Fetch) cli.Command {
+func CreateRunCommand(provider string) cli.Command {
 	cmd := cli.Command{
 		Name:  "run",
 		Usage: "Run cauldron",
@@ -70,7 +70,7 @@ func CreateRunCommand(fetcher secretsyml.Fetch) cli.Command {
 		erred := false
 		env := os.Environ()
 		for key, spec := range secrets {
-			envvar, err := fetchToEnviron(key, spec, fetcher)
+			envvar, err := fetchToEnviron(key, spec, provider)
 			if err != nil {
 				erred = true
 				fmt.Printf("%s: %s\n", key, err.Error())
@@ -111,14 +111,19 @@ func runSubcommand(args []string, env []string) string {
 	return string(cmdOutput.Bytes())
 }
 
-// fetchToEnviron uses the fetcher to populate a string or file and returns
+// fetchToEnviron uses the provider to populate a string or file and returns
 // a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
-func fetchToEnviron(key string, spec secretsyml.SecretSpec, fetcher secretsyml.Fetch) (string, error) {
-	secretval, err := fetcher(spec.Path)
+func fetchToEnviron(key string, spec secretsyml.SecretSpec, provider string) (string, error) {
+	providerPath, err := exec.LookPath(provider)
 	if err != nil {
 		return "", err
 	}
+	output, err := exec.Command(providerPath, spec.Path).Output()
+	if err != nil {
+		return "", err
+	}
+	secretval := strings.TrimSpace(string(output[:]))
 	if spec.IsFile {
 		f, err := ioutil.TempFile("", "cauldron")
 		f.Write([]byte(secretval))

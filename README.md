@@ -98,21 +98,10 @@ View help and all flags with `cauldron -h`.
 
 ## Adding Providers
 
-Adding a provider to cauldron is easy. All you have to do is implement a function that takes the path to a secret and returns the value.
+Adding a provider to cauldron is easy. All you have to do is point cauldron to a program that takes a secret's location as an
+argument and return the secret's value.
 
-```go
-type Fetch func(string) (string, error)
-```
-
-You then pass this function to the constructor `NewCauldron`.
-
-```go
-func NewCauldron(name string, version string, fetcher secretsyml.Fetch) Cauldron {...}
-```
-
-There is a stub provider in [the example](example/main.go) in this project. The `Run` method on `Cauldron` starts the command line interface.
-
-You can run this example by running `go run *.go` in the `example` directory.
+TODO: expand on this
 
 ## Development
 
