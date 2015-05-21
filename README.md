@@ -3,7 +3,7 @@
 cauldron provides an interface for
 
 * reading the **secrets.yml** format
-* fetching secretsfrom a trusted store
+* fetching secrets from a trusted store
 * exporting their values to the environment
 
 Parse secrets.yml to export environment variables fetched from a trusted store.
@@ -22,6 +22,51 @@ Running an implementation of cauldron against this example file will fetch the s
 defined at `aws/iam/user/robot/access_key_id` in a secrets server and set the environment
 variable `AWS_ACCESS_KEY_ID` to the secret's value. The value of `AWS_PEM` will be the
 path to a temporary file that is cleaned up on exit of the process cauldron is wrapping.
+
+
+## Providers
+
+Cauldron uses plug-and-play providers. A provider is any executable that satisfies this contract:
+
+* Accepts one argument, where a secret is located
+* Returns the value of the secret as a string and exit code 0 if retrieval was successful.
+* Returns an error message and exit code 1 if retrieval was unsuccessful.
+
+Providers can be written in any language you prefer. They can be as simple as a shell script.
+
+When cauldron runs it will look for a provider in `/usr/libexec/cauldron/`. If there is one executable
+in this directory it will use it as the default provider. If the directory hold multiple executables
+you will be prompted to select the one you want to use. You can set the provider with the `-p, --provider`
+flag to the CLI or via the environment variable `CAULDRON_PROVIDER`. If your provider is in a location
+not on your `PATH` you will need to specify its full path.
+
+For example, if you have multiple providers and want to use the one for [vault](https://vaultproject.io/), this is your command.
+
+```sh-session
+$ cauldron --provider /usr/libexec/cauldron/vault
+```
+
+## Development
+
+Install dependencies
+
+```
+xargs -L1 go get <Godeps
+```
+
+Run the project with `go run *.go`.
+
+### Testing
+
+Build the dummy provider first.
+
+```
+cd provider
+go build
+cd ..
+```
+
+Run tests with `go test ./...` or `./test.sh` (for CI).
 
 ## Usage
 
@@ -96,36 +141,7 @@ This will make `ENV['MONGODB_PASS']` available in your Chef run.
 
 View help and all flags with `cauldron -h`.
 
-## Adding Providers
-
-Adding a provider to cauldron is easy. All you have to do is point cauldron to a program that takes a secret's location as an
-argument and return the secret's value.
-
-TODO: expand on this
-
-## Development
-
-Install dependencies
-
-```
-xargs -L1 go get <Godeps
-```
-
-Run the project with `go run *.go`.
-
-### Testing
-
-Build the dummy provider first.
-
-```
-cd provider
-go build
-cd ..
-```
-
-Run tests with `go test ./...` or `./test.sh` (for CI).
-
-## Building
+### Building
 
 To build 64bit versions for Linux, OSX and Windows:
 
