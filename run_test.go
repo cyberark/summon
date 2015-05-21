@@ -42,14 +42,15 @@ func TestRunSubcommand(t *testing.T) {
 
 // Test exporting a secret value to env
 func TestFetchToEnvironString(t *testing.T) {
-	fetcher := func(namespace string) (string, error) {
-		return "mysecretvalue", nil
+	provider := os.Getenv("CAULDRON_PROVIDER")
+	if provider == "" {
+		provider = "./provider/provider"
 	}
 
 	envvar, err := fetchToEnviron(
 		"DBPASS",
-		secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
-		fetcher,
+        secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
+		provider,
 	)
 	if err != nil {
 		t.Error(err.Error())
@@ -64,15 +65,15 @@ func TestFetchToEnvironString(t *testing.T) {
 
 // Test writing value to a tempfile and exporting the path
 func TestFetchToEnvironFile(t *testing.T) {
-	fetcher := func(namespace string) (string, error) {
-		return "mysecretvalue", nil
+	provider := os.Getenv("CAULDRON_PROVIDER")
+	if provider == "" {
+		provider = "./provider/provider"
 	}
 
 	envvar, err := fetchToEnviron(
 		"SSL_CERT",
-        secretsyml.SecretSpec{Path: "file certs/webtier1/private-cert",
-            Kind: secretsyml.SecretFile},
-		fetcher,
+        secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", Kind: secretsyml.SecretFile},
+		provider,
 	)
 	if err != nil {
 		t.Error(err.Error())

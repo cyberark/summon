@@ -1,3 +1,4 @@
 git
 .godeps
 pkg
+provider/provider
