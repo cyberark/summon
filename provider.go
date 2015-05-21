@@ -16,12 +16,12 @@ var DefaultProviderPath = "/usr/libexec/cauldron"
 func resolveProvider(providerArg string) (string, error) {
 	provider := ""
 	if providerArg != "" {
-		provider = fullPath(providerArg)
+		provider = providerArg
 	}
 
 	envArg := os.Getenv("CAULDRON_PROVIDER")
 	if envArg != "" {
-		provider = fullPath(envArg)
+		provider = envArg
 	}
 
 	providers, _ := ioutil.ReadDir(DefaultProviderPath)
