@@ -9,4 +9,4 @@ docker run --rm \
 -w "${projectpath}" \
 -e "CAULDRON_PROVIDER=provider" \
 cauldron/build \
-bash -c "xargs -L1 go get <Godeps && go install ./... && go test -v ./... | go-junit-report tee junit.xml"
+bash -c "xargs -L1 go get <Godeps && go install ./... && go test -v ./... | go-junit-report | tee junit.xml"
