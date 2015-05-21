@@ -113,6 +113,16 @@ xargs -L1 go get <Godeps
 
 Run the project with `go run *.go`.
 
+### Testing
+
+Build the dummy provider first.
+
+```
+cd provider
+go build
+cd ..
+```
+
 Run tests with `go test ./...` or `./test.sh` (for CI).
 
 ## Building

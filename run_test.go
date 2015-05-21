@@ -42,7 +42,10 @@ func TestRunSubcommand(t *testing.T) {
 
 // Test exporting a secret value to env
 func TestFetchToEnvironString(t *testing.T) {
-	provider := "./provider/provider"
+	provider := os.Getenv("CAULDRON_PROVIDER")
+	if provider == "" {
+		provider = "./provider/provider"
+	}
 
 	envvar, err := fetchToEnviron(
 		"DBPASS",
@@ -62,7 +65,10 @@ func TestFetchToEnvironString(t *testing.T) {
 
 // Test writing value to a tempfile and exporting the path
 func TestFetchToEnvironFile(t *testing.T) {
-	provider := "./provider/provider"
+	provider := os.Getenv("CAULDRON_PROVIDER")
+	if provider == "" {
+		provider = "./provider/provider"
+	}
 
 	envvar, err := fetchToEnviron(
 		"SSL_CERT",
