@@ -1,4 +1,4 @@
-package main
+package provider
 
 import (
 	"io/ioutil"
@@ -9,14 +9,14 @@ import (
 
 func TestResolveProvider(t *testing.T) {
 	// Giving no provider
-	provider, err := resolveProvider("")
+	provider, err := ResolveProvider("")
 	if err == nil {
 		t.Error("No error thrown on empty provider")
 	}
 
 	// Pass it the provider, as a CLI arg
 	expected := "/usr/bin/myprovider"
-	provider, _ = resolveProvider(expected)
+	provider, _ = ResolveProvider(expected)
 	if provider != expected {
 		t.Errorf("\nexpected\n%s\ngot\n%s", expected, provider)
 	}
@@ -24,7 +24,7 @@ func TestResolveProvider(t *testing.T) {
 	// Pass as environment variable
 	expected = "/opt/providers/custom"
 	os.Setenv("CAULDRON_PROVIDER", expected)
-	provider, _ = resolveProvider("")
+	provider, _ = ResolveProvider("")
 	os.Unsetenv("CAULDRON_PROVIDER")
 	if provider != expected {
 		t.Errorf("\nexpected\n%s\ngot\n%s", expected, provider)
@@ -37,14 +37,14 @@ func TestResolveProvider(t *testing.T) {
 
 	// One executable
 	f, err := ioutil.TempFile(DefaultProviderPath, "")
-	provider, _ = resolveProvider("")
+	provider, _ = ResolveProvider("")
 	if provider != f.Name() {
 		t.Errorf("\nexpected\n%s\ngot\n%s", f.Name(), provider)
 	}
 
 	// Two executables
 	f, err = ioutil.TempFile(DefaultProviderPath, "")
-	provider, err = resolveProvider("")
+	provider, err = ResolveProvider("")
 
 	if err == nil {
 		t.Error("Multiple providers in path did not throw an error!")
@@ -53,14 +53,14 @@ func TestResolveProvider(t *testing.T) {
 
 func TestCallProvider(t *testing.T) {
 	// Successful call to provider
-	expected := "README.md"
-	out, err := callProvider("ls", "README.md")
+	expected := "provider.go"
+	out, err := CallProvider("ls", expected)
 	if out != expected || err != nil {
 		t.Errorf("\nexpected\n%s\ngot\n%s", expected, out)
 	}
 	// Unsuccessful call to provider
 	expected = "No such file or directory"
-	out, err = callProvider("ls", "README.notafile")
+	out, err = CallProvider("ls", "README.notafile")
 	if !strings.Contains(out, expected) || err == nil {
 		t.Errorf("'%s' does not contain '%s'", out, expected)
 	}

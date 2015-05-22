@@ -1,4 +1,4 @@
-package main
+package provider
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ var DefaultProviderPath = "/usr/libexec/cauldron"
 
 // Resolves a path to a provider
 // Checks the CLI arg, environment and then default path
-func resolveProvider(providerArg string) (string, error) {
+func ResolveProvider(providerArg string) (string, error) {
 	provider := ""
 	if providerArg != "" {
 		provider = providerArg
@@ -38,7 +38,7 @@ func resolveProvider(providerArg string) (string, error) {
 }
 
 // Shell out to a provider and return its output
-func callProvider(provider, specPath string) (string, error) {
+func CallProvider(provider, specPath string) (string, error) {
 	output, err := exec.Command(provider, specPath).CombinedOutput()
 	value := strings.TrimSpace(string(output[:]))
 	if err != nil {

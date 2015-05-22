@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/codegangsta/cli"
+	"github.com/conjurinc/cauldron/command"
 	"io"
 	"os"
 )
@@ -20,9 +21,8 @@ func RunCLI() error {
 	app.Usage = "Parse secrets.yml and export environment variables"
 	app.Version = "0.1.0"
 	app.Writer = CLIWriter
+	app.Flags = command.Flags
+	app.Action = command.Action
 
-	app.Commands = []cli.Command{
-		CreateRunCommand(),
-	}
 	return app.Run(CLIArgs)
 }
