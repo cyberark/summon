@@ -23,7 +23,7 @@ Running an implementation of cauldron against this example file will
 
 1. Fetch the secret defined at `aws/iam/user/robot/access_key_id` in a secrets server and set the environment variable `AWS_ACCESS_KEY_ID` to the secret's value.
 2. The value of `AWS_PEM` will be the path to a temporary memory-mapped file that is cleaned up on exit of the process cauldron is wrapping.
-3. `ENVIRONMENT` will be interpolated at runtime by using cauldron's `-D` flag, like so: `cauldron -D 'environment=production'`. This flag can be specified multiple times.
+3. `ENVIRONMENT` will be interpolated at runtime by using cauldron's `-D` flag, like so: `cauldron -D '$environment=production'`. This flag can be specified multiple times.
 
 
 ## Providers
