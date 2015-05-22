@@ -56,7 +56,7 @@ var Action = func(c *cli.Context) {
 		} else {
 			value, err = provider.CallProvider(prov, spec.Path)
 			if err != nil {
-				fmt.Println(value)
+				fmt.Println(err)
 				os.Exit(1)
 			}
 		}

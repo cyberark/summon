@@ -61,7 +61,7 @@ func TestCallProvider(t *testing.T) {
 	// Unsuccessful call to provider
 	expected = "No such file or directory"
 	out, err = CallProvider("ls", "README.notafile")
-	if !strings.Contains(out, expected) || err == nil {
-		t.Errorf("'%s' does not contain '%s'", out, expected)
+	if !strings.Contains(err.Error(), expected) || err == nil {
+		t.Errorf("'%s' does not contain '%s'", err.Error(), expected)
 	}
 }

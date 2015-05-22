@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -41,12 +42,20 @@ func ResolveProvider(providerArg string) (string, error) {
 
 // Shell out to a provider and return its output
 func CallProvider(provider, specPath string) (string, error) {
-	output, err := exec.Command(provider, specPath).CombinedOutput()
-	value := strings.TrimSpace(string(output[:]))
+	var (
+		stdOut bytes.Buffer
+		stdErr bytes.Buffer
+	)
+	cmd := exec.Command(provider, specPath)
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stdErr
+	err := cmd.Run()
+
 	if err != nil {
-		return value, err
+		return "", fmt.Errorf(stdErr.String())
 	}
-	return value, nil
+
+	return strings.TrimSpace(stdOut.String()), nil
 }
 
 // Given a non-absolute path, returns a path to executable prefixed with DefaultProviderPath

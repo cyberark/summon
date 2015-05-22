@@ -29,8 +29,8 @@ path to a temporary file that is cleaned up on exit of the process cauldron is w
 Cauldron uses plug-and-play providers. A provider is any executable that satisfies this contract:
 
 * Accepts one argument, where a secret is located
-* Returns the value of the secret as a string and exit code 0 if retrieval was successful.
-* Returns an error message and exit code 1 if retrieval was unsuccessful.
+* Returns the value of the secret on stdout and exit code 0 if retrieval was successful.
+* Returns an error message on stderr and a non-0 exit code if retrieval was unsuccessful.
 
 Providers can be written in any language you prefer. They can be as simple as a shell script.
 
