@@ -46,20 +46,6 @@ For example, if you have multiple providers and want to use the one for [vault](
 $ cauldron --provider /usr/libexec/cauldron/vault
 ```
 
-## Development
-
-Install dependencies
-
-```
-xargs -L1 go get <Godeps
-```
-
-Run the project with `go run *.go`.
-
-### Testing
-
-Run tests with `go test ./...` or `./test.sh` (for CI).
-
 ## Usage
 
 By default, cauldron will look for `secrets.yml` in the directory it is
@@ -132,6 +118,20 @@ $ cauldron --yaml 'MONGODB_PASS: db/dbname/password' chef-apply
 This will make `ENV['MONGODB_PASS']` available in your Chef run.
 
 View help and all flags with `cauldron -h`.
+
+## Development
+
+Install dependencies
+
+```
+xargs -L1 go get <Godeps
+```
+
+Run the project with `go run *.go`.
+
+### Testing
+
+Run tests with `go test ./...` or `./test.sh` (for CI).
 
 ### Building
 
