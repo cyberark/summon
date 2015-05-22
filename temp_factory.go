@@ -19,9 +19,14 @@ func NewTempFactory(path string) TempFactory {
 	return TempFactory{path: path}
 }
 
-// Default temporary file path
+// Default temporary file path; returns /dev/shm if it is a directory
+// else returns the system default
 func DefaultTempPath() string {
-	return ""
+	fi, err := os.Stat("/dev/shm")
+	if err == nil && fi.Mode().IsDir() {
+		return "/dev/shm"
+	}
+	return os.TempDir()
 }
 
 // Create a temp file with given value. Returns the path.
