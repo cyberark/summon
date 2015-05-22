@@ -1,4 +1,4 @@
-package cauldron
+package main
 
 import (
 	"github.com/conjurinc/cauldron/secretsyml"
@@ -41,16 +41,11 @@ func TestRunSubcommand(t *testing.T) {
 }
 
 // Test exporting a secret value to env
-func TestFetchToEnvironString(t *testing.T) {
-	provider := os.Getenv("CAULDRON_PROVIDER")
-	if provider == "" {
-		provider = "./provider/provider"
-	}
-
-	envvar, err := fetchToEnviron(
+func TestFormatForEnvString(t *testing.T) {
+	envvar, err := formatForEnv(
 		"DBPASS",
-        secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
-		provider,
+		"mysecretvalue",
+		secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
 	)
 	if err != nil {
 		t.Error(err.Error())
@@ -64,16 +59,11 @@ func TestFetchToEnvironString(t *testing.T) {
 }
 
 // Test writing value to a tempfile and exporting the path
-func TestFetchToEnvironFile(t *testing.T) {
-	provider := os.Getenv("CAULDRON_PROVIDER")
-	if provider == "" {
-		provider = "./provider/provider"
-	}
-
-	envvar, err := fetchToEnviron(
+func TestFormatForEnvFile(t *testing.T) {
+	envvar, err := formatForEnv(
 		"SSL_CERT",
-        secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", Kind: secretsyml.SecretFile},
-		provider,
+		"mysecretvalue",
+		secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", Kind: secretsyml.SecretFile},
 	)
 	if err != nil {
 		t.Error(err.Error())
@@ -93,7 +83,7 @@ func TestFetchToEnvironFile(t *testing.T) {
 
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
-		t.Error(err.Error)
+		t.Error(err.Error())
 	}
 
 	if string(contents) != "mysecretvalue" {

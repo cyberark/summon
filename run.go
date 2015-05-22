@@ -1,4 +1,4 @@
-package cauldron
+package main
 
 import (
 	"bytes"
@@ -13,12 +13,16 @@ import (
 
 var tempfiles []string
 
-func CreateRunCommand(provider string) cli.Command {
+func CreateRunCommand() cli.Command {
 	cmd := cli.Command{
 		Name:  "run",
 		Usage: "Run cauldron",
 	}
 	cmd.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "p, provider",
+			Usage: "Path to provider for fetching secrets",
+		},
 		cli.StringFlag{
 			Name:  "f",
 			Value: "secrets.yml",
@@ -67,10 +71,21 @@ func CreateRunCommand(provider string) cli.Command {
 			os.Exit(1)
 		}
 
+		provider, err := resolveProvider(c.String("provider"))
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+
 		erred := false
 		env := os.Environ()
 		for key, spec := range secrets {
-			envvar, err := fetchToEnviron(key, spec, provider)
+			value, err := callProvider(provider, spec.Path)
+			if err != nil {
+				fmt.Println(value)
+				os.Exit(1)
+			}
+			envvar, err := formatForEnv(key, value, spec)
 			if err != nil {
 				erred = true
 				fmt.Printf("%s: %s\n", key, err.Error())
@@ -111,70 +126,22 @@ func runSubcommand(args []string, env []string) string {
 	return string(cmdOutput.Bytes())
 }
 
-// fetchToEnviron uses the provider to populate a string or file and returns
-// a string in %k=%v format, where %k=namespace of the secret and
+// formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
-func fetchToEnviron(key string, spec secretsyml.SecretSpec, provider string) (string, error){
-    var (
-        err error
-        secretval string
-    )
+func formatForEnv(key string, value string, spec secretsyml.SecretSpec) (string, error) {
+	if spec.IsFile() {
+		f, err := ioutil.TempFile("", "cauldron")
+		f.Write([]byte(value))
+		defer f.Close()
 
-    if spec.IsLiteral(){
-        secretval = spec.Path
-    }else{
-        secretval, err = fetchFromProvider(provider, spec.Path)
-        if err != nil {
-            return "", err
-        }
-    }
+		if err != nil {
+			return "", err
+		}
+		value = f.Name()
+		tempfiles = append(tempfiles, value)
+	}
 
-    if spec.IsFile() {
-        secretval, err = writeSecretFile(secretval)
-        if err != nil {
-            return "", err
-        }
-    }
-
-    return fmt.Sprintf("%s=%s", strings.ToUpper(key), secretval),nil
-}
-
-// write the value of a secret to a tempfile and return the path
-func writeSecretFile(value string) (string, error) {
-    f, err := ioutil.TempFile("", "cauldron")
-
-    if err != nil {
-        return "", err
-    }
-
-    _, err = f.Write([]byte(value))
-    defer f.Close()
-
-    if err != nil {
-        return "", err
-    }
-
-    fname := f.Name()
-
-    tempfiles = append(tempfiles, fname)
-
-    return fname, nil
-}
-
-// fetches a secret using a provider command
-func fetchFromProvider(provider, path string) (string, error) {
-    providerPath, err := exec.LookPath(provider)
-    if err != nil {
-        return "", err
-    }
-    output, err := exec.Command(providerPath, path).Output()
-
-    if err != nil {
-        return "", err
-    }
-
-    // XXX: Should we really be trimming space 
-    return string(output[:]), nil
+	return fmt.Sprintf("%s=%s", strings.ToUpper(key), value), nil
 }
 
 // convertSubsToMap converts the list of substitutions passed in via
