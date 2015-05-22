@@ -52,7 +52,7 @@ func CallProvider(provider, specPath string) (string, error) {
 	err := cmd.Run()
 
 	if err != nil {
-		return "", fmt.Errorf(stdErr.String())
+		return stdErr.String(), err
 	}
 
 	return strings.TrimSpace(stdOut.String()), nil
@@ -61,6 +61,7 @@ func CallProvider(provider, specPath string) (string, error) {
 // Given a non-absolute path, returns a path to executable prefixed with DefaultProviderPath
 func fullPath(provider string) string {
 	if path.IsAbs(provider) {
+		println("abs!")
 		return provider
 	}
 	return path.Join(DefaultProviderPath, provider)

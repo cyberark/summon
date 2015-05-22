@@ -3,28 +3,44 @@ package command
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
-	"github.com/conjurinc/cauldron/provider"
+	prov "github.com/conjurinc/cauldron/provider"
 	"github.com/conjurinc/cauldron/secretsyml"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 var Action = func(c *cli.Context) {
+	if !c.Args().Present() {
+		fmt.Println("Enter a subprocess to run!")
+		os.Exit(1)
+	}
+
+	provider, err := prov.ResolveProvider(c.String("provider"))
+	if err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+
+	out := runAction(
+		c.Args(),
+		provider,
+		c.String("f"),
+		c.String("yaml"),
+		convertSubsToMap(c.StringSlice("D")),
+		strings.Split(c.String("ignore"), ","),
+	)
+
+	fmt.Print(out)
+}
+
+// runAction encapsulates the logic of Action without cli Context for easier testing
+func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) string {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
 	)
-
-	if !c.Args().Present() {
-		println("Enter a subprocess to run!")
-		os.Exit(1)
-	}
-
-	filepath := c.String("f")
-	yamlInline := c.String("yaml")
-	subs := convertSubsToMap(c.StringSlice("D"))
-	// ignore := strings.Split(c.String("ignore"), ",")
 
 	switch yamlInline {
 	case "":
@@ -38,43 +54,40 @@ var Action = func(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	prov, err := provider.ResolveProvider(c.String("provider"))
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
-	}
-
-	erred := false
 	env := os.Environ()
 	tempFactory := NewTempFactory("")
 	defer tempFactory.Cleanup()
 
+	// Run provider calls concurrently
+	results := make(chan string, len(secrets))
+	var wg sync.WaitGroup
+
 	for key, spec := range secrets {
-		var value string
-		if spec.IsLiteral() {
-			value = spec.Path
-		} else {
-			value, err = provider.CallProvider(prov, spec.Path)
-			if err != nil {
-				fmt.Println(err)
-				os.Exit(1)
+		wg.Add(1)
+		go func(key string, spec secretsyml.SecretSpec) {
+			var value string
+			if spec.IsLiteral() {
+				value = spec.Path
+			} else {
+				value, err = prov.CallProvider(provider, spec.Path)
+				if err != nil {
+					fmt.Println(err.Error())
+					os.Exit(1)
+				}
 			}
-		}
-		envvar, err := formatForEnv(key, value, spec, &tempFactory)
-		if err != nil {
-			erred = true
-			fmt.Printf("%s: %s\n", key, err.Error())
-		}
+			envvar := formatForEnv(key, value, spec, &tempFactory)
+			results <- envvar
+			wg.Done()
+		}(key, spec)
+	}
+	wg.Wait()
+	close(results)
+
+	for envvar := range results {
 		env = append(env, envvar)
 	}
 
-	// Only print output of the command if no errors have occurred
-	output := runSubcommand(c.Args(), env)
-	if !erred {
-		fmt.Print(output)
-	} else {
-		os.Exit(1)
-	}
+	return runSubcommand(args, env)
 }
 
 // runSubcommand executes a command with arguments in the context
@@ -92,16 +105,13 @@ func runSubcommand(args []string, env []string) string {
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
-func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) (string, error) {
+func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) string {
 	if spec.IsFile() {
-		fname, err := tempFactory.Push(value)
-		if err != nil {
-			return "", err
-		}
+		fname := tempFactory.Push(value)
 		value = fname
 	}
 
-	return fmt.Sprintf("%s=%s", strings.ToUpper(key), value), nil
+	return fmt.Sprintf("%s=%s", strings.ToUpper(key), value)
 }
 
 // convertSubsToMap converts the list of substitutions passed in via

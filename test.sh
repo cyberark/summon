@@ -9,6 +9,6 @@ docker run --rm \
 -w "${projectpath}" \
 cauldron/build \
 bash -ceo pipefail "xargs -L1 go get <Godeps && \
-go install ./... && \
+go build ./... && \
 go test -v ./... | tee test.out \
 && cat test.out | go-junit-report | tee junit.xml"

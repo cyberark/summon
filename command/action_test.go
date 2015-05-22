@@ -2,96 +2,97 @@ package command
 
 import (
 	"github.com/conjurinc/cauldron/secretsyml"
+	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
-	"reflect"
+	"path"
 	"strings"
 	"testing"
 )
 
+func TestRunAction(t *testing.T) {
+	Convey("Using a dummy provider that returns 'mysecret'", t, func() {
+		providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
+
+		Convey("Passing in secrets.yml via --yaml", func() {
+			out := runAction(
+				[]string{"printenv", "MYVAR"},
+				providerPath,
+				"",
+				"MYVAR: !var somesecret/on/a/path",
+				map[string]string{},
+				[]string{},
+			)
+			So(out, ShouldEqual, "mysecret\n")
+		})
+	})
+}
+
 func TestConvertSubsToMap(t *testing.T) {
-	input := []string{
-		"policy=accounts-database",
-		"environment=production",
-	}
+	Convey("Substitutions are returned as a map used later for interpolation", t, func() {
+		input := []string{
+			"policy=accounts-database",
+			"environment=production",
+		}
 
-	expected := map[string]string{
-		"policy":      "accounts-database",
-		"environment": "production",
-	}
+		expected := map[string]string{
+			"policy":      "accounts-database",
+			"environment": "production",
+		}
 
-	output := convertSubsToMap(input)
+		output := convertSubsToMap(input)
 
-	if !reflect.DeepEqual(expected, output) {
-		t.Errorf("\nexpected\n%s\ngot\n%s", expected, output)
-	}
+		So(output, ShouldResemble, expected)
+	})
 }
 
-// Test running a subcommand with specified environment
 func TestRunSubcommand(t *testing.T) {
-	args := []string{"printenv", "MYVAR"}
-	env := []string{"MYVAR=myvalue"}
+	Convey("The subcommand should have access to secrets injected into its environment", t, func() {
+		args := []string{"printenv", "MYVAR"}
+		env := []string{"MYVAR=myvalue"}
 
-	output := runSubcommand(args, env)
-	expected := "myvalue\n"
+		output := runSubcommand(args, env)
+		expected := "myvalue\n"
 
-	if output != expected {
-		t.Errorf("\nexpected\n%s\ngot\n%s", expected, output)
-	}
+		So(output, ShouldEqual, expected)
+	})
 }
 
-// Test exporting a secret value to env
 func TestFormatForEnvString(t *testing.T) {
-	envvar, err := formatForEnv(
-		"DBPASS",
-		"mysecretvalue",
-		secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
-		nil,
-	)
-	if err != nil {
-		t.Error(err.Error())
-	}
+	Convey("formatForEnv should return a KEY=VALUE string that can be appended to an environment", t, func() {
+		Convey("For variables, VALUE should be the value of the secret", func() {
+			envvar := formatForEnv(
+				"DBPASS",
+				"mysecretvalue",
+				secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
+				nil,
+			)
 
-	expected := "DBPASS=mysecretvalue"
+			So(envvar, ShouldEqual, "DBPASS=mysecretvalue")
+		})
+		Convey("For files, VALUE should be the path to a tempfile containing the secret", func() {
+			temp_factory := NewTempFactory("")
+			defer temp_factory.Cleanup()
 
-	if envvar != expected {
-		t.Errorf("\nexpected\n%s\ngot\n%s", expected, envvar)
-	}
-}
+			envvar := formatForEnv(
+				"SSL_CERT",
+				"mysecretvalue",
+				secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", Kind: secretsyml.SecretFile},
+				&temp_factory,
+			)
 
-// Test writing value to a tempfile and exporting the path
-func TestFormatForEnvFile(t *testing.T) {
-	temp_factory := NewTempFactory("")
-	defer temp_factory.Cleanup()
+			s := strings.Split(envvar, "=")
+			key, path := s[0], s[1]
 
-	envvar, err := formatForEnv(
-		"SSL_CERT",
-		"mysecretvalue",
-		secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", Kind: secretsyml.SecretFile},
-		&temp_factory,
-	)
-	if err != nil {
-		t.Error(err.Error())
-	}
+			So(key, ShouldEqual, "SSL_CERT")
 
-	s := strings.Split(envvar, "=")
-	key, path := s[0], s[1]
+			// Temp path should exist
+			_, err := os.Stat(path)
+			So(err, ShouldBeNil)
 
-	expectedKey := "SSL_CERT"
-	if key != expectedKey {
-		t.Errorf("\nKey:\nexpected\n%s\ngot\n%s", expectedKey, key)
-	}
+			contents, _ := ioutil.ReadFile(path)
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		t.Errorf("path doesn't exist: %s", path)
-	}
-
-	contents, err := ioutil.ReadFile(path)
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	if string(contents) != "mysecretvalue" {
-		t.Errorf("\nFile:\nexpected\n%s\ngot\n%s", "mysecretvalue", string(contents))
-	}
+			So(string(contents), ShouldContainSubstring, "mysecretvalue")
+		})
+	})
 }

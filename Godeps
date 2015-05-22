@@ -1,4 +1,5 @@
 gopkg.in/yaml.v1
 github.com/codegangsta/cli
 
+github.com/smartystreets/goconvey
 github.com/jstemmer/go-junit-report

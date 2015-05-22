@@ -1,67 +1,75 @@
 package provider
 
 import (
+	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 )
 
 func TestResolveProvider(t *testing.T) {
-	// Giving no provider
-	provider, err := ResolveProvider("")
-	if err == nil {
-		t.Error("No error thrown on empty provider")
-	}
+	Convey("Passing no provider should return an error", t, func() {
+		_, err := ResolveProvider("")
 
-	// Pass it the provider, as a CLI arg
-	expected := "/usr/bin/myprovider"
-	provider, _ = ResolveProvider(expected)
-	if provider != expected {
-		t.Errorf("\nexpected\n%s\ngot\n%s", expected, provider)
-	}
+		So(err, ShouldNotBeNil)
+	})
 
-	// Pass as environment variable
-	expected = "/opt/providers/custom"
-	os.Setenv("CAULDRON_PROVIDER", expected)
-	provider, _ = ResolveProvider("")
-	os.Unsetenv("CAULDRON_PROVIDER")
-	if provider != expected {
-		t.Errorf("\nexpected\n%s\ngot\n%s", expected, provider)
-	}
+	Convey("Passing the provider via CLI should return it without error", t, func() {
+		expected := "/usr/bin/myprovider"
+		provider, err := ResolveProvider(expected)
 
-	// Check the provider path
-	tempDir, _ := ioutil.TempDir("", "cauldrontest")
-	defer os.RemoveAll(tempDir)
-	DefaultProviderPath = tempDir
+		So(provider, ShouldEqual, expected)
+		So(err, ShouldBeNil)
+	})
 
-	// One executable
-	f, err := ioutil.TempFile(DefaultProviderPath, "")
-	provider, _ = ResolveProvider("")
-	if provider != f.Name() {
-		t.Errorf("\nexpected\n%s\ngot\n%s", f.Name(), provider)
-	}
+	Convey("Setting the provider via environment variable works", t, func() {
+		expected := "/opt/providers/custom"
+		os.Setenv("CAULDRON_PROVIDER", expected)
+		provider, err := ResolveProvider("")
+		os.Unsetenv("CAULDRON_PROVIDER")
 
-	// Two executables
-	f, err = ioutil.TempFile(DefaultProviderPath, "")
-	provider, err = ResolveProvider("")
+		So(provider, ShouldEqual, expected)
+		So(err, ShouldBeNil)
+	})
 
-	if err == nil {
-		t.Error("Multiple providers in path did not throw an error!")
-	}
+	Convey("Given a provider path", t, func() {
+		tempDir, _ := ioutil.TempDir("", "cauldrontest")
+		defer os.RemoveAll(tempDir)
+		DefaultProviderPath = tempDir
+
+		Convey("If there is 1 executable, return it as the provider", func() {
+			f, err := ioutil.TempFile(DefaultProviderPath, "")
+			provider, err := ResolveProvider("")
+
+			So(provider, ShouldEqual, f.Name())
+			So(err, ShouldBeNil)
+		})
+
+		Convey("If there are > 1 executables, return an error to user", func() {
+			// Create 2 exes in provider path
+			ioutil.TempFile(DefaultProviderPath, "")
+			ioutil.TempFile(DefaultProviderPath, "")
+			_, err := ResolveProvider("")
+
+			So(err, ShouldNotBeNil)
+		})
+	})
 }
 
 func TestCallProvider(t *testing.T) {
-	// Successful call to provider
-	expected := "provider.go"
-	out, err := CallProvider("ls", expected)
-	if out != expected || err != nil {
-		t.Errorf("\nexpected\n%s\ngot\n%s", expected, out)
-	}
-	// Unsuccessful call to provider
-	expected = "No such file or directory"
-	out, err = CallProvider("ls", "README.notafile")
-	if !strings.Contains(err.Error(), expected) || err == nil {
-		t.Errorf("'%s' does not contain '%s'", err.Error(), expected)
-	}
+	Convey("When I call a provider", t, func() {
+		Convey("If it returns exit code 0, return stdout", func() {
+			arg := "provider.go"
+			out, err := CallProvider("ls", arg)
+
+			So(out, ShouldEqual, arg)
+			So(err, ShouldBeNil)
+		})
+		Convey("If it returns exit code > 0, return stderr", func() {
+			out, err := CallProvider("ls", "README.notafile")
+
+			So(out, ShouldContainSubstring, "No such file or directory")
+			So(err, ShouldNotBeNil)
+		})
+	})
 }

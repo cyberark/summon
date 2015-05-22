@@ -133,7 +133,8 @@ Run the project with `go run *.go`.
 
 ### Testing
 
-Run tests with `go test ./...` or `./test.sh` (for CI).
+Tests are written using [GoConvey](http://goconvey.co/).
+Run tests with `go test -v ./...` or `./test.sh` (for CI).
 
 ### Building
 

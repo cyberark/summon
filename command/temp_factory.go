@@ -30,17 +30,14 @@ func DefaultTempPath() string {
 }
 
 // Create a temp file with given value. Returns the path.
-func (tf *TempFactory) Push(value string) (string, error) {
-	f, err := ioutil.TempFile(tf.path, "cauldron")
-	if err != nil {
-		return "", err
-	}
+func (tf *TempFactory) Push(value string) string {
+	f, _ := ioutil.TempFile(tf.path, "cauldron")
 	defer f.Close()
 
 	f.Write([]byte(value))
 	name := f.Name()
 	tf.files = append(tf.files, name)
-	return name, nil
+	return name
 }
 
 // Remove the temporary files created with this factory.
