@@ -46,6 +46,7 @@ func TestFormatForEnvString(t *testing.T) {
 		"DBPASS",
 		"mysecretvalue",
 		secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
+		nil,
 	)
 	if err != nil {
 		t.Error(err.Error())
@@ -60,10 +61,14 @@ func TestFormatForEnvString(t *testing.T) {
 
 // Test writing value to a tempfile and exporting the path
 func TestFormatForEnvFile(t *testing.T) {
+	temp_factory := NewTempFactory("")
+	defer temp_factory.Cleanup()
+
 	envvar, err := formatForEnv(
 		"SSL_CERT",
 		"mysecretvalue",
 		secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", Kind: secretsyml.SecretFile},
+		&temp_factory,
 	)
 	if err != nil {
 		t.Error(err.Error())

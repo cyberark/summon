@@ -6,7 +6,6 @@ import (
 	"github.com/codegangsta/cli"
 	"github.com/conjurinc/cauldron/provider"
 	"github.com/conjurinc/cauldron/secretsyml"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -50,13 +49,16 @@ var Action = func(c *cli.Context) {
 
 	erred := false
 	env := os.Environ()
+	tempFactory := NewTempFactory("")
+	defer tempFactory.Cleanup()
+
 	for key, spec := range secrets {
 		value, err := provider.CallProvider(prov, spec.Path)
 		if err != nil {
 			fmt.Println(value)
 			os.Exit(1)
 		}
-		envvar, err := formatForEnv(key, value, spec)
+		envvar, err := formatForEnv(key, value, spec, &tempFactory)
 		if err != nil {
 			erred = true
 			fmt.Printf("%s: %s\n", key, err.Error())
@@ -96,17 +98,13 @@ func runSubcommand(args []string, env []string) string {
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
-func formatForEnv(key string, value string, spec secretsyml.SecretSpec) (string, error) {
+func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) (string, error) {
 	if spec.IsFile() {
-		f, err := ioutil.TempFile("", "cauldron")
-		f.Write([]byte(value))
-		defer f.Close()
-
+		fname, err := tempFactory.Push(value)
 		if err != nil {
 			return "", err
 		}
-		value = f.Name()
-		tempfiles = append(tempfiles, value)
+		value = fname
 	}
 
 	return fmt.Sprintf("%s=%s", strings.ToUpper(key), value), nil
