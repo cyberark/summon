@@ -58,14 +58,6 @@ Run the project with `go run *.go`.
 
 ### Testing
 
-Build the dummy provider first.
-
-```
-cd provider
-go build
-cd ..
-```
-
 Run tests with `go test ./...` or `./test.sh` (for CI).
 
 ## Usage
@@ -96,7 +88,7 @@ print(botoEC2.get_all_instances())
 Wrap running this script in cauldron.
 
 ```
-cauldron-myprovider run python listEC2.py
+cauldron python listEC2.py
 ```
 
 `python listEC2.py` is the command that cauldron wraps. Once this command exits
@@ -104,12 +96,12 @@ and secrets in the environment are gone.
 
 ### Flags
 
-`cauldron run` supports a number of flags.
+`cauldron` supports a number of flags.
 
 **`-f <path>`** specify a location to a secrets.yml file.
 
 ```
-cauldron run -f /etc/mysecrets.yml
+cauldron -f /etc/mysecrets.yml
 ```
 
 **`-D '$var=value'`** causes substitution of `value` to `$var`.
@@ -125,7 +117,7 @@ AWS_ACCESS_KEY_ID: $environment/aws/iam/user/robot/access_key_id
 ```
 
 ```sh-session
-$ cauldron-myprovider -D '$environment=development' env | grep AWS
+$ cauldron -D '$environment=development' env | grep AWS
 AWS_ACCESS_KEY_ID=mydevelopmentkey
 ```
 
@@ -134,7 +126,7 @@ AWS_ACCESS_KEY_ID=mydevelopmentkey
 A string in secrets.yml format can also be passed to cauldron.
 
 ```sh-session
-$ cauldron-myprovider --yaml 'MONGODB_PASS: db/dbname/password' chef-apply
+$ cauldron --yaml 'MONGODB_PASS: db/dbname/password' chef-apply
 ```
 
 This will make `ENV['MONGODB_PASS']` available in your Chef run.

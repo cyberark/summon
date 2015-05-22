@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/conjurinc/cauldron/provider"
@@ -10,8 +9,6 @@ import (
 	"os/exec"
 	"strings"
 )
-
-var tempfiles []string
 
 var Action = func(c *cli.Context) {
 	var (
@@ -79,21 +76,13 @@ var Action = func(c *cli.Context) {
 // of an environment populated with secret values.
 // On command exit, any tempfiles containing secrets are removed.
 func runSubcommand(args []string, env []string) string {
-	cmdOutput := &bytes.Buffer{}
 	runner := exec.Command(args[0], args[1:]...)
 	runner.Env = env
-	runner.Stdout = cmdOutput
-	err := runner.Start()
+	out, err := runner.CombinedOutput()
 	if err != nil {
 		panic(err)
 	}
-	runner.Wait()
-	for _, path := range tempfiles {
-		fmt.Println(path)
-		os.Remove(path)
-	}
-
-	return string(cmdOutput.Bytes())
+	return string(out)
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
