@@ -1,6 +1,6 @@
 git
 .godeps
-pkg
+pkg/*
 provider/provider
 cauldron
 junit.xml
