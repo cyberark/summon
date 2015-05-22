@@ -14,7 +14,7 @@ func TestParseFromString(t *testing.T) {
 	expected := SecretsMap{
 		"SENTRY_API_KEY":   SecretSpec{Path: "prod/sentry/api_key", Kind: SecretVar},
 		"PRIVATE_KEY_FILE": SecretSpec{Path: "prod/aws/ec2/private_key", Kind: SecretFile},
-		"RAILS_ENV": SecretSpec{Path: "prod", Kind: SecretLiteral},
+		"RAILS_ENV":        SecretSpec{Path: "prod", Kind: SecretLiteral},
 	}
 
 	yml, err := ParseFromString(input, map[string]string{"$env": "prod"})
