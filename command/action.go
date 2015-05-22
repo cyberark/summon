@@ -50,10 +50,15 @@ var Action = func(c *cli.Context) {
 	defer tempFactory.Cleanup()
 
 	for key, spec := range secrets {
-		value, err := provider.CallProvider(prov, spec.Path)
-		if err != nil {
-			fmt.Println(value)
-			os.Exit(1)
+		var value string
+		if spec.IsLiteral() {
+			value = spec.Path
+		} else {
+			value, err = provider.CallProvider(prov, spec.Path)
+			if err != nil {
+				fmt.Println(value)
+				os.Exit(1)
+			}
 		}
 		envvar, err := formatForEnv(key, value, spec, &tempFactory)
 		if err != nil {

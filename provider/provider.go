@@ -24,11 +24,13 @@ func ResolveProvider(providerArg string) (string, error) {
 		provider = envArg
 	}
 
-	providers, _ := ioutil.ReadDir(DefaultProviderPath)
-	if len(providers) == 1 {
-		provider = fullPath(providers[0].Name())
-	} else if len(providers) > 1 {
-		return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultProviderPath)
+	if provider == "" {
+		providers, _ := ioutil.ReadDir(DefaultProviderPath)
+		if len(providers) == 1 {
+			provider = fullPath(providers[0].Name())
+		} else if len(providers) > 1 {
+			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultProviderPath)
+		}
 	}
 
 	if provider == "" {
