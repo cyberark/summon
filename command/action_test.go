@@ -37,6 +37,19 @@ func TestRunAction(t *testing.T) {
 		)
 		So(err, ShouldNotBeNil)
 	})
+
+	Convey("Errors when fetching keys keys don't return error if ignored", t, func() {
+		out, err := runAction(
+			[]string{"printenv", "MYVAR"},
+			providerPath,
+			"",
+			"{MYVAR: !var test, ERR: !var error}",
+			map[string]string{},
+			[]string{"ERR"},
+		)
+		So(err, ShouldBeNil)
+		So(out, ShouldEqual, "mysecret\n")
+	})
 }
 
 func TestConvertSubsToMap(t *testing.T) {

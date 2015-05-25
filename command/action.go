@@ -29,7 +29,7 @@ var Action = func(c *cli.Context) {
 		c.String("f"),
 		c.String("yaml"),
 		convertSubsToMap(c.StringSlice("D")),
-		strings.Split(c.String("ignore"), ","),
+		c.StringSlice("ignore"),
 	)
 
 	if err != nil {
@@ -93,10 +93,16 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 	wg.Wait()
 	close(results)
 
+	EnvLoop:
 	for envvar := range results {
 		if envvar.error == nil {
 			env = append(env, envvar.string)
 		} else {
+			for i := range ignores {
+				if ignores[i] == envvar.string {
+					continue EnvLoop
+				}
+			}
 			return envvar.string, envvar.error
 		}
 	}
