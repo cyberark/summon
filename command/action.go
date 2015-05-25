@@ -23,7 +23,7 @@ var Action = func(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	out := runAction(
+	out, err := runAction(
 		c.Args(),
 		provider,
 		c.String("f"),
@@ -32,11 +32,16 @@ var Action = func(c *cli.Context) {
 		strings.Split(c.String("ignore"), ","),
 	)
 
+	if err != nil {
+		fmt.Println(out + ": " + err.Error())
+		os.Exit(1)
+	}
+
 	fmt.Print(out)
 }
 
 // runAction encapsulates the logic of Action without cli Context for easier testing
-func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) string {
+func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) (string, error) {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
@@ -50,16 +55,20 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		return "", err
 	}
 
 	env := os.Environ()
 	tempFactory := NewTempFactory("")
 	defer tempFactory.Cleanup()
 
+	type Result struct {
+		string
+		error
+	}
+
 	// Run provider calls concurrently
-	results := make(chan string, len(secrets))
+	results := make(chan Result, len(secrets))
 	var wg sync.WaitGroup
 
 	for key, spec := range secrets {
@@ -71,12 +80,13 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 			} else {
 				value, err = prov.CallProvider(provider, spec.Path)
 				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(1)
+					results <- Result{key, err}
+					wg.Done()
+					return
 				}
 			}
 			envvar := formatForEnv(key, value, spec, &tempFactory)
-			results <- envvar
+			results <- Result{envvar, nil}
 			wg.Done()
 		}(key, spec)
 	}
@@ -84,7 +94,11 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 	close(results)
 
 	for envvar := range results {
-		env = append(env, envvar)
+		if envvar.error == nil {
+			env = append(env, envvar.string)
+		} else {
+			return envvar.string, envvar.error
+		}
 	}
 
 	return runSubcommand(args, env)
@@ -93,14 +107,11 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 // runSubcommand executes a command with arguments in the context
 // of an environment populated with secret values.
 // On command exit, any tempfiles containing secrets are removed.
-func runSubcommand(args []string, env []string) string {
+func runSubcommand(args []string, env []string) (string, error) {
 	runner := exec.Command(args[0], args[1:]...)
 	runner.Env = env
 	out, err := runner.CombinedOutput()
-	if err != nil {
-		panic(err)
-	}
-	return string(out)
+	return string(out), err
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and

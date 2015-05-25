@@ -11,20 +11,31 @@ import (
 )
 
 func TestRunAction(t *testing.T) {
-	Convey("Using a dummy provider that returns 'mysecret'", t, func() {
-		providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
+	providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
 
-		Convey("Passing in secrets.yml via --yaml", func() {
-			out := runAction(
-				[]string{"printenv", "MYVAR"},
-				providerPath,
-				"",
-				"MYVAR: !var somesecret/on/a/path",
-				map[string]string{},
-				[]string{},
-			)
-			So(out, ShouldEqual, "mysecret\n")
-		})
+	Convey("Passing in secrets.yml via --yaml", t, func() {
+		out, err := runAction(
+			[]string{"printenv", "MYVAR"},
+			providerPath,
+			"",
+			"MYVAR: !var somesecret/on/a/path",
+			map[string]string{},
+			[]string{},
+		)
+		So(out, ShouldEqual, "mysecret\n")
+		So(err, ShouldBeNil)
+	})
+
+	Convey("Errors when fetching keys keys return error", t, func() {
+		_, err := runAction(
+			[]string{"printenv", "MYVAR"},
+			providerPath,
+			"",
+			"MYVAR: !var error",
+			map[string]string{},
+			[]string{},
+		)
+		So(err, ShouldNotBeNil)
 	})
 }
 
@@ -51,10 +62,11 @@ func TestRunSubcommand(t *testing.T) {
 		args := []string{"printenv", "MYVAR"}
 		env := []string{"MYVAR=myvalue"}
 
-		output := runSubcommand(args, env)
+		output, err := runSubcommand(args, env)
 		expected := "myvalue\n"
 
 		So(output, ShouldEqual, expected)
+		So(err, ShouldBeNil)
 	})
 }
 
