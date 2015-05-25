@@ -5,6 +5,7 @@ import (
 	"github.com/codegangsta/cli"
 	prov "github.com/conjurinc/cauldron/provider"
 	"github.com/conjurinc/cauldron/secretsyml"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -23,7 +24,7 @@ var Action = func(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	out := runAction(
+	runAction(
 		c.Args(),
 		provider,
 		c.String("f"),
@@ -31,12 +32,10 @@ var Action = func(c *cli.Context) {
 		convertSubsToMap(c.StringSlice("D")),
 		strings.Split(c.String("ignore"), ","),
 	)
-
-	fmt.Print(out)
 }
 
 // runAction encapsulates the logic of Action without cli Context for easier testing
-func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) string {
+func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
@@ -87,20 +86,26 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 		env = append(env, envvar)
 	}
 
-	return runSubcommand(args, env)
+	runSubcommand(args, env)
 }
+
+var (
+	subStdout = io.MultiWriter(os.Stdout)
+	subStderr = io.MultiWriter(os.Stderr)
+)
 
 // runSubcommand executes a command with arguments in the context
 // of an environment populated with secret values.
 // On command exit, any tempfiles containing secrets are removed.
-func runSubcommand(args []string, env []string) string {
+func runSubcommand(args []string, env []string) {
 	runner := exec.Command(args[0], args[1:]...)
+	runner.Stderr = subStderr
+	runner.Stdout = subStdout
 	runner.Env = env
-	out, err := runner.CombinedOutput()
+	err := runner.Run()
 	if err != nil {
 		panic(err)
 	}
-	return string(out)
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and

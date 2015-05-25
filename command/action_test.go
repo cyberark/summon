@@ -1,6 +1,8 @@
 package command
 
 import (
+	"bufio"
+	"bytes"
 	"github.com/conjurinc/cauldron/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
@@ -11,11 +13,13 @@ import (
 )
 
 func TestRunAction(t *testing.T) {
+	var buf bytes.Buffer
+	subStdout = bufio.NewWriter(&buf)
 	Convey("Using a dummy provider that returns 'mysecret'", t, func() {
 		providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
 
 		Convey("Passing in secrets.yml via --yaml", func() {
-			out := runAction(
+			runAction(
 				[]string{"printenv", "MYVAR"},
 				providerPath,
 				"",
@@ -23,7 +27,7 @@ func TestRunAction(t *testing.T) {
 				map[string]string{},
 				[]string{},
 			)
-			So(out, ShouldEqual, "mysecret\n")
+			So(buf.String(), ShouldEqual, "mysecret\n")
 		})
 	})
 }
@@ -47,14 +51,16 @@ func TestConvertSubsToMap(t *testing.T) {
 }
 
 func TestRunSubcommand(t *testing.T) {
+	var buf bytes.Buffer
+	subStdout = bufio.NewWriter(&buf)
 	Convey("The subcommand should have access to secrets injected into its environment", t, func() {
 		args := []string{"printenv", "MYVAR"}
 		env := []string{"MYVAR=myvalue"}
 
-		output := runSubcommand(args, env)
+		runSubcommand(args, env)
 		expected := "myvalue\n"
 
-		So(output, ShouldEqual, expected)
+		So(buf.String(), ShouldEqual, expected)
 	})
 }
 
