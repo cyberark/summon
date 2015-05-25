@@ -18,7 +18,7 @@ var Action = func(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	provider, err := prov.ResolveProvider(c.String("provider"))
+	provider, err := prov.Resolve(c.String("provider"))
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
@@ -68,7 +68,7 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 			if spec.IsLiteral() {
 				value = spec.Path
 			} else {
-				value, err = prov.CallProvider(provider, spec.Path)
+				value, err = prov.Call(provider, spec.Path)
 				if err != nil {
 					fmt.Println(err.Error())
 					os.Exit(1)

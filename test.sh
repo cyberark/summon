@@ -10,5 +10,5 @@ docker run --rm \
 cauldron/build \
 bash -ceo pipefail "xargs -L1 go get <Godeps && \
 go build ./... && \
-go test -v ./... | tee test.out \
-&& cat test.out | go-junit-report | tee junit.xml"
+go test -v ./... | tee test.tmp \
+&& cat test.tmp | go-junit-report > junit.xml && rm test.tmp"

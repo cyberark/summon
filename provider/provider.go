@@ -10,11 +10,11 @@ import (
 	"strings"
 )
 
-var DefaultProviderPath = "/usr/libexec/cauldron"
+var DefaultPath = "/usr/libexec/cauldron"
 
-// Resolves a path to a provider
+// Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
-func ResolveProvider(providerArg string) (string, error) {
+func Resolve(providerArg string) (string, error) {
 	provider := ""
 	if providerArg != "" {
 		provider = providerArg
@@ -26,11 +26,11 @@ func ResolveProvider(providerArg string) (string, error) {
 	}
 
 	if provider == "" {
-		providers, _ := ioutil.ReadDir(DefaultProviderPath)
+		providers, _ := ioutil.ReadDir(DefaultPath)
 		if len(providers) == 1 {
 			provider = fullPath(providers[0].Name())
 		} else if len(providers) > 1 {
-			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultProviderPath)
+			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultPath)
 		}
 	}
 
@@ -40,8 +40,8 @@ func ResolveProvider(providerArg string) (string, error) {
 	return provider, nil
 }
 
-// Shell out to a provider and return its output
-func CallProvider(provider, specPath string) (string, error) {
+// Call shells out to a provider and return its output
+func Call(provider, specPath string) (string, error) {
 	var (
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer
@@ -58,11 +58,10 @@ func CallProvider(provider, specPath string) (string, error) {
 	return strings.TrimSpace(stdOut.String()), nil
 }
 
-// Given a non-absolute path, returns a path to executable prefixed with DefaultProviderPath
+// Given a non-absolute path, returns a path to executable prefixed with DefaultPath
 func fullPath(provider string) string {
 	if path.IsAbs(provider) {
-		println("abs!")
 		return provider
 	}
-	return path.Join(DefaultProviderPath, provider)
+	return path.Join(DefaultPath, provider)
 }
