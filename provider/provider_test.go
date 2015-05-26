@@ -9,6 +9,11 @@ import (
 
 func TestResolve(t *testing.T) {
 	Convey("Passing no provider should return an error", t, func() {
+		// Point to a tempdir to avoid pollution from dev env
+		tempDir, _ := ioutil.TempDir("", "cauldrontest")
+		defer os.RemoveAll(tempDir)
+		DefaultPath = tempDir
+
 		_, err := Resolve("")
 
 		So(err, ShouldNotBeNil)
