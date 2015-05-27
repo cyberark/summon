@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Cauldron by conjurinc</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Cauldron</h1>
+      <h2 class="project-tagline">Parse secrets.yml to export environment variables fetched from a trusted store</h2>
+      <a href="https://github.com/conjurinc/cauldron" class="btn">View on GitHub</a>
+      <a href="https://github.com/conjurinc/cauldron/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/conjurinc/cauldron/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="cauldron" class="anchor" href="#cauldron" aria-hidden="true"><span class="octicon octicon-link"></span></a>cauldron</h1>
+
+<p>cauldron provides an interface for</p>
+
+<ul>
+<li>reading the <strong>secrets.yml</strong> format</li>
+<li>fetching secrets from a trusted store</li>
+<li>exporting their values to the environment</li>
+</ul>
+
+<p>Parse secrets.yml to export environment variables fetched from a trusted store.</p>
+
+<h2>
+<a id="secretsyml" class="anchor" href="#secretsyml" aria-hidden="true"><span class="octicon octicon-link"></span></a>secrets.yml</h2>
+
+<p>secrets.yml defines a format for mapping environment variables to locations of
+secrets.</p>
+
+<div class="highlight highlight-yml"><pre><span class="pl-s"><span class="pl-ent">AWS_ACCESS_KEY_ID:</span> <span class="pl-s">!var /aws/iam/user/robot/access_key_id</span></span>
+<span class="pl-s"><span class="pl-ent">AWS_PEM:</span> <span class="pl-s">!file /aws/iam/user/robot/pem_file</span></span>
+<span class="pl-s"><span class="pl-ent">ENVIRONMENT:</span> <span class="pl-s">$environment</span></span></pre></div>
+
+<p>Running an implementation of cauldron against this example file will</p>
+
+<ol>
+<li>Fetch the secret defined at <code>aws/iam/user/robot/access_key_id</code> in a secrets server and set the environment variable <code>AWS_ACCESS_KEY_ID</code> to the secret's value.</li>
+<li>The value of <code>AWS_PEM</code> will be the path to a temporary memory-mapped file that is cleaned up on exit of the process cauldron is wrapping.</li>
+<li>
+<code>ENVIRONMENT</code> will be interpolated at runtime by using cauldron's <code>-D</code> flag, like so: <code>cauldron -D '$environment=production'</code>. This flag can be specified multiple times.</li>
+</ol>
+
+<h2>
+<a id="providers" class="anchor" href="#providers" aria-hidden="true"><span class="octicon octicon-link"></span></a>Providers</h2>
+
+<p>Cauldron uses plug-and-play providers. A provider is any executable that satisfies this contract:</p>
+
+<ul>
+<li>Accepts one argument, where a secret is located</li>
+<li>Returns the value of the secret on stdout and exit code 0 if retrieval was successful.</li>
+<li>Returns an error message on stderr and a non-0 exit code if retrieval was unsuccessful.</li>
+</ul>
+
+<p>Providers can be written in any language you prefer. They can be as simple as a shell script.</p>
+
+<p>When cauldron runs it will look for a provider in <code>/usr/libexec/cauldron/</code>. If there is one executable
+in this directory it will use it as the default provider. If the directory hold multiple executables
+you will be prompted to select the one you want to use. You can set the provider with the <code>-p, --provider</code>
+flag to the CLI or via the environment variable <code>CAULDRON_PROVIDER</code>. If your provider is in a location
+not on your <code>PATH</code> you will need to specify its full path.</p>
+
+<p>For example, if you have multiple providers and want to use the one for <a href="https://vaultproject.io/">vault</a>, this is your command.</p>
+
+<div class="highlight highlight-sh-session"><pre>$ <span class="pl-s1">cauldron --provider /usr/libexec/cauldron/vault</span></pre></div>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage</h2>
+
+<p>By default, cauldron will look for <code>secrets.yml</code> in the directory it is
+called from and export the secret values to the environment of the command it wraps.</p>
+
+<p><em>Example</em></p>
+
+<p>You want to run script that requires AWS keys to list your EC2 instances.</p>
+
+<p>Define your keys in a <code>secrets.yml</code> file</p>
+
+<div class="highlight highlight-yml"><pre><span class="pl-s"><span class="pl-ent">AWS_ACCESS_KEY_ID:</span> <span class="pl-s">aws/iam/user/robot/access_key_id</span></span>
+<span class="pl-s"><span class="pl-ent">AWS_SECRET_ACCESS_KEY:</span> <span class="pl-s">aws/iam/user/robot/secret_access_key</span></span></pre></div>
+
+<p>The script uses the Python library <a href="https://pypi.python.org/pypi/boto">boto</a>, which looks for <code>AWS_ACCESS_KEY_ID</code>
+and <code>AWS_SECRET_ACCESS_KEY</code> in the environment.</p>
+
+<div class="highlight highlight-python"><pre><span class="pl-k">import</span> boto
+botoEC2 <span class="pl-k">=</span> boto.connect_ec2()
+<span class="pl-k">print</span>(botoEC2.get_all_instances())</pre></div>
+
+<p>Wrap running this script in cauldron.</p>
+
+<pre><code>cauldron python listEC2.py
+</code></pre>
+
+<p><code>python listEC2.py</code> is the command that cauldron wraps. Once this command exits
+and secrets in the environment are gone.</p>
+
+<h3>
+<a id="flags" class="anchor" href="#flags" aria-hidden="true"><span class="octicon octicon-link"></span></a>Flags</h3>
+
+<p><code>cauldron</code> supports a number of flags.</p>
+
+<p><strong><code>-f &lt;path&gt;</code></strong> specify a location to a secrets.yml file.</p>
+
+<pre><code>cauldron -f /etc/mysecrets.yml
+</code></pre>
+
+<p><strong><code>-D '$var=value'</code></strong> causes substitution of <code>value</code> to <code>$var</code>.</p>
+
+<p>You can use the same secrets.yml file for different environments, using <code>-D</code> to
+substitute variables.</p>
+
+<p><em>Example</em></p>
+
+<p>secrets.yml</p>
+
+<div class="highlight highlight-yml"><pre><span class="pl-s"><span class="pl-ent">AWS_ACCESS_KEY_ID:</span> <span class="pl-s">$environment/aws/iam/user/robot/access_key_id</span></span></pre></div>
+
+<div class="highlight highlight-sh-session"><pre>$ <span class="pl-s1">cauldron -D <span class="pl-s"><span class="pl-pds">'</span>$environment=development<span class="pl-pds">'</span></span> env <span class="pl-k">|</span> grep AWS</span>
+<span class="pl-mo">AWS_ACCESS_KEY_ID=mydevelopmentkey</span></pre></div>
+
+<p><strong><code>-- yaml 'key:value'</code></strong> secrets.yml as a literal string</p>
+
+<p>A string in secrets.yml format can also be passed to cauldron.</p>
+
+<div class="highlight highlight-sh-session"><pre>$ <span class="pl-s1">cauldron --yaml <span class="pl-s"><span class="pl-pds">'</span>MONGODB_PASS: db/dbname/password<span class="pl-pds">'</span></span> chef-apply</span></pre></div>
+
+<p>This will make <code>ENV['MONGODB_PASS']</code> available in your Chef run.</p>
+
+<p>View help and all flags with <code>cauldron -h</code>.</p>
+
+<h2>
+<a id="development" class="anchor" href="#development" aria-hidden="true"><span class="octicon octicon-link"></span></a>Development</h2>
+
+<p>Install dependencies</p>
+
+<pre><code>xargs -L1 go get &lt;Godeps
+</code></pre>
+
+<p>Run the project with <code>go run *.go</code>.</p>
+
+<h3>
+<a id="testing" class="anchor" href="#testing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Testing</h3>
+
+<p>Tests are written using <a href="http://goconvey.co/">GoConvey</a>.
+Run tests with <code>go test -v ./...</code> or <code>./test.sh</code> (for CI).</p>
+
+<h3>
+<a id="building" class="anchor" href="#building" aria-hidden="true"><span class="octicon octicon-link"></span></a>Building</h3>
+
+<p>To build 64bit versions for Linux, OSX and Windows:</p>
+
+<pre><code>./build.sh
+</code></pre>
+
+<p>Binaries will be placed in <code>pkg/</code>.</p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/conjurinc/cauldron">Cauldron</a> is maintained by <a href="https://github.com/conjurinc">conjurinc</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
+
