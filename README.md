@@ -1,12 +1,10 @@
 # cauldron
 
-cauldron provides an interface for
+`cauldron` provides an interface for
 
-* reading the **secrets.yml** format
-* fetching secrets from a trusted store
-* exporting their values to the environment
-
-Parse secrets.yml to export environment variables fetched from a trusted store.
+* Reading a **secrets.yml** file
+* Fetching secrets from a trusted store
+* Exporting secret values to a sub-process environment
 
 ## secrets.yml
 
@@ -21,22 +19,21 @@ ENVIRONMENT: $environment
 
 Running an implementation of cauldron against this example file will
 
-1. Fetch the secret defined at `aws/iam/user/robot/access_key_id` in a secrets server and set the environment variable `AWS_ACCESS_KEY_ID` to the secret's value.
+1. Fetch the secret stored at `aws/iam/user/robot/access_key_id` and set the environment variable `AWS_ACCESS_KEY_ID` to the secret's value.
 2. The value of `AWS_PEM` will be the path to a temporary memory-mapped file that is cleaned up on exit of the process cauldron is wrapping.
 3. `ENVIRONMENT` will be interpolated at runtime by using cauldron's `-D` flag, like so: `cauldron -D '$environment=production'`. This flag can be specified multiple times.
-
 
 ## Providers
 
 Cauldron uses plug-and-play providers. A provider is any executable that satisfies this contract:
 
-* Accepts one argument, where a secret is located
+* Accepts one argument, which is the provider-specific identifier of a secret.
 * Returns the value of the secret on stdout and exit code 0 if retrieval was successful.
 * Returns an error message on stderr and a non-0 exit code if retrieval was unsuccessful.
 
-Providers can be written in any language you prefer. They can be as simple as a shell script.
+Providers can be written in any language. A provider can be as simple as a `sh` script.
 
-When cauldron runs it will look for a provider in `/usr/libexec/cauldron/`. If there is one executable
+When cauldron runs, it looks for a provider in `/usr/libexec/cauldron/`. If there is one executable
 in this directory it will use it as the default provider. If the directory hold multiple executables
 you will be prompted to select the one you want to use. You can set the provider with the `-p, --provider`
 flag to the CLI or via the environment variable `CAULDRON_PROVIDER`. If your provider is in a location
@@ -60,8 +57,8 @@ You want to run script that requires AWS keys to list your EC2 instances.
 Define your keys in a `secrets.yml` file
 
 ```yml
-AWS_ACCESS_KEY_ID: aws/iam/user/robot/access_key_id
-AWS_SECRET_ACCESS_KEY: aws/iam/user/robot/secret_access_key
+AWS_ACCESS_KEY_ID: !var aws/iam/user/robot/access_key_id
+AWS_SECRET_ACCESS_KEY: !var aws/iam/user/robot/secret_access_key
 ```
 
 The script uses the Python library [boto](https://pypi.python.org/pypi/boto), which looks for `AWS_ACCESS_KEY_ID`
@@ -73,14 +70,14 @@ botoEC2 = boto.connect_ec2()
 print(botoEC2.get_all_instances())
 ```
 
-Wrap running this script in cauldron.
+Wrap the Python script in cauldron:
 
 ```
 cauldron python listEC2.py
 ```
 
-`python listEC2.py` is the command that cauldron wraps. Once this command exits
-and secrets in the environment are gone.
+`python listEC2.py` is the command that cauldron wraps. Once the Python program exits,
+the secrets stored in temp files and in the Python process environment are gone.
 
 ### Flags
 
