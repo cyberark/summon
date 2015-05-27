@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/codegangsta/cli"
 	prov "github.com/conjurinc/cauldron/provider"
@@ -24,18 +25,25 @@ var Action = func(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	runAction(
+	out, err := runAction(
 		c.Args(),
 		provider,
 		c.String("f"),
 		c.String("yaml"),
 		convertSubsToMap(c.StringSlice("D")),
-		strings.Split(c.String("ignore"), ","),
+		c.StringSlice("ignore"),
 	)
+
+	if err != nil {
+		fmt.Println(out + ": " + err.Error())
+		os.Exit(1)
+	}
+
+	fmt.Print(out)
 }
 
 // runAction encapsulates the logic of Action without cli Context for easier testing
-func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) {
+func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) (string, error) {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
@@ -49,16 +57,20 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 	}
 
 	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(1)
+		return "", err
 	}
 
 	env := os.Environ()
 	tempFactory := NewTempFactory("")
 	defer tempFactory.Cleanup()
 
+	type Result struct {
+		string
+		error
+	}
+
 	// Run provider calls concurrently
-	results := make(chan string, len(secrets))
+	results := make(chan Result, len(secrets))
 	var wg sync.WaitGroup
 
 	for key, spec := range secrets {
@@ -70,42 +82,51 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 			} else {
 				value, err = prov.Call(provider, spec.Path)
 				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(1)
+					results <- Result{key, err}
+					wg.Done()
+					return
 				}
 			}
 			envvar := formatForEnv(key, value, spec, &tempFactory)
-			results <- envvar
+			results <- Result{envvar, nil}
 			wg.Done()
 		}(key, spec)
 	}
 	wg.Wait()
 	close(results)
 
+EnvLoop:
 	for envvar := range results {
-		env = append(env, envvar)
+		if envvar.error == nil {
+			env = append(env, envvar.string)
+		} else {
+			for i := range ignores {
+				if ignores[i] == envvar.string {
+					continue EnvLoop
+				}
+			}
+			return envvar.string, envvar.error
+		}
 	}
 
-	runSubcommand(args, env)
+	return runSubcommand(args, env)
 }
-
-var (
-	subStdout = io.MultiWriter(os.Stdout)
-	subStderr = io.MultiWriter(os.Stderr)
-)
 
 // runSubcommand executes a command with arguments in the context
 // of an environment populated with secret values.
 // On command exit, any tempfiles containing secrets are removed.
-func runSubcommand(args []string, env []string) {
+func runSubcommand(args []string, env []string) (string, error) {
+	var (
+		stdOut bytes.Buffer
+		stdErr bytes.Buffer
+	)
 	runner := exec.Command(args[0], args[1:]...)
-	runner.Stderr = subStderr
-	runner.Stdout = subStdout
+	runner.Stderr = io.MultiWriter(os.Stderr, &stdErr)
+	runner.Stdout = io.MultiWriter(os.Stdout, &stdOut)
 	runner.Env = env
+
 	err := runner.Run()
-	if err != nil {
-		panic(err)
-	}
+	return stdOut.String(), err
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and

@@ -1,8 +1,6 @@
 package command
 
 import (
-	"bufio"
-	"bytes"
 	"github.com/conjurinc/cauldron/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
@@ -13,13 +11,11 @@ import (
 )
 
 func TestRunAction(t *testing.T) {
-	var buf bytes.Buffer
-	subStdout = bufio.NewWriter(&buf)
 	Convey("Using a dummy provider that returns 'mysecret'", t, func() {
 		providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
 
 		Convey("Passing in secrets.yml via --yaml", func() {
-			runAction(
+			out, err := runAction(
 				[]string{"printenv", "MYVAR"},
 				providerPath,
 				"",
@@ -27,7 +23,33 @@ func TestRunAction(t *testing.T) {
 				map[string]string{},
 				[]string{},
 			)
-			So(buf.String(), ShouldEqual, "mysecret\n")
+			So(out, ShouldEqual, "mysecret\n")
+			So(err, ShouldBeNil)
+		})
+
+		Convey("Errors when fetching keys keys return error", func() {
+			_, err := runAction(
+				[]string{"printenv", "MYVAR"},
+				providerPath,
+				"",
+				"MYVAR: !var error",
+				map[string]string{},
+				[]string{},
+			)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("Errors when fetching keys keys don't return error if ignored", func() {
+			out, err := runAction(
+				[]string{"printenv", "MYVAR"},
+				providerPath,
+				"",
+				"{MYVAR: !var test, ERR: !var error}",
+				map[string]string{},
+				[]string{"ERR"},
+			)
+			So(err, ShouldBeNil)
+			So(out, ShouldEqual, "mysecret\n")
 		})
 	})
 }
@@ -51,16 +73,16 @@ func TestConvertSubsToMap(t *testing.T) {
 }
 
 func TestRunSubcommand(t *testing.T) {
-	var buf bytes.Buffer
-	subStdout = bufio.NewWriter(&buf)
+	// var buf bytes.Buffer
+	// subStdout = bufio.NewWriter(&buf)
 	Convey("The subcommand should have access to secrets injected into its environment", t, func() {
 		args := []string{"printenv", "MYVAR"}
 		env := []string{"MYVAR=myvalue"}
-
-		runSubcommand(args, env)
+		output, err := runSubcommand(args, env)
 		expected := "myvalue\n"
 
-		So(buf.String(), ShouldEqual, expected)
+		So(output, ShouldEqual, expected)
+		So(err, ShouldBeNil)
 	})
 }
 
