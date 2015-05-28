@@ -38,8 +38,6 @@ var Action = func(c *cli.Context) {
 		fmt.Println(out + ": " + err.Error())
 		os.Exit(1)
 	}
-
-	fmt.Print(out)
 }
 
 // runAction encapsulates the logic of Action without cli Context for easier testing
