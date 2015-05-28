@@ -11,8 +11,8 @@
   </head>
   <body>
     <section class="page-header">
-      <h1 class="project-name">Cauldron</h1>
-      <h2 class="project-tagline">Parse secrets.yml to export environment variables fetched from a trusted store</h2>
+      <h1 class="project-name">cauldron</h1>
+      <h2 class="project-tagline">provide secrets to everything</h2>
       <a href="https://github.com/conjurinc/cauldron" class="btn">View on GitHub</a>
       <a href="https://github.com/conjurinc/cauldron/zipball/master" class="btn">Download .zip</a>
       <a href="https://github.com/conjurinc/cauldron/tarball/master" class="btn">Download .tar.gz</a>
