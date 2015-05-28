@@ -1,48 +1,12 @@
 # cauldron
 
+http://conjurinc.github.io/cauldron/
+
 `cauldron` provides an interface for
 
 * Reading a **secrets.yml** file
 * Fetching secrets from a trusted store
 * Exporting secret values to a sub-process environment
-
-## secrets.yml
-
-secrets.yml defines a format for mapping environment variables to locations of
-secrets.
-
-```yml
-AWS_ACCESS_KEY_ID: !var /aws/iam/user/robot/access_key_id
-AWS_PEM: !file /aws/iam/user/robot/pem_file
-ENVIRONMENT: $environment
-```
-
-Running an implementation of cauldron against this example file will
-
-1. Fetch the secret stored at `aws/iam/user/robot/access_key_id` and set the environment variable `AWS_ACCESS_KEY_ID` to the secret's value.
-2. The value of `AWS_PEM` will be the path to a temporary memory-mapped file that is cleaned up on exit of the process cauldron is wrapping.
-3. `ENVIRONMENT` will be interpolated at runtime by using cauldron's `-D` flag, like so: `cauldron -D '$environment=production'`. This flag can be specified multiple times.
-
-## Providers
-
-Cauldron uses plug-and-play providers. A provider is any executable that satisfies this contract:
-
-* Accepts one argument, which is the provider-specific identifier of a secret.
-* Returns the value of the secret on stdout and exit code 0 if retrieval was successful.
-* Returns an error message on stderr and a non-0 exit code if retrieval was unsuccessful.
-
-Providers can be written in any language. A provider can be as simple as a `sh` script.
-
-When cauldron runs, it looks for a provider in `/usr/libexec/cauldron/`. If there is one executable
-in this directory it will use it as the default provider. If the directory hold multiple executables
-you will be prompted to select the one you want to use. You can set the provider with the `-p, --provider`
-flag to the CLI or via the environment variable `CAULDRON_PROVIDER`. If your provider is in a location
-not on your `PATH` you will need to specify its full path.
-
-For example, if you have multiple providers and want to use the one for [vault](https://vaultproject.io/), this is your command.
-
-```sh-session
-$ cauldron --provider /usr/libexec/cauldron/vault
 ```
 
 ## Usage
@@ -93,28 +57,6 @@ cauldron -f /etc/mysecrets.yml
 
 You can use the same secrets.yml file for different environments, using `-D` to
 substitute variables.
-
-*Example*
-
-secrets.yml
-```yml
-AWS_ACCESS_KEY_ID: $environment/aws/iam/user/robot/access_key_id
-```
-
-```sh-session
-$ cauldron -D '$environment=development' env | grep AWS
-AWS_ACCESS_KEY_ID=mydevelopmentkey
-```
-
-**`-- yaml 'key:value'`** secrets.yml as a literal string
-
-A string in secrets.yml format can also be passed to cauldron.
-
-```sh-session
-$ cauldron --yaml 'MONGODB_PASS: db/dbname/password' chef-apply
-```
-
-This will make `ENV['MONGODB_PASS']` available in your Chef run.
 
 View help and all flags with `cauldron -h`.
 
