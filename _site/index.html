@@ -59,21 +59,27 @@ where a secret is stored. There are no sensitive values in this file itself. It 
 of the secrets from a provider and provide them as environment variables
 for a specified process.</p>
 
-<p>The format is basic YAML with a couple of custom tags. Each line looks like this:</p>
-<div class="highlight"><pre><code class="language-text" data-lang="text">&lt;environment_variable&gt;: !&lt;tag_name&gt; &lt;secret_path&gt;
+<p>The format is basic YAML two custom tags. Each line looks like this:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">&lt;key&gt;: !&lt;tag&gt; &lt;path&gt;
 </code></pre></div>
+<p><code>key</code> is the name of the environment variable you wish to set.</p>
+
+<p><code>tag</code> sets a context for interpretation:</p>
+
 <ul>
-<li><p>The <code>!var</code> tag sets the environment variable&#39;s value of the secret.</p></li>
-<li><p>The <code>!file</code> tag writes the value of the secret to a memory-mapped temporary
-file and sets the value of the environment variable to the file&#39;s path.</p></li>
-<li><p>If there is no tag, <code>&lt;secret_path&gt;</code> is treated as a literal string.</p></li>
+<li><p><code>!var</code> sets the value of <code>key</code> to the the secret&#39;s value, resolved by a provider given <code>path</code>.</p></li>
+<li><p><code>!file</code> writes the value of <code>path</code>, a literal string, to a memory-mapped temporary
+file and sets the value of <code>key</code> to the file&#39;s path.</p></li>
+<li><p><code>!var:file</code> is a combination of the two. It will use a provider to fetch the value of a secret
+located at <code>path</code>, write it to a temp file and set <code>key</code> to the file&#39;s path.</p></li>
+<li><p>If there is no tag, <code>&lt;path&gt;</code> is treated as a literal string and set as the value of <code>key</code>.</p></li>
 </ul>
 
 <p>Here is an example:</p>
 <div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">AWS_ACCESS_KEY_ID</span><span class="p-Indicator">:</span> <span class="kt">!var</span> <span class="l-Scalar-Plain">aws/$environment/iam/user/robot/access_key_id</span>
 <span class="l-Scalar-Plain">AWS_SECRET_ACCESS_KEY</span><span class="p-Indicator">:</span> <span class="kt">!var</span> <span class="l-Scalar-Plain">aws/$environment/iam/user/robot/secret_access_key</span>
 <span class="l-Scalar-Plain">AWS_REGION</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">us-east-1</span>
-<span class="l-Scalar-Plain">SSL_CERT</span><span class="p-Indicator">:</span> <span class="kt">!file</span> <span class="l-Scalar-Plain">ssl/certs/private</span>
+<span class="l-Scalar-Plain">SSL_CERT</span><span class="p-Indicator">:</span> <span class="kt">!var</span><span class="l-Scalar-Plain">:file ssl/certs/private</span>
 </code></pre></div>
 <p><code>$environment</code> is an example of a variable, given as an flag argument when running cauldron.</p>
 

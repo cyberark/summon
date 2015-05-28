@@ -34,18 +34,25 @@ where a secret is stored. There are no sensitive values in this file itself. It 
 of the secrets from a provider and provide them as environment variables
 for a specified process.
 
-The format is basic YAML with a couple of custom tags. Each line looks like this:
+The format is basic YAML two custom tags. Each line looks like this:
 
 ```
-<environment_variable>: !<tag_name> <secret_path>
+<key>: !<tag> <path>
 ```
 
-* The `!var` tag sets the environment variable's value of the secret.
+`key` is the name of the environment variable you wish to set.
 
-* The `!file` tag writes the value of the secret to a memory-mapped temporary
-file and sets the value of the environment variable to the file's path.
+`tag` sets a context for interpretation:
 
-* If there is no tag, `<secret_path>` is treated as a literal string.
+* `!var` sets the value of `key` to the the secret's value, resolved by a provider given `path`.
+
+* `!file` writes the value of `path`, a literal string, to a memory-mapped temporary
+file and sets the value of `key` to the file's path.
+
+* `!var:file` is a combination of the two. It will use a provider to fetch the value of a secret
+located at `path`, write it to a temp file and set `key` to the file's path.
+
+* If there is no tag, `<path>` is treated as a literal string and set as the value of `key`.
 
 Here is an example:
 
@@ -53,7 +60,7 @@ Here is an example:
 AWS_ACCESS_KEY_ID: !var aws/$environment/iam/user/robot/access_key_id
 AWS_SECRET_ACCESS_KEY: !var aws/$environment/iam/user/robot/secret_access_key
 AWS_REGION: us-east-1
-SSL_CERT: !file ssl/certs/private
+SSL_CERT: !var:file ssl/certs/private
 ```
 
 `$environment` is an example of a variable, given as an flag argument when running cauldron.
