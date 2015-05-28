@@ -7,7 +7,6 @@ http://conjurinc.github.io/cauldron/
 * Reading a **secrets.yml** file
 * Fetching secrets from a trusted store
 * Exporting secret values to a sub-process environment
-```
 
 ## Usage
 
@@ -47,16 +46,21 @@ the secrets stored in temp files and in the Python process environment are gone.
 
 `cauldron` supports a number of flags.
 
-**`-f <path>`** specify a location to a secrets.yml file.
+* `-p, --provider` specify the path to the provider cauldron should use
 
-```
-cauldron -f /etc/mysecrets.yml
-```
+    If the provider is in the default path, `/usr/libexec/cauldron/` you can just 
+    provide the name of the executable. If not, use the full path.
 
-**`-D '$var=value'`** causes substitution of `value` to `$var`.
+* `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
 
-You can use the same secrets.yml file for different environments, using `-D` to
-substitute variables.
+* `-D '$var=value'` causes substitution of `value` to `$var`.
+
+    You can use the same secrets.yml file for different environments, using `-D` to
+    substitute variables. This flag can be used multiple times.
+
+* `-i, --ignore` A secret path for which to ignore provider errors
+
+    This flag can be useful for when you have secrets that you don't need access to for development. For example API keys for monitoring tools. This flag can be used multiple times.
 
 View help and all flags with `cauldron -h`.
 
