@@ -50,18 +50,18 @@ func (s *SecretSpec) IsLiteral() bool {
 type SecretsMap map[string]SecretSpec
 
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
-	r, _ := regexp.Compile("!{1,2}(var|file|str)")
+	r, _ := regexp.Compile("(var|file|str)")
 	tags := r.FindAllString(tag, -1)
 	if len(tags) == 0 {
 		return false
 	}
 	for _, t := range tags {
 		switch t {
-		case "!!str":
+		case "str":
 			spec.Tags = append(spec.Tags, Literal)
-		case "!file":
+		case "file":
 			spec.Tags = append(spec.Tags, File)
-		case "!var":
+		case "var":
 			spec.Tags = append(spec.Tags, Var)
 		default:
 			return false

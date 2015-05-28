@@ -9,8 +9,8 @@ func TestParseFromString(t *testing.T) {
 	Convey("Given a string in secrets.yml format", t, func() {
 		input := `
     SENTRY_API_KEY: !var $env/sentry/api_key
-    PRIVATE_KEY_FILE: !file+!var $env/aws/ec2/private_key
-    PRIVATE_KEY_FILE2: !var+!file $env/aws/ec2/private_key
+    PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
+    PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
     SOME_FILE: !file my content
     RAILS_ENV: $env
     IGNORED: !float 27.1111
