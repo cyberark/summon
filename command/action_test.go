@@ -89,10 +89,14 @@ func TestRunSubcommand(t *testing.T) {
 func TestFormatForEnvString(t *testing.T) {
 	Convey("formatForEnv should return a KEY=VALUE string that can be appended to an environment", t, func() {
 		Convey("For variables, VALUE should be the value of the secret", func() {
+			spec := secretsyml.SecretSpec{
+				Path: "mysql1/password",
+				Tags: []secretsyml.YamlTag{secretsyml.Var},
+			}
 			envvar := formatForEnv(
 				"DBPASS",
 				"mysecretvalue",
-				secretsyml.SecretSpec{Path: "mysql1/password", Kind: secretsyml.SecretVar},
+				spec,
 				nil,
 			)
 
@@ -102,10 +106,14 @@ func TestFormatForEnvString(t *testing.T) {
 			temp_factory := NewTempFactory("")
 			defer temp_factory.Cleanup()
 
+			spec := secretsyml.SecretSpec{
+				Path: "certs/webtier1/private-cert",
+				Tags: []secretsyml.YamlTag{secretsyml.File},
+			}
 			envvar := formatForEnv(
 				"SSL_CERT",
 				"mysecretvalue",
-				secretsyml.SecretSpec{Path: "certs/webtier1/private-cert", Kind: secretsyml.SecretFile},
+				spec,
 				&temp_factory,
 			)
 

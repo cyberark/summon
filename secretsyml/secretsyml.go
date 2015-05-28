@@ -5,24 +5,25 @@ package secretsyml
 import (
 	"gopkg.in/yaml.v1"
 	"io/ioutil"
+	"regexp"
 	"strings"
 )
 
-type secretKind uint8
+type YamlTag uint8
 
 const (
-	SecretFile    secretKind = iota
-	SecretVar     secretKind = iota
-	SecretLiteral secretKind = iota
+	File YamlTag = iota
+	Var
+	Literal
 )
 
-func (k secretKind) String() string {
-	switch k {
-	case SecretFile:
+func (t YamlTag) String() string {
+	switch t {
+	case File:
 		return "File"
-	case SecretVar:
+	case Var:
 		return "Var"
-	case SecretLiteral:
+	case Literal:
 		return "Literal"
 	default:
 		panic("unreachable!")
@@ -30,37 +31,42 @@ func (k secretKind) String() string {
 }
 
 type SecretSpec struct {
-	Kind secretKind
+	Tags []YamlTag
 	Path string
 }
 
 func (s *SecretSpec) IsFile() bool {
-	return s.Kind == SecretFile
+	return tagInSlice(File, s.Tags)
 }
 
 func (s *SecretSpec) IsVar() bool {
-	return s.Kind == SecretVar
+	return tagInSlice(Var, s.Tags)
 }
 
 func (s *SecretSpec) IsLiteral() bool {
-	return s.Kind == SecretLiteral
+	return tagInSlice(Literal, s.Tags)
 }
 
 type SecretsMap map[string]SecretSpec
 
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
-	var kind secretKind
-	switch tag {
-	case "!!str":
-		kind = SecretLiteral
-	case "!file":
-		kind = SecretFile
-	case "!var":
-		kind = SecretVar
-	default:
+	r, _ := regexp.Compile("!{1,2}(var|file|str)")
+	tags := r.FindAllString(tag, -1)
+	if len(tags) == 0 {
 		return false
 	}
-	spec.Kind = kind
+	for _, t := range tags {
+		switch t {
+		case "!!str":
+			spec.Tags = append(spec.Tags, Literal)
+		case "!file":
+			spec.Tags = append(spec.Tags, File)
+		case "!var":
+			spec.Tags = append(spec.Tags, Var)
+		default:
+			return false
+		}
+	}
 	if s, ok := value.(string); ok {
 		spec.Path = s
 	} else {
@@ -100,4 +106,14 @@ func applySubstitutions(ymlContent *string, subs map[string]string) {
 	for key, val := range subs {
 		*ymlContent = strings.Replace(*ymlContent, key, val, -1)
 	}
+}
+
+// tagInSlice determines whether a YamlTag is in a list of YamlTag
+func tagInSlice(a YamlTag, list []YamlTag) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }

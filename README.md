@@ -1,6 +1,6 @@
 # cauldron
 
-http://conjurinc.github.io/cauldron/
+[conjurinc.github.io/cauldron](https://conjurinc.github.io/cauldron/)
 
 `cauldron` provides an interface for
 

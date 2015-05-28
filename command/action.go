@@ -75,16 +75,18 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 		wg.Add(1)
 		go func(key string, spec secretsyml.SecretSpec) {
 			var value string
-			if spec.IsLiteral() {
-				value = spec.Path
-			} else {
+			if spec.IsVar() {
 				value, err = prov.Call(provider, spec.Path)
 				if err != nil {
 					results <- Result{key, err}
 					wg.Done()
 					return
 				}
+			} else {
+				// If the spec isn't a variable, use its value as-is
+				value = spec.Path
 			}
+
 			envvar := formatForEnv(key, value, spec, &tempFactory)
 			results <- Result{envvar, nil}
 			wg.Done()
