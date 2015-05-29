@@ -22,7 +22,11 @@ Cauldron resolves the entries in `secrets.yml` with the `conjur` provider and
 makes the secret values available to the environment of the command `chef-client --once`.
 In our chef recipes we can access the secrets with Ruby's `ENV['...']` syntax.
 
-This same pattern works for any tooling that can access environment variables.
+This same pattern works for any tooling that can access environment variables. As a second example, Docker:
+
+```bash
+cauldron --provider conjur -f secrets.yml docker run -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY myapp
+```
 
 Full usage docs for cauldron are in the
 [Github README for the project](https://github.com/conjurinc/cauldron).
@@ -34,25 +38,27 @@ where a secret is stored. There are no sensitive values in this file itself. It 
 of the secrets from a provider and provide them as environment variables
 for a specified process.
 
-The format is basic YAML two custom tags. Each line looks like this:
+The format is basic YAML with an optional tag. Each line looks like this:
 
 ```
-<key>: !<tag> <path>
+<key>: !<tag> <secret>
 ```
 
 `key` is the name of the environment variable you wish to set.
 
 `tag` sets a context for interpretation:
 
-* `!var` sets the value of `key` to the the secret's value, resolved by a provider given `path`.
+* `!var` the value of `key` is set to the the secret's value, resolved by a provider given `secret`.
 
-* `!file` writes the value of `path`, a literal string, to a memory-mapped temporary
+* `!file` writes the literal value of `secret` to a memory-mapped temporary
 file and sets the value of `key` to the file's path.
 
 * `!var:file` is a combination of the two. It will use a provider to fetch the value of a secret
-located at `path`, write it to a temp file and set `key` to the file's path.
+identified by `secret`, write it to a temp file and set `key` to the temp file path.
 
-* If there is no tag, `<path>` is treated as a literal string and set as the value of `key`.
+* If there is no tag, `<secret>` is treated as a literal string and set as the value of `key`.
+In this scenario, the value in the `<secret>` should not actually be a secret, but rather a piece of 
+metadata which is associated with secrets.
 
 Here is an example:
 
@@ -63,20 +69,20 @@ AWS_REGION: us-east-1
 SSL_CERT: !var:file ssl/certs/private
 ```
 
-`$environment` is an example of a variable, given as an flag argument when running cauldron.
+`$environment` is an example of a substitution variable, given as an flag argument when running cauldron.
 
 # providers
 
 <i id="providerList"></i>
 
-* [conjurcli](https://github.com/conjurinc/cauldron-conjurcli) - Conjur CLI (for backwards compatibility)
 * [osxkeychain](https://github.com/conjurinc/cauldron-keychain-cli) - OSX Keychain
+* [conjurcli](https://github.com/conjurinc/cauldron-conjurcli) - Conjur CLI (for compatibility with systems that already have the Conjur CLI tools installed)
 
-Providers are easy to write. Given the path to a secret, they either return its value or an error.
+Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
 
 This is their contract:
 
-* They take one argument, the path to where a secret is stored (a string).
+* They take one argument, the identifier of a secret (a string).
 * If retrieval is successful, they return the value on stdout with exit code 0.
 * If an error occurs, they return an error message on stderr and a non-0 exit code.
 
