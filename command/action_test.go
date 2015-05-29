@@ -94,13 +94,13 @@ func TestFormatForEnvString(t *testing.T) {
 				Tags: []secretsyml.YamlTag{secretsyml.Var},
 			}
 			envvar := formatForEnv(
-				"DBPASS",
+				"dbpass",
 				"mysecretvalue",
 				spec,
 				nil,
 			)
 
-			So(envvar, ShouldEqual, "DBPASS=mysecretvalue")
+			So(envvar, ShouldEqual, "dbpass=mysecretvalue")
 		})
 		Convey("For files, VALUE should be the path to a tempfile containing the secret", func() {
 			temp_factory := NewTempFactory("")

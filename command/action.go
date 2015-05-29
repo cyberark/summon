@@ -137,7 +137,7 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 		value = fname
 	}
 
-	return fmt.Sprintf("%s=%s", strings.ToUpper(key), value)
+	return fmt.Sprintf("%s=%s", key, value)
 }
 
 // convertSubsToMap converts the list of substitutions passed in via
