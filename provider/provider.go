@@ -41,6 +41,8 @@ func Resolve(providerArg string) (string, error) {
 }
 
 // Call shells out to a provider and return its output
+// If call succeeds, stdout is returned with no error
+// If call fails, "" is return with error containing stderr
 func Call(provider, specPath string) (string, error) {
 	var (
 		stdOut bytes.Buffer
@@ -52,7 +54,7 @@ func Call(provider, specPath string) (string, error) {
 	err := cmd.Run()
 
 	if err != nil {
-		return stdErr.String(), err
+		return "", fmt.Errorf(stdErr.String())
 	}
 
 	return strings.TrimSpace(stdOut.String()), nil

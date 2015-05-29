@@ -73,8 +73,8 @@ func TestCall(t *testing.T) {
 		Convey("If it returns exit code > 0, return stderr", func() {
 			out, err := Call("ls", "README.notafile")
 
-			So(out, ShouldContainSubstring, "No such file or directory")
-			So(err, ShouldNotBeNil)
+			So(out, ShouldBeBlank)
+			So(err.Error(), ShouldContainSubstring, "No such file or directory")
 		})
 	})
 }
