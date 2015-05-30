@@ -5,7 +5,7 @@ and injects secrets as environment variables into any process. Once the
 process exits, the secrets are gone.
 
 <div style="text-align: center">
-<img src="//i.imgur.com/WkYo2wY.png"/>
+  <img src="//i.imgur.com/oi7IBVa.png" width="80%" />
 </div>
 
 cauldron is not tied a particular secrets source. Instead, sources are implemented as providers

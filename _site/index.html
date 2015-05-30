@@ -5,7 +5,7 @@
   <title>Cauldron by conjurinc</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
-  <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+  <link href='//fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
   <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
   <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
 </head>
@@ -18,7 +18,7 @@
     <a href="#providerList" class="btn">Providers</a>
     <div id="byConjur">
       <span class="project-tagline">brewed by</span>
-      <a href="http://www.conjur.net?utm_campaign=cauldron&utm_source=GitHub">
+      <a href="https://www.conjur.net?utm_campaign=cauldron&utm_source=GitHub">
         <img src="https://developer.conjur.net/assets/conjur-logo_white-dd0793ef769fa0dbec2bb49a963f001d64f7e73d1939f521cfc17ef6a644e402.svg"/>
       </a>
     </div>
@@ -33,7 +33,7 @@ and injects secrets as environment variables into any process. Once the
 process exits, the secrets are gone.</p>
 
 <div style="text-align: center">
-<img src="//i.imgur.com/WkYo2wY.png"/>
+  <img src="//i.imgur.com/oi7IBVa.png" width="80%" />
 </div>
 
 <p>cauldron is not tied a particular secrets source. Instead, sources are implemented as providers
@@ -47,8 +47,9 @@ and can be written in any language.</p>
 makes the secret values available to the environment of the command <code>chef-client --once</code>.
 In our chef recipes we can access the secrets with Ruby&#39;s <code>ENV[&#39;...&#39;]</code> syntax.</p>
 
-<p>This same pattern works for any tooling that can access environment variables.</p>
-
+<p>This same pattern works for any tooling that can access environment variables. As a second example, Docker:</p>
+<div class="highlight"><pre><code class="language-bash" data-lang="bash">cauldron --provider conjur -f secrets.yml docker run -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY myapp
+</code></pre></div>
 <p>Full usage docs for cauldron are in the
 <a href="https://github.com/conjurinc/cauldron">Github README for the project</a>.</p>
 
@@ -59,20 +60,22 @@ where a secret is stored. There are no sensitive values in this file itself. It 
 of the secrets from a provider and provide them as environment variables
 for a specified process.</p>
 
-<p>The format is basic YAML two custom tags. Each line looks like this:</p>
-<div class="highlight"><pre><code class="language-text" data-lang="text">&lt;key&gt;: !&lt;tag&gt; &lt;path&gt;
+<p>The format is basic YAML with an optional tag. Each line looks like this:</p>
+<div class="highlight"><pre><code class="language-text" data-lang="text">&lt;key&gt;: !&lt;tag&gt; &lt;secret&gt;
 </code></pre></div>
 <p><code>key</code> is the name of the environment variable you wish to set.</p>
 
 <p><code>tag</code> sets a context for interpretation:</p>
 
 <ul>
-<li><p><code>!var</code> sets the value of <code>key</code> to the the secret&#39;s value, resolved by a provider given <code>path</code>.</p></li>
-<li><p><code>!file</code> writes the value of <code>path</code>, a literal string, to a memory-mapped temporary
+<li><p><code>!var</code> the value of <code>key</code> is set to the the secret&#39;s value, resolved by a provider given <code>secret</code>.</p></li>
+<li><p><code>!file</code> writes the literal value of <code>secret</code> to a memory-mapped temporary
 file and sets the value of <code>key</code> to the file&#39;s path.</p></li>
 <li><p><code>!var:file</code> is a combination of the two. It will use a provider to fetch the value of a secret
-located at <code>path</code>, write it to a temp file and set <code>key</code> to the file&#39;s path.</p></li>
-<li><p>If there is no tag, <code>&lt;path&gt;</code> is treated as a literal string and set as the value of <code>key</code>.</p></li>
+identified by <code>secret</code>, write it to a temp file and set <code>key</code> to the temp file path.</p></li>
+<li><p>If there is no tag, <code>&lt;secret&gt;</code> is treated as a literal string and set as the value of <code>key</code>.
+In this scenario, the value in the <code>&lt;secret&gt;</code> should not actually be a secret, but rather a piece of 
+metadata which is associated with secrets.</p></li>
 </ul>
 
 <p>Here is an example:</p>
@@ -81,23 +84,23 @@ located at <code>path</code>, write it to a temp file and set <code>key</code> t
 <span class="l-Scalar-Plain">AWS_REGION</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">us-east-1</span>
 <span class="l-Scalar-Plain">SSL_CERT</span><span class="p-Indicator">:</span> <span class="kt">!var</span><span class="l-Scalar-Plain">:file ssl/certs/private</span>
 </code></pre></div>
-<p><code>$environment</code> is an example of a variable, given as an flag argument when running cauldron.</p>
+<p><code>$environment</code> is an example of a substitution variable, given as an flag argument when running cauldron.</p>
 
 <h1>providers</h1>
 
 <p><i id="providerList"></i></p>
 
 <ul>
-<li><a href="https://github.com/conjurinc/cauldron-conjurcli">conjurcli</a> - Conjur CLI (for backwards compatibility)</li>
 <li><a href="https://github.com/conjurinc/cauldron-keychain-cli">osxkeychain</a> - OSX Keychain</li>
+<li><a href="https://github.com/conjurinc/cauldron-conjurcli">conjurcli</a> - Conjur CLI (for compatibility with systems that already have the Conjur CLI tools installed)</li>
 </ul>
 
-<p>Providers are easy to write. Given the path to a secret, they either return its value or an error.</p>
+<p>Providers are easy to write. Given the identifier of a secret, they either return its value or an error.</p>
 
 <p>This is their contract:</p>
 
 <ul>
-<li>They take one argument, the path to where a secret is stored (a string).</li>
+<li>They take one argument, the identifier of a secret (a string).</li>
 <li>If retrieval is successful, they return the value on stdout with exit code 0.</li>
 <li>If an error occurs, they return an error message on stderr and a non-0 exit code.</li>
 </ul>
@@ -119,5 +122,15 @@ placed outside the default path, give cauldron the full path to them.</p>
       <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
     </footer>
   </section>
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+      (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+      m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-43363244-3', 'auto');
+    ga('send', 'pageview');
+
+  </script>
 </body>
 </html>
