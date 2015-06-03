@@ -7,12 +7,6 @@ if [ -z $VERSION ]; then
     exit 1
 fi
 
-# Make sure we have a bintray API key
-if [ -z $BINTRAY_API_KEY ]; then
-    echo "Please set your bintray API key in the BINTRAY_API_KEY env var."
-    exit 1
-fi
-
 app="cauldron"
 
 # Zip and copy to the dist dir
@@ -38,14 +32,3 @@ echo "==> Checksumming..."
 pushd ./pkg/dist >/dev/null 2>&1
 shasum -a256 * > ./${app}_${VERSION}_SHA256SUMS
 popd >/dev/null 2>&1
-
-echo "==> Uploading..."
-for ARCHIVE in ./pkg/dist/*; do
-    ARCHIVE_NAME=$(basename ${ARCHIVE})
-
-    echo Uploading: $ARCHIVE_NAME
-    curl \
-        -T ${ARCHIVE} \
-        -u conjur:${BINTRAY_API_KEY} \
-        "https://api.bintray.com/content/conjur/cauldron/cauldron/${VERSION}/${ARCHIVE_NAME}"
-done
