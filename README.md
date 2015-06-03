@@ -8,6 +8,8 @@
 * Fetching secrets from a trusted store
 * Exporting secret values to a sub-process environment
 
+Note that cauldron is still in **early stages**, we are looking for feedback and contributions.
+
 ## Usage
 
 By default, cauldron will look for `secrets.yml` in the directory it is
