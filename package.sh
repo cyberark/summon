@@ -3,8 +3,7 @@ set -e
 
 # Get the version from the command line
 if [ -z $VERSION ]; then
-    echo "Please set a version in the VERSION env var."
-    exit 1
+    VERSION=$(git describe --abbrev=0 --tags)
 fi
 
 app="cauldron"
