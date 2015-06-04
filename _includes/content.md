@@ -75,8 +75,8 @@ SSL_CERT: !var:file ssl/certs/private
 
 <i id="providerList"></i>
 
-* [osxkeychain](https://github.com/conjurinc/cauldron-keychain-cli) - OSX Keychain
-* [conjurcli](https://github.com/conjurinc/cauldron-conjurcli) - Conjur CLI (for compatibility with systems that already have the Conjur CLI tools installed)
+* [osxkeychain](https://github.com/conjurinc/cauldron-keychain-cli)
+* [conjur](https://github.com/conjurinc/cauldron-conjur)
 
 Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
 
