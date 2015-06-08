@@ -48,7 +48,7 @@ the secrets stored in temp files and in the Python process environment are gone.
 
 `summon` supports a number of flags.
 
-* `-p, --provider` specify the path to the provider summon should use
+* `-p, --provider` specify the path to the [provider](provider/README.md) summon should use
 
     If the provider is in the default path, `/usr/libexec/summon/` you can just 
     provide the name of the executable. If not, use the full path.

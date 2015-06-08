@@ -2,7 +2,7 @@
 
 Functions to resolve and call a Summon provider.
 
-`func ResolveProvider(providerArg string) (string, error)`
+`func Resolve(providerArg string) (string, error)`
 
 Searches for a provider in this order:
 
@@ -10,7 +10,7 @@ Searches for a provider in this order:
 2. Environment variable `SUMMON_PROVIDER`
 3. Executable in `/usr/libexec/summon/`.
 
-`func CallProvider(provider, specPath string) (string, error)`
+`func Call(provider, specPath string) (string, error)`
 
 Given a provider and secret's namespace, runs the provider to resolve
 the secret's value.
