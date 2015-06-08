@@ -2,7 +2,7 @@ test.rb
 test.out
 junit.xml
 *.sublime-*
-cauldron
+summon
 keychain
 secrets.yml
 pkg

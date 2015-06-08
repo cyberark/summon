@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var DefaultPath = "/usr/libexec/cauldron"
+var DefaultPath = "/usr/libexec/summon"
 
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
@@ -20,7 +20,7 @@ func Resolve(providerArg string) (string, error) {
 		provider = providerArg
 	}
 
-	envArg := os.Getenv("CAULDRON_PROVIDER")
+	envArg := os.Getenv("SUMMON_PROVIDER")
 	if envArg != "" {
 		provider = envArg
 	}

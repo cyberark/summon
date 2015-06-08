@@ -10,7 +10,7 @@ import (
 func TestResolve(t *testing.T) {
 	Convey("Passing no provider should return an error", t, func() {
 		// Point to a tempdir to avoid pollution from dev env
-		tempDir, _ := ioutil.TempDir("", "cauldrontest")
+		tempDir, _ := ioutil.TempDir("", "summontest")
 		defer os.RemoveAll(tempDir)
 		DefaultPath = tempDir
 
@@ -29,16 +29,16 @@ func TestResolve(t *testing.T) {
 
 	Convey("Setting the provider via environment variable works", t, func() {
 		expected := "/opt/providers/custom"
-		os.Setenv("CAULDRON_PROVIDER", expected)
+		os.Setenv("SUMMON_PROVIDER", expected)
 		provider, err := Resolve("")
-		os.Unsetenv("CAULDRON_PROVIDER")
+		os.Unsetenv("SUMMON_PROVIDER")
 
 		So(provider, ShouldEqual, expected)
 		So(err, ShouldBeNil)
 	})
 
 	Convey("Given a provider path", t, func() {
-		tempDir, _ := ioutil.TempDir("", "cauldrontest")
+		tempDir, _ := ioutil.TempDir("", "summontest")
 		defer os.RemoveAll(tempDir)
 		DefaultPath = tempDir
 

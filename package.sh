@@ -6,7 +6,7 @@ if [ -z $VERSION ]; then
     VERSION=$(git describe --abbrev=0 --tags)
 fi
 
-app="cauldron"
+app="summon"
 
 # Zip and copy to the dist dir
 echo "==> Packaging..."
