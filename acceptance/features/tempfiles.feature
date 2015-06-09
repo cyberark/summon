@@ -10,7 +10,7 @@ Feature: temporary files
 			  XX4C2NesiZcLYbc2n7B9O+63M2k=
 			  -----END CERTIFICATE-----
 			"""
-		When I successfully run `cauldron -p ./provider sh -c 'cat $GITHUB_CERTIFICATE'`
+		When I successfully run `summon -p ./provider sh -c 'cat $GITHUB_CERTIFICATE'`
 		Then the output should contain:
 			"""
 			-----BEGIN CERTIFICATE-----
@@ -35,7 +35,7 @@ Feature: temporary files
 			LezhFX0=
 			-----END RSA PRIVATE KEY-----
 			"""
-		When I successfully run `cauldron -p ./provider sh -c 'cat $PRIVATE_KEY'`
+		When I successfully run `summon -p ./provider sh -c 'cat $PRIVATE_KEY'`
 		Then the output should contain:
 			"""
 			-----BEGIN RSA PRIVATE KEY-----

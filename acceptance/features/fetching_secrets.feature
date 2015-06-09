@@ -1,7 +1,7 @@
 Feature: fetching secrets
 
 	In order to protect secrets
-	As a developer using Cauldron
+	As a developer using summon
 	I want to be able to fetch the externally
 	stored secrets into the environment
 
@@ -12,5 +12,5 @@ Feature: fetching secrets
 			"""
 
 		And a secret "very/secret/db-password" with "notSoSecret"
-		When I successfully run `cauldron -p ./provider env`
+		When I successfully run `summon -p ./provider env`
 		Then the output should contain "DB_PASSWORD=notSoSecret"

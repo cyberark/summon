@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/codegangsta/cli"
-	"github.com/conjurinc/cauldron/command"
+	"github.com/conjurinc/summon/command"
 	"io"
 	"os"
 )
@@ -13,11 +13,11 @@ var (
 )
 
 /*
-Start defines and runs cauldron's command line interface
+Start defines and runs summon's command line interface
 */
 func RunCLI() error {
 	app := cli.NewApp()
-	app.Name = "cauldron"
+	app.Name = "summon"
 	app.Usage = "Parse secrets.yml and export environment variables"
 	app.Version = "0.1.0"
 	app.Writer = CLIWriter

@@ -9,7 +9,7 @@ Feature: substitution
 		And a secret "env/production/db-password" with "notSoSecret"
 		And other secrets don't exist
 
-		When I successfully run `cauldron -D ENVIRONMENT=production -p ./provider env`
+		When I successfully run `summon -D ENVIRONMENT=production -p ./provider env`
 		Then the output should contain "DB_PASSWORD=notSoSecret"
 
 	Scenario: Storing a deployement parameter in a variable

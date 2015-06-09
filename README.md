@@ -1,18 +1,18 @@
-# cauldron
+# summon
 
-[conjurinc.github.io/cauldron](https://conjurinc.github.io/cauldron/)
+[conjurinc.github.io/summon](https://conjurinc.github.io/summon)
 
-`cauldron` provides an interface for
+`summon` provides an interface for
 
 * Reading a **secrets.yml** file
 * Fetching secrets from a trusted store
 * Exporting secret values to a sub-process environment
 
-Note that cauldron is still in **early stages**, we are looking for feedback and contributions.
+Note that summon is still in **early stages**, we are looking for feedback and contributions.
 
 ## Usage
 
-By default, cauldron will look for `secrets.yml` in the directory it is
+By default, summon will look for `secrets.yml` in the directory it is
 called from and export the secret values to the environment of the command it wraps.
 
 *Example*
@@ -35,22 +35,22 @@ botoEC2 = boto.connect_ec2()
 print(botoEC2.get_all_instances())
 ```
 
-Wrap the Python script in cauldron:
+Wrap the Python script in summon:
 
 ```
-cauldron python listEC2.py
+summon python listEC2.py
 ```
 
-`python listEC2.py` is the command that cauldron wraps. Once the Python program exits,
+`python listEC2.py` is the command that summon wraps. Once the Python program exits,
 the secrets stored in temp files and in the Python process environment are gone.
 
 ### Flags
 
-`cauldron` supports a number of flags.
+`summon` supports a number of flags.
 
-* `-p, --provider` specify the path to the provider cauldron should use
+* `-p, --provider` specify the path to the [provider](provider/README.md) summon should use
 
-    If the provider is in the default path, `/usr/libexec/cauldron/` you can just 
+    If the provider is in the default path, `/usr/libexec/summon/` you can just 
     provide the name of the executable. If not, use the full path.
 
 * `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
@@ -64,7 +64,7 @@ the secrets stored in temp files and in the Python process environment are gone.
 
     This flag can be useful for when you have secrets that you don't need access to for development. For example API keys for monitoring tools. This flag can be used multiple times.
 
-View help and all flags with `cauldron -h`.
+View help and all flags with `summon -h`.
 
 ## Development
 
