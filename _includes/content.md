@@ -75,8 +75,9 @@ SSL_CERT: !var:file ssl/certs/private
 
 <i id="providerList"></i>
 
-* [osxkeychain](https://github.com/conjurinc/summon-keychain-cli)
+* [AWS S3](https://github.com/conjurinc/summon-s3)
 * [conjur](https://github.com/conjurinc/summon-conjur)
+* [osxkeychain](https://github.com/conjurinc/summon-keychain-cli)
 
 Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
 
