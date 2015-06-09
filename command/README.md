@@ -1,3 +1,3 @@
-# github.com/conjurinc/cauldron/command
+# github.com/conjurinc/summon/command
 
-Provides the flags and action for the Cauldron command-line interface.
+Provides the flags and action for the Summon command-line interface.

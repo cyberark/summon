@@ -1,7 +1,7 @@
 package command
 
 import (
-	"github.com/conjurinc/cauldron/secretsyml"
+	"github.com/conjurinc/summon/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"

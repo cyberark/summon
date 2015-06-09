@@ -3,8 +3,8 @@ package command
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
-	prov "github.com/conjurinc/cauldron/provider"
-	"github.com/conjurinc/cauldron/secretsyml"
+	prov "github.com/conjurinc/summon/provider"
+	"github.com/conjurinc/summon/secretsyml"
 	"os"
 	"strings"
 	"sync"

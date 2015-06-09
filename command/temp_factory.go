@@ -31,7 +31,7 @@ func DefaultTempPath() string {
 
 // Create a temp file with given value. Returns the path.
 func (tf *TempFactory) Push(value string) string {
-	f, _ := ioutil.TempFile(tf.path, "cauldron")
+	f, _ := ioutil.TempFile(tf.path, "summon")
 	defer f.Close()
 
 	f.Write([]byte(value))
