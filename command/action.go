@@ -1,14 +1,11 @@
 package command
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/codegangsta/cli"
 	prov "github.com/conjurinc/summon/provider"
 	"github.com/conjurinc/summon/secretsyml"
-	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 )
@@ -110,23 +107,6 @@ EnvLoop:
 	}
 
 	return runSubcommand(args, env)
-}
-
-// runSubcommand executes a command with arguments in the context
-// of an environment populated with secret values.
-// On command exit, any tempfiles containing secrets are removed.
-func runSubcommand(args []string, env []string) (string, error) {
-	var (
-		stdOut bytes.Buffer
-		stdErr bytes.Buffer
-	)
-	runner := exec.Command(args[0], args[1:]...)
-	runner.Stderr = io.MultiWriter(os.Stderr, &stdErr)
-	runner.Stdout = io.MultiWriter(os.Stdout, &stdOut)
-	runner.Env = env
-
-	err := runner.Run()
-	return stdOut.String(), err
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and

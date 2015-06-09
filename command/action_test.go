@@ -73,8 +73,6 @@ func TestConvertSubsToMap(t *testing.T) {
 }
 
 func TestRunSubcommand(t *testing.T) {
-	// var buf bytes.Buffer
-	// subStdout = bufio.NewWriter(&buf)
 	Convey("The subcommand should have access to secrets injected into its environment", t, func() {
 		args := []string{"printenv", "MYVAR"}
 		env := []string{"MYVAR=myvalue"}
