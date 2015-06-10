@@ -19,7 +19,7 @@ func RunCLI() error {
 	app := cli.NewApp()
 	app.Name = "summon"
 	app.Usage = "Parse secrets.yml and export environment variables"
-	app.Version = "0.1.0"
+	app.Version = "0.1.2"
 	app.Writer = CLIWriter
 	app.Flags = command.Flags
 	app.Action = command.Action
