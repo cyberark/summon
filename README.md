@@ -68,11 +68,8 @@ View help and all flags with `summon -h`.
 
 ## Development
 
-Install dependencies
-
-```
-xargs -L1 go get <Godeps
-```
+Dependencies are vendored with [godep](https://github.com/tools/godep).
+To make them available, add `$PWD/Godeps/_workspace` to your `$GOPATH`.
 
 Run the project with `go run *.go`.
 
