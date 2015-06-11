@@ -125,7 +125,7 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 func convertSubsToMap(subs []string) map[string]string {
 	out := make(map[string]string)
 	for _, sub := range subs {
-		s := strings.Split(sub, "=")
+		s := strings.SplitN(sub, "=", 2)
 		key, val := s[0], s[1]
 		out[key] = val
 	}
