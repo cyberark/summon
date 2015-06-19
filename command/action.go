@@ -10,6 +10,8 @@ import (
 	"sync"
 )
 
+const ENV_FILE_MAGIC = "@SUMMONENVFILE"
+
 var Action = func(c *cli.Context) {
 	if !c.Args().Present() {
 		fmt.Println("Enter a subprocess to run!")
@@ -106,6 +108,8 @@ EnvLoop:
 		}
 	}
 
+	setupEnvFile(args, env, &tempFactory)
+
 	return runSubcommand(args, env)
 }
 
@@ -118,6 +122,31 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 	}
 
 	return fmt.Sprintf("%s=%s", key, value)
+}
+
+func joinEnv(env []string) string {
+	return strings.Join(env, "\n")
+}
+
+// scans arguments for the magic string; if found,
+// creates a tempfile to which all the environment mappings are dumped
+// and replaces the magic string with its path.
+// Returns the path if so, returns an empty string otherwise.
+func setupEnvFile(args []string, env []string, tempFactory *TempFactory) string {
+	var envFile = ""
+	fmt.Println(args)
+
+	for i, arg := range args {
+		idx := strings.Index(arg, ENV_FILE_MAGIC)
+		if idx >= 0 {
+			if envFile == "" {
+				envFile = tempFactory.Push(joinEnv(env))
+			}
+			args[i] = strings.Replace(arg, ENV_FILE_MAGIC, envFile, -1)
+		}
+	}
+
+	return envFile
 }
 
 // convertSubsToMap converts the list of substitutions passed in via
