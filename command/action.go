@@ -134,7 +134,6 @@ func joinEnv(env []string) string {
 // Returns the path if so, returns an empty string otherwise.
 func setupEnvFile(args []string, env []string, tempFactory *TempFactory) string {
 	var envFile = ""
-	fmt.Println(args)
 
 	for i, arg := range args {
 		idx := strings.Index(arg, ENV_FILE_MAGIC)
