@@ -89,7 +89,7 @@ This is their contract:
 
 The default path for providers is `/usr/libexec/summon/`. If one provider is in that path,
 summon will use it. If multiple providers are in the path, you can specify which one to use
-with the `--provider` flag or the environment variable `summon_PROVIDER`. If your providers are
+with the `--provider` flag or the environment variable `SUMMON_PROVIDER`. If your providers are
 placed outside the default path, give summon the full path to them.
 
 [Open a Github issue](https://github.com/conjurinc/summon/issues) if you'd like to include your provider on this page.
