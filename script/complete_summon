@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 # Completion for summon
+#
+# Copyright (c) 2015 Conjur Inc
+# See LICENSE
 
 _summon()
 {
