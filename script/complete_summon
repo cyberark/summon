@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+# Completion for summon
+
+_summon()
+{
+    local cur prev opts;
+    _init_completion || return;
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts_long=( provider yaml ignore help version )
+    opts="-p -f -D -i -h -v ${opts_long[@]/#/--}"
+
+    local cmd_start;
+    for ((cmd_start=1; cmd_start <= COMP_CWORD; cmd_start++ ))
+    do
+        if [[ "${COMP_WORDS[cmd_start]}" != -* ]]; then
+            local root_command=${COMP_WORDS[cmd_start]};
+            _command_offset $cmd_start;
+            return;
+        fi;
+        [[ ${COMP_WORDS[cmd_start]} == -* ]] && ((cmd_start++));
+    done;
+    
+    case "$prev" in
+        -p | --provider)
+            COMPREPLY=( $( compgen -c ${cur}) )
+            return
+            ;;
+        -f)
+            COMPREPLY=( $( compgen -f ${cur}) )
+            return
+            ;;
+        *)
+            ;;
+    esac
+
+    case "${cur}" in
+        -*)
+            COMPREPLY=( $( compgen -W "${opts}" -- ${cur}) )
+            return
+            ;;
+        *)
+            return
+            ;;
+    esac
+}
+complete -F _summon summon
