@@ -57,7 +57,7 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 		return "", err
 	}
 
-	env := os.Environ()
+	var env []string
 	tempFactory := NewTempFactory("")
 	defer tempFactory.Cleanup()
 
@@ -110,7 +110,7 @@ EnvLoop:
 
 	setupEnvFile(args, env, &tempFactory)
 
-	return runSubcommand(args, env)
+	return runSubcommand(args, append(os.Environ(), env...))
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
