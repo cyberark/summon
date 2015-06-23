@@ -1,5 +1,9 @@
 # unreleased
 
+# v0.1.3
+* -D variable interpolation now plays nicely with the shell
+* `@SUMMONENVFILE` for better Docker integration
+
 # v0.1.2
 * Fix --help and --version flags
 * Vendor dependencies with Godep
