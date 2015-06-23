@@ -24,7 +24,14 @@ _summon()
     
     case "$prev" in
         -p | --provider)
-            COMPREPLY=( $( compgen -c ${cur}) )
+            local provider_dir=/usr/libexec/summon
+            if ! [ -e $provider_dir ]; then return; fi;
+            local providers=$( find $provider_dir \
+                                    -maxdepth 1 \
+                                    -type f \
+                                    -executable \
+                                    -printf "%f " );
+            COMPREPLY=( $( compgen -W "$providers" -- ${cur}) )
             return
             ;;
         -f)
