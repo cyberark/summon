@@ -16,7 +16,7 @@ func TestParseFromString(t *testing.T) {
     IGNORED: !float 27.1111
     `
 		Convey("It should correctly identify the types from tags", func() {
-			parsed, err := ParseFromString(input, map[string]string{"$env": "prod"})
+			parsed, err := ParseFromString(input, map[string]string{"env": "prod"})
 			So(err, ShouldBeNil)
 
 			spec := parsed["SENTRY_API_KEY"]
