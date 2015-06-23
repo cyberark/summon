@@ -63,7 +63,7 @@ the secrets stored in temp files and in the Python process environment are gone.
     *Example*
 
     ```
-    summon -D ENV=production --yaml 'env/$ENV/db-password' deploy.sh
+    summon -D ENV=production --yaml 'SQL_PASSWORD: !var env/$ENV/db-password' deploy.sh
     ```
 
 * `-i, --ignore` A secret path for which to ignore provider errors
