@@ -50,15 +50,21 @@ the secrets stored in temp files and in the Python process environment are gone.
 
 * `-p, --provider` specify the path to the [provider](provider/README.md) summon should use
 
-    If the provider is in the default path, `/usr/libexec/summon/` you can just 
+    If the provider is in the default path, `/usr/libexec/summon/` you can just
     provide the name of the executable. If not, use the full path.
 
 * `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
 
-* `-D '$var=value'` causes substitution of `value` to `$var`.
+* `-D 'var=value'` causes substitution of `value` to `$var`.
 
     You can use the same secrets.yml file for different environments, using `-D` to
     substitute variables. This flag can be used multiple times.
+
+    *Example*
+
+    ```
+    summon -D ENV=production --yaml 'SQL_PASSWORD: !var env/$ENV/db-password' deploy.sh
+    ```
 
 * `-i, --ignore` A secret path for which to ignore provider errors
 

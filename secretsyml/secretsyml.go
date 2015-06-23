@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v1"
 	"io/ioutil"
 	"regexp"
-	"strings"
+	"fmt"
 )
 
 type YamlTag uint8
@@ -90,7 +90,6 @@ func ParseFromFile(filepath string, subs map[string]string) (SecretsMap, error) 
 }
 
 func parse(ymlContent string, subs map[string]string) (SecretsMap, error) {
-	applySubstitutions(&ymlContent, subs)
 	out := make(map[string]SecretSpec)
 
 	err := yaml.Unmarshal([]byte(ymlContent), &out)
@@ -99,13 +98,37 @@ func parse(ymlContent string, subs map[string]string) (SecretsMap, error) {
 		return nil, err
 	}
 
+	for i, spec := range out {
+		err = spec.applySubstitutions(subs)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = spec
+	}
+
 	return out, nil
 }
 
-func applySubstitutions(ymlContent *string, subs map[string]string) {
-	for key, val := range subs {
-		*ymlContent = strings.Replace(*ymlContent, key, val, -1)
+func (spec *SecretSpec) applySubstitutions(subs map[string]string) error {
+	VAR_REGEX := regexp.MustCompile(`\$(\$|\w+)`)
+	var substitutionError error
+
+	subFunc := func (variable string) string {
+		variable = variable[1:]
+		if variable == "$" {
+			return "$"
+		}
+		text, ok := subs[variable]
+		if ok {
+			return text
+		} else {
+			substitutionError = fmt.Errorf("Variable %v not declared!", variable)
+			return ""
+		}
 	}
+
+	spec.Path = VAR_REGEX.ReplaceAllStringFunc(spec.Path, subFunc)
+	return substitutionError
 }
 
 // tagInSlice determines whether a YamlTag is in a list of YamlTag
