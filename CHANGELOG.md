@@ -1,6 +1,6 @@
 # unreleased
 
-# v0.1.3
+# v0.2.0
 * -D variable interpolation now plays nicely with the shell
 * `@SUMMONENVFILE` for better Docker integration
 
