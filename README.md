@@ -72,6 +72,20 @@ the secrets stored in temp files and in the Python process environment are gone.
 
 View help and all flags with `summon -h`.
 
+### env-file
+
+Using Docker? When you run summon it also exports the variables and values from secrets.yml in `VAR=VAL` format to a memory-mapped file, its path made available as `@SUMMONENVFILE`.
+
+You can then pass secrets to your container using Docker's `--env-file` flag like so:
+
+```sh
+summon docker run myorg/myimage --env-file @SUMMONENVFILE
+```
+
+This file is created on demand - only when `@SUMMONENVFILE` appears in the
+arguments of the command summon is wrapping. This feature is not Docker-specific; if you have another tools that reads variables in `VAR=VAL` format
+you can use `@SUMMONENVFILE` just the same.
+
 ## Development
 
 Dependencies are vendored with [godep](https://github.com/tools/godep).
