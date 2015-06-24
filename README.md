@@ -10,6 +10,17 @@
 
 Note that summon is still in **early stages**, we are looking for feedback and contributions.
 
+## Install
+
+If you're on Linux or OSX, use the install script. This will install the latest
+version of summon.
+
+```
+curl -sSL https://raw.githubusercontent.com/conjurinc/summon/master/install.sh | sudo bash
+```
+
+Otherwise, download the [latest release](https://github.com/conjurinc/summon/releases/latest) and unzip it to a location on your PATH.
+
 ## Usage
 
 By default, summon will look for `secrets.yml` in the directory it is
