@@ -1,5 +1,9 @@
 # unreleased
 
+* Try to find provider in the default path if just a name given
+* Allow -p argument to override SUMMON_PROVIDER envar
+* Check if provider exists and is executable
+
 # v0.2.0
 * -D variable interpolation now plays nicely with the shell
 * `@SUMMONENVFILE` for better Docker integration

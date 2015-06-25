@@ -15,28 +15,36 @@ var DefaultPath = "/usr/libexec/summon"
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
 func Resolve(providerArg string) (string, error) {
-	provider := ""
-	if providerArg != "" {
-		provider = providerArg
-	}
+	provider := providerArg
 
-	envArg := os.Getenv("SUMMON_PROVIDER")
-	if envArg != "" {
-		provider = envArg
+	if provider == "" {
+		provider = os.Getenv("SUMMON_PROVIDER")
 	}
 
 	if provider == "" {
 		providers, _ := ioutil.ReadDir(DefaultPath)
 		if len(providers) == 1 {
-			provider = fullPath(providers[0].Name())
+			provider = providers[0].Name()
 		} else if len(providers) > 1 {
 			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultPath)
 		}
 	}
 
+	provider = expandPath(provider)
+
 	if provider == "" {
 		return "", fmt.Errorf("Could not resolve a provider!")
 	}
+
+	info, err := os.Stat(provider)
+	if (err != nil) {
+		return "", err
+	}
+
+	if ((info.Mode() & 0111) == 0) {
+		return "", fmt.Errorf("%s is not executable", provider)
+	}
+
 	return provider, nil
 }
 
@@ -60,9 +68,12 @@ func Call(provider, specPath string) (string, error) {
 	return strings.TrimSpace(stdOut.String()), nil
 }
 
-// Given a non-absolute path, returns a path to executable prefixed with DefaultPath
-func fullPath(provider string) string {
-	if path.IsAbs(provider) {
+// Given a naked filename, returns a path to executable prefixed with DefaultPath
+// This is so that "./provider" will work as expected.
+func expandPath(provider string) string {
+	// Base returns just the last path segment.
+	// If it's different, that means it's a (rel or abs) path
+	if path.Base(provider) != provider {
 		return provider
 	}
 	return path.Join(DefaultPath, provider)
