@@ -20,21 +20,23 @@ func TestResolve(t *testing.T) {
 	})
 
 	Convey("Passing the provider via CLI should return it without error", t, func() {
-		expected := "/usr/bin/myprovider"
+		expected := "/bin/bash"
 		provider, err := Resolve(expected)
 
-		So(provider, ShouldEqual, expected)
 		So(err, ShouldBeNil)
+		So(provider, ShouldEqual, expected)
+
 	})
 
 	Convey("Setting the provider via environment variable works", t, func() {
-		expected := "/opt/providers/custom"
+		expected := "/bin/bash"
 		os.Setenv("SUMMON_PROVIDER", expected)
 		provider, err := Resolve("")
 		os.Unsetenv("SUMMON_PROVIDER")
 
-		So(provider, ShouldEqual, expected)
 		So(err, ShouldBeNil)
+		So(provider, ShouldEqual, expected)
+
 	})
 
 	Convey("Given a provider path", t, func() {
@@ -44,10 +46,12 @@ func TestResolve(t *testing.T) {
 
 		Convey("If there is 1 executable, return it as the provider", func() {
 			f, err := ioutil.TempFile(DefaultPath, "")
+			f.Chmod(755)
 			provider, err := Resolve("")
 
-			So(provider, ShouldEqual, f.Name())
 			So(err, ShouldBeNil)
+			So(provider, ShouldEqual, f.Name())
+
 		})
 
 		Convey("If there are > 1 executables, return an error to user", func() {
