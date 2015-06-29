@@ -18,7 +18,7 @@ if [ "${DISTRO}" != "linux" ] && [ "${DISTRO}" != "darwin"  ]; then
   exit 1
 fi
 
-LATEST_VERSION=`curl -sSL https://github.com/conjurinc/summon/raw/master/version.go | grep -o -e "\d.\d.\d"`
+LATEST_VERSION=`curl -sSL https://raw.githubusercontent.com/conjurinc/summon/master/version.go | grep -o -e "\d.\d.\d"`
 BASEURL="https://github.com/conjurinc/summon/releases/download/"
 URL=${BASEURL}"v${LATEST_VERSION}/summon_v${LATEST_VERSION}_${DISTRO}_amd64.zip"
 
