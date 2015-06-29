@@ -4,6 +4,9 @@
 * Allow -p argument to override SUMMON_PROVIDER envar
 * Check if provider exists and is executable
 
+# v0.2.1
+* Improve provider path handling [5df0fde](https://github.com/conjurinc/summon/commit/5df0fdeb182884371ad647d0a9493a5e07d3e0e4)
+
 # v0.2.0
 * -D variable interpolation now plays nicely with the shell
 * `@SUMMONENVFILE` for better Docker integration
