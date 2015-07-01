@@ -1,3 +1,6 @@
+_site
+.vagrant
+Vagrantfile
 git
 pkg/*
 provider/provider

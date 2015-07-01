@@ -13,10 +13,10 @@ Note that summon is still in **early stages**, we are looking for feedback and c
 ## Install
 
 If you're on Linux or OSX, use the install script. This will install the latest
-version of summon.
+version of summon. The script requires sudo to place summon in `/usr/local/bin`.
 
 ```
-curl -sSL https://raw.githubusercontent.com/conjurinc/summon/master/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/conjurinc/summon/master/install.sh | bash
 ```
 
 Otherwise, download the [latest release](https://github.com/conjurinc/summon/releases/latest) and unzip it to a location on your PATH.

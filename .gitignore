@@ -1,3 +1,4 @@
+.vagrant
 _site
 Godeps/_workspace/src/github.com/jstemmer/
 test.rb
