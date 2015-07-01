@@ -1,14 +1,14 @@
 # Summon + Docker
 
+The major benefit of using Summon with Docker is the secrets your application
+needs are declared in `secrets.yml` and can be checked into source control. Since Summon has pluggable providers, you aren't locked into any one solution for managing your secrets.
+
 Summon makes it easy to inject secrets as environment variables into your Docker containers by taking advantage of Docker's `--env-file` argument. This is done on-demand by using the variable `@SUMMONENVFILE` in the arguments of the process you are wrapping with Summon. This variable points to a memory-mapped file containing the variables and values from secrets.yml in VAR=VAL format.
 
 ```sh
 $ summon docker run -it --env-file @SUMMONENVFILE bash
 root@1878dc8c918d:/#
 ```
-
-The major benefit of using Summon with Docker is the secrets your application
-needs are declared in `secrets.yml` and can be checked into source control. Since Summon has pluggable providers, you can aren't locked into any one solution for managing your secrets.
 
 ## Example
 
