@@ -104,7 +104,7 @@ EnvLoop:
 					continue EnvLoop
 				}
 			}
-			return envvar.string, envvar.error
+			return "Error fetching variable " + envvar.string, envvar.error
 		}
 	}
 
