@@ -71,9 +71,21 @@ SSL_CERT: !var:file ssl/certs/private
 
 `$environment` is an example of a substitution variable, given as an flag argument when running summon.
 
+# examples
+
+<i id="examples"></i>
+
+Summon is meant to work with your existing toolchains. If you can access environment variables, you can us Summon.
+
+Here are some spcific examples of how you can use summon with your current tools.
+
+* [Docker](/docker.html)
+
+Let us know what tools you would like us to cover next at [oss@conjur.net](mailto:oss@conjur.net).
+
 # providers
 
-<i id="providerList"></i>
+<i id="providers"></i>
 
 * [AWS S3](https://github.com/conjurinc/summon-s3)
 * [conjur](https://github.com/conjurinc/summon-conjur)
