@@ -79,7 +79,7 @@ Summon is meant to work with your existing toolchains. If you can access environ
 
 Here are some spcific examples of how you can use summon with your current tools.
 
-* [Docker](/docker.html)
+* [Docker](http://conjurinc.github.io/summon/docker.html)
 
 Let us know what tools you would like us to cover next at [oss@conjur.net](mailto:oss@conjur.net).
 
