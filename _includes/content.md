@@ -31,7 +31,7 @@ summon --provider conjur -f secrets.yml docker run -e AWS_ACCESS_KEY_ID -e AWS_S
 Full usage docs for summon are in the
 [Github README for the project](https://github.com/conjurinc/summon).
 
-## secrets.yml
+<h2 id="secrets.yml">secrets.yml</h2>
 
 secrets.yml defines a format for mapping an environment variable to a location
 where a secret is stored. There are no sensitive values in this file itself. It can safely be checked into source control. Given a secrets.yml file, summon fetches the values
@@ -71,9 +71,7 @@ SSL_CERT: !var:file ssl/certs/private
 
 `$environment` is an example of a substitution variable, given as an flag argument when running summon.
 
-# examples
-
-<i id="examples"></i>
+<h1 id="examples">examples</h1>
 
 Summon is meant to work with your existing toolchains. If you can access environment variables, you can us Summon.
 
@@ -83,9 +81,7 @@ Here are some spcific examples of how you can use summon with your current tools
 
 Let us know what tools you would like us to cover next at [oss@conjur.net](mailto:oss@conjur.net).
 
-# providers
-
-<i id="providers"></i>
+<h1 id="providers">providers</h1>
 
 * [AWS S3](https://github.com/conjurinc/summon-s3)
 * [conjur](https://github.com/conjurinc/summon-conjur)
