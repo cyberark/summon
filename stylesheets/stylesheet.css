@@ -78,6 +78,10 @@ a {
   margin-top: 0;
   margin-bottom: 0.1rem; }
 
+.project-name a {
+  color: #FFFFFF;
+}
+
 @media screen and (min-width: 64em) {
   .project-name {
     font-size: 3.25rem; } }
@@ -253,4 +257,7 @@ a {
 #byConjur img {
   width: 100px;
   margin-top: -3px;
+}
+#byConjur a {
+  color: #FFFFFF;
 }
