@@ -75,7 +75,7 @@ SSL_CERT: !var:file ssl/certs/private
 
 Summon is meant to work with your existing toolchains. If you can access environment variables, you can us Summon.
 
-Here are some spcific examples of how you can use summon with your current tools.
+Here are some specific examples of how you can use summon with your current tools.
 
 * [Docker](http://conjurinc.github.io/summon/docker.html)
 

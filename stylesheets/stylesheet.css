@@ -55,31 +55,39 @@ a {
 .page-header {
   color: #fff;
   text-align: center;
-  background-color: #007565;
-  background-image: linear-gradient(0deg, #007565, #000); }
-
-.page-header .btn {
-  width: 150px;
+  background-color: #000;
+  padding: 1rem 1rem;
+}
+#logo {
+  -webkit-filter: invert(100%);
+  filter: invert(100%);
 }
 
-@media screen and (min-width: 64em) {
-  .page-header {
-    padding: 5rem 6rem; } }
-
-@media screen and (min-width: 42em) and (max-width: 64em) {
-  .page-header {
-    padding: 3rem 4rem; } }
-
-@media screen and (max-width: 42em) {
-  .page-header {
-    padding: 2rem 1rem; } }
+.page-header .btn {
+  color: #444;
+  width: 150px;
+  background-color: #F2EEE5;
+  border: 2px solid #444;
+}
+.page-header .btn:hover {
+  background-color: #1CB9A2;
+}
 
 .project-name {
   margin-top: 0;
-  margin-bottom: 0.1rem; }
+  margin-bottom: 0.1rem; 
+  font-family: 'Righteous', cursive;
+  letter-spacing: 2px;
+}
 
 .project-name a {
   color: #FFFFFF;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.project-name a:hover {
+  color: #1CB9A2;
 }
 
 @media screen and (min-width: 64em) {
@@ -97,7 +105,7 @@ a {
 .project-tagline {
   margin-bottom: 2rem;
   font-weight: normal;
-  opacity: 0.7; }
+}
 
 @media screen and (min-width: 64em) {
   .project-tagline {
@@ -119,7 +127,9 @@ a {
   margin-top: 2rem;
   margin-bottom: 1rem;
   font-weight: normal;
-  color: #159957; }
+  font-family: 'Righteous', cursive;
+  letter-spacing: 1px;
+}
 .main-content p {
   margin-bottom: 1em; }
 .main-content code {
@@ -260,4 +270,5 @@ a {
 }
 #byConjur a {
   color: #FFFFFF;
+  text-decoration: none;
 }
