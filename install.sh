@@ -1,11 +1,4 @@
-#!/usr/bin/env bash
-
-set -e
-
-if [[ ! $(type -t unzip) ]]; then
-  echo "unzip is not installed, please install to continue"
-  exit 1
-fi
+#!/usr/bin/env bash -e
 
 ARCH=`uname -m`
 
@@ -53,15 +46,19 @@ get_latest_version() {
 
 LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/conjurinc/summon/master/version.go')
 BASEURL="https://github.com/conjurinc/summon/releases/download/"
-URL=${BASEURL}"v${LATEST_VERSION}/summon_v${LATEST_VERSION}_${DISTRO}_amd64.zip"
+URL=${BASEURL}"v${LATEST_VERSION}/summon_v${LATEST_VERSION}_${DISTRO}_amd64.tar.gz"
 
 
-ZIP_PATH="${tmp_dir}/summon.zip"
+ZIP_PATH="${tmp_dir}/summon.tar.gz"
 do_download ${URL} ${ZIP_PATH}
 
 echo "Installing summon v${LATEST_VERSION} into /usr/local/bin"
 
-sudo unzip -q -o ${ZIP_PATH} -d /usr/local/bin
+sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH}
+
+if [ -d "/etc/bash_completion.d" ]; then
+  do_download "https://raw.githubusercontent.com/conjurinc/summon/master/script/complete_summon" "/etc/bash_completion.d/complete_summon"
+fi
 
 echo "Success!"
 echo "Run summon -h for usage"

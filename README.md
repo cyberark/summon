@@ -100,9 +100,13 @@ you can use `@SUMMONENVFILE` just the same.
 ## Development
 
 Dependencies are vendored with [godep](https://github.com/tools/godep).
-To make them available, add `$PWD/Godeps/_workspace` to your `$GOPATH`.
+To make them available, run `export GOPATH=`godep path`:$GOPATH`.
 
-Run the project with `go run *.go`.
+Run the project with:
+
+```
+go run *.go`.
+```
 
 ### Testing
 

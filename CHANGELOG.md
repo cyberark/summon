@@ -1,5 +1,8 @@
 # unreleased
 
+# v0.3.0
+* Install bash completions if available
+* Switch to tar.gz instead of .zip
 * Try to find provider in the default path if just a name given
 * Allow -p argument to override SUMMON_PROVIDER envar
 * Check if provider exists and is executable

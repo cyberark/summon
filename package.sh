@@ -22,7 +22,7 @@ for PLATFORM in $(find ./pkg -mindepth 1 -maxdepth 1 -type d); do
 
     echo "--> ${OSARCH}"
     pushd $PLATFORM >/dev/null 2>&1
-    zip ../dist/${app}_${VERSION}_${OSARCH}.zip ./*
+    tar -cvzf ../dist/${app}_${VERSION}_${OSARCH}.tar.gz ./*
     popd >/dev/null 2>&1
 done
 
