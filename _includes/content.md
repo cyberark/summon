@@ -22,10 +22,12 @@ summon resolves the entries in `secrets.yml` with the `conjur` provider and
 makes the secret values available to the environment of the command `chef-client --once`.
 In our chef recipes we can access the secrets with Ruby's `ENV['...']` syntax.
 
-This same pattern works for any tooling that can access environment variables. As a second example, Docker:
+This same pattern works for any tooling that can access environment variables. 
+
+As a second example, Docker:
 
 ```bash
-summon --provider conjur -f secrets.yml docker run -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY myapp
+summon --provider conjur -f secrets.yml docker run --env-file @SUMMONENVFILE myapp
 ```
 
 Full usage docs for summon are in the
@@ -73,7 +75,7 @@ SSL_CERT: !var:file ssl/certs/private
 
 <h1 id="examples">examples</h1>
 
-Summon is meant to work with your existing toolchains. If you can access environment variables, you can us Summon.
+Summon is meant to work with your existing toolchains. If you can access environment variables, you can use Summon.
 
 Here are some specific examples of how you can use summon with your current tools.
 
