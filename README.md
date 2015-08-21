@@ -1,8 +1,17 @@
 # summon
 
-[conjurinc.github.io/summon](https://conjurinc.github.io/summon)
+<div align="center">
+  <a href="conjurinc.github.io/summon">
+    <img src="https://conjurinc.github.io/summon/images/logo.png" height="200"/><br>
+    conjurinc.github.io/summon
+  </a>
+</div>
 
-`summon` provides an interface for
+---
+
+`summon` is a command-line tool to make working with secrets easier.
+
+It provides an interface for
 
 * Reading a **secrets.yml** file
 * Fetching secrets from a trusted store
