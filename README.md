@@ -1,7 +1,7 @@
 # summon
 
 <div align="center">
-  <a href="conjurinc.github.io/summon">
+  <a href="https://conjurinc.github.io/summon">
     <img src="https://conjurinc.github.io/summon/images/logo.png" height="200"/><br>
     conjurinc.github.io/summon
   </a>
