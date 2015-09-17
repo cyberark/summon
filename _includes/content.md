@@ -86,7 +86,8 @@ Let us know what tools you would like us to cover next at [oss@conjur.net](mailt
 <h1 id="providers">providers</h1>
 
 * [AWS S3](https://github.com/conjurinc/summon-s3)
-* [conjur](https://github.com/conjurinc/summon-conjur)
+* [Conjur](https://github.com/conjurinc/summon-conjur)
+* [Chef encrypted data bags](https://github.com/conjurinc/summon-chefapi)
 * [keyring](https://github.com/conjurinc/summon-keyring)
 
 Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
