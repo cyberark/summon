@@ -75,6 +75,8 @@ func TestCall(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 		Convey("If it returns exit code > 0, return stderr", func() {
+			err := os.Setenv("LC_ALL", "C")
+			So(err, ShouldBeNil)
 			out, err := Call("ls", "README.notafile")
 
 			So(out, ShouldBeBlank)
