@@ -1,5 +1,8 @@
 # unreleased
 
+# v0.3.1
+* Integer values set in secrets.yml are now parsed correctly [GH-21](https://github.com/conjurinc/summon/issues/21)
+
 # v0.3.0
 * Install bash completions if available
 * Switch to tar.gz instead of .zip

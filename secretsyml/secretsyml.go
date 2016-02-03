@@ -3,10 +3,11 @@
 package secretsyml
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v1"
 	"io/ioutil"
 	"regexp"
-	"fmt"
+	"strconv"
 )
 
 type YamlTag uint8
@@ -50,14 +51,14 @@ func (s *SecretSpec) IsLiteral() bool {
 type SecretsMap map[string]SecretSpec
 
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
-	r, _ := regexp.Compile("(var|file|str)")
+	r, _ := regexp.Compile("(var|file|str|int)")
 	tags := r.FindAllString(tag, -1)
 	if len(tags) == 0 {
 		return false
 	}
 	for _, t := range tags {
 		switch t {
-		case "str":
+		case "str", "int":
 			spec.Tags = append(spec.Tags, Literal)
 		case "file":
 			spec.Tags = append(spec.Tags, File)
@@ -67,8 +68,11 @@ func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 			return false
 		}
 	}
+
 	if s, ok := value.(string); ok {
 		spec.Path = s
+	} else if s, ok := value.(int); ok {
+		spec.Path = strconv.Itoa(s)
 	} else {
 		return false
 	}
@@ -113,7 +117,7 @@ func (spec *SecretSpec) applySubstitutions(subs map[string]string) error {
 	VAR_REGEX := regexp.MustCompile(`\$(\$|\w+)`)
 	var substitutionError error
 
-	subFunc := func (variable string) string {
+	subFunc := func(variable string) string {
 		variable = variable[1:]
 		if variable == "$" {
 			return "$"

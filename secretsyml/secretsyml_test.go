@@ -13,7 +13,8 @@ func TestParseFromString(t *testing.T) {
     PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
     SOME_FILE: !file my content
     RAILS_ENV: $env
-    IGNORED: !float 27.1111
+    FLOAT: 27.1111
+    INT: 27
     `
 		Convey("It should correctly identify the types from tags", func() {
 			parsed, err := ParseFromString(input, map[string]string{"env": "prod"})
@@ -42,8 +43,13 @@ func TestParseFromString(t *testing.T) {
 			So(spec.IsFile(), ShouldBeFalse)
 			So(spec.IsLiteral(), ShouldBeTrue)
 
-			_, found := parsed["IGNORED"]
+			_, found := parsed["FLOAT"]
 			So(found, ShouldBeFalse)
+
+			spec, found = parsed["INT"]
+			So(found, ShouldBeTrue)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "27")
 		})
 	})
 }
