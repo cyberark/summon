@@ -14,7 +14,7 @@ rm -rf ./pkg/dist
 mkdir -p ./pkg/dist
 
 for PLATFORM in $(find ./pkg -mindepth 1 -maxdepth 1 -type d); do
-    OSARCH=$(basename ${PLATFORM})
+    OSARCH=$(basename ${PLATFORM} | tr - _)
 
     if [ $OSARCH = "dist" ]; then
         continue
