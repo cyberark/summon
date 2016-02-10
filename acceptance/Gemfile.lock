@@ -1,5 +1,5 @@
 GEM
-  remote: http://rubygems.org/
+  remote: https://rubygems.org/
   specs:
     aruba (0.6.2)
       childprocess (>= 0.3.6)
@@ -33,3 +33,6 @@ PLATFORMS
 
 DEPENDENCIES
   aruba
+
+BUNDLED WITH
+   1.10.6

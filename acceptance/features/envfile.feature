@@ -13,4 +13,4 @@ Feature: envfile
 
 		And a secret "very/secret/db-password" with "notSoSecret"
 		When I successfully run `summon -p ./provider cat @SUMMONENVFILE`
-		Then the output should contain exactly "DB_PASSWORD=notSoSecret"
+		Then the output should contain exactly "DB_PASSWORD=notSoSecret\n"
