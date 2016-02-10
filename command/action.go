@@ -125,7 +125,7 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 }
 
 func joinEnv(env []string) string {
-	return strings.Join(env, "\n")
+	return strings.Join(env, "\n") + "\n"
 }
 
 // scans arguments for the magic string; if found,
