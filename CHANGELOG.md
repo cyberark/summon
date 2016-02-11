@@ -1,5 +1,8 @@
 # unreleased
 
+# v0.3.2
+* `@SUMMONENVFILE` is now ensured to contain a trailing newline [GH-22](https://github.com/conjurinc/summon/issues/22)
+
 # v0.3.1
 * Integer values set in secrets.yml are now parsed correctly [GH-21](https://github.com/conjurinc/summon/issues/21)
 
