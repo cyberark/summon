@@ -1,5 +1,8 @@
 # unreleased
 
+# v0.3.3
+* Now fails more gracefully on unknown flags
+
 # v0.3.2
 * `@SUMMONENVFILE` is now ensured to contain a trailing newline [GH-22](https://github.com/conjurinc/summon/issues/22)
 
