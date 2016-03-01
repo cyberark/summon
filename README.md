@@ -82,8 +82,8 @@ the secrets stored in temp files and in the Python process environment are gone.
 
 * `-p, --provider` specify the path to the [provider](provider/README.md) summon should use
 
-    If the provider is in the default path, `/usr/libexec/summon/` you can just
-    provide the name of the executable. If not, use the full path.
+    If the provider is in the default path, `/usr/local/lib/summon/` you can just
+    provide the name of the executable. If not, use a full path.
 
 * `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
 
