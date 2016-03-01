@@ -3,7 +3,7 @@
 APP="summon"
 WORKDIR="/go/src/github.com/conjurinc/${APP}/"
 
-docker run --rm -it \
+docker run --rm \
 -v "$PWD":$WORKDIR \
 -w $WORKDIR \
 golang:1.6 \
