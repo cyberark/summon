@@ -98,7 +98,7 @@ This is their contract:
 * If retrieval is successful, they return the value on stdout with exit code 0.
 * If an error occurs, they return an error message on stderr and a non-0 exit code.
 
-The default path for providers is `/usr/libexec/summon/`. If one provider is in that path,
+The default path for providers is `/usr/local/lib/summon/`. If one provider is in that path,
 summon will use it. If multiple providers are in the path, you can specify which one to use
 with the `--provider` flag or the environment variable `SUMMON_PROVIDER`. If your providers are
 placed outside the default path, give summon the full path to them.
