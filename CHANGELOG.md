@@ -1,5 +1,8 @@
 # unreleased
 
+# v0.4.0
+* **breaking change** Default provider path is now `/usr/local/lib/summon`.
+
 # v0.3.3
 * Now fails more gracefully on unknown flags
 
