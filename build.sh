@@ -7,7 +7,6 @@ rm -rf pkg
 
 docker run --rm \
 -v "$PWD":$WORKDIR \
--e "GOPATH=$WORKDIR/Godeps/_workspace:/go" \
 -w $WORKDIR \
-golang:1.5.3 \
-./compile.sh
+golang:1.6 \
+./compile.sh $APP
