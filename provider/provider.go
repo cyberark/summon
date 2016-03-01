@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var DefaultPath = "/usr/libexec/summon"
+var DefaultPath = "/usr/local/lib/summon"
 
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
@@ -37,11 +37,11 @@ func Resolve(providerArg string) (string, error) {
 	}
 
 	info, err := os.Stat(provider)
-	if (err != nil) {
+	if err != nil {
 		return "", err
 	}
 
-	if ((info.Mode() & 0111) == 0) {
+	if (info.Mode() & 0111) == 0 {
 		return "", fmt.Errorf("%s is not executable", provider)
 	}
 
