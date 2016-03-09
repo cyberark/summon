@@ -10,10 +10,10 @@ app="summon"
 
 # Zip and copy to the dist dir
 echo "==> Packaging..."
-rm -rf ./pkg/dist
-mkdir -p ./pkg/dist
+rm -rf pkg/dist
+mkdir -p pkg/dist
 
-for PLATFORM in $(find ./pkg -mindepth 1 -maxdepth 1 -type d); do
+for PLATFORM in $(find pkg -mindepth 1 -maxdepth 1 -type d); do
     OSARCH=$(basename ${PLATFORM} | tr - _)
 
     if [ $OSARCH = "dist" ]; then
@@ -28,6 +28,6 @@ done
 
 # Make the checksums
 echo "==> Checksumming..."
-pushd ./pkg/dist >/dev/null 2>&1
-shasum -a256 * > ./${app}_${VERSION}_SHA256SUMS
+pushd pkg/dist >/dev/null 2>&1
+shasum -a256 * > ${app}_${VERSION}_SHA256SUMS
 popd >/dev/null 2>&1
