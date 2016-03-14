@@ -26,7 +26,7 @@ Note that summon is still in **early stages**, we are looking for feedback and c
 Install via [Homebrew](http://brew.sh/).
 
 ```sh
-brew tap conjurinc/summon
+brew tap conjurinc/tools
 brew install summon
 ```
 
