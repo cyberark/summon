@@ -89,6 +89,7 @@ Let us know what tools you would like us to cover next at [oss@conjur.net](mailt
 * [Conjur](https://github.com/conjurinc/summon-conjur)
 * [Chef encrypted data bags](https://github.com/conjurinc/summon-chefapi)
 * [keyring](https://github.com/conjurinc/summon-keyring)
+* [Keepass kdbx database file](https://github.com/mskarbek/summon-keepass)
 
 Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
 
