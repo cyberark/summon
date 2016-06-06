@@ -10,6 +10,16 @@ import (
 	"sync"
 )
 
+type ActionConfig struct {
+	Args        []string
+	Provider    string
+	Filepath    string
+	YamlInline  string
+	Subs        map[string]string
+	Ignores     []string
+	Environment string
+}
+
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
 
 var Action = func(c *cli.Context) {
@@ -24,14 +34,15 @@ var Action = func(c *cli.Context) {
 		os.Exit(1)
 	}
 
-	out, err := runAction(
-		c.Args(),
-		provider,
-		c.String("f"),
-		c.String("yaml"),
-		convertSubsToMap(c.StringSlice("D")),
-		c.StringSlice("ignore"),
-	)
+	out, err := runAction(&ActionConfig{
+		Args:        c.Args(),
+		Provider:    provider,
+		Environment: c.String("environment"),
+		Filepath:    c.String("f"),
+		YamlInline:  c.String("yaml"),
+		Ignores:     c.StringSlice("ignore"),
+		Subs:        convertSubsToMap(c.StringSlice("D")),
+	})
 
 	if err != nil {
 		fmt.Println(out + ": " + err.Error())
@@ -40,17 +51,17 @@ var Action = func(c *cli.Context) {
 }
 
 // runAction encapsulates the logic of Action without cli Context for easier testing
-func runAction(args []string, provider, filepath, yamlInline string, subs map[string]string, ignores []string) (string, error) {
+func runAction(ac *ActionConfig) (string, error) {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
 	)
 
-	switch yamlInline {
+	switch ac.YamlInline {
 	case "":
-		secrets, err = secretsyml.ParseFromFile(filepath, subs)
+		secrets, err = secretsyml.ParseFromFile(ac.Filepath, ac.Subs)
 	default:
-		secrets, err = secretsyml.ParseFromString(yamlInline, subs)
+		secrets, err = secretsyml.ParseFromString(ac.YamlInline, ac.Subs)
 	}
 
 	if err != nil {
@@ -75,7 +86,7 @@ func runAction(args []string, provider, filepath, yamlInline string, subs map[st
 		go func(key string, spec secretsyml.SecretSpec) {
 			var value string
 			if spec.IsVar() {
-				value, err = prov.Call(provider, spec.Path)
+				value, err = prov.Call(ac.Provider, spec.Path)
 				if err != nil {
 					results <- Result{key, err}
 					wg.Done()
@@ -99,8 +110,8 @@ EnvLoop:
 		if envvar.error == nil {
 			env = append(env, envvar.string)
 		} else {
-			for i := range ignores {
-				if ignores[i] == envvar.string {
+			for i := range ac.Ignores {
+				if ac.Ignores[i] == envvar.string {
 					continue EnvLoop
 				}
 			}
@@ -108,9 +119,9 @@ EnvLoop:
 		}
 	}
 
-	setupEnvFile(args, env, &tempFactory)
+	setupEnvFile(ac.Args, env, &tempFactory)
 
-	return runSubcommand(args, append(os.Environ(), env...))
+	return runSubcommand(ac.Args, append(os.Environ(), env...))
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
