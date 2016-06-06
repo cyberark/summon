@@ -80,33 +80,68 @@ func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 }
 
 // ParseFromString parses a string in secrets.yml format to a map.
-func ParseFromString(content string, subs map[string]string) (SecretsMap, error) {
-	return parse(content, subs)
+func ParseFromString(content, env string, subs map[string]string) (SecretsMap, error) {
+	return parse(content, env, subs)
 }
 
 // ParseFromFile parses a file in secrets.yml format to a map.
-func ParseFromFile(filepath string, subs map[string]string) (SecretsMap, error) {
+func ParseFromFile(filepath, env string, subs map[string]string) (SecretsMap, error) {
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
-	return parse(string(data), subs)
+	return parse(string(data), env, subs)
 }
 
-func parse(ymlContent string, subs map[string]string) (SecretsMap, error) {
+// Wrapper for parsing yaml contents
+func parse(ymlContent, env string, subs map[string]string) (SecretsMap, error) {
+	if env == "" {
+		return parseRegular(ymlContent, subs)
+	}
+
+	return parseEnvironment(ymlContent, env, subs)
+}
+
+// Parse secrets yaml that has environment sections
+func parseEnvironment(ymlContent, env string, subs map[string]string) (SecretsMap, error) {
+	out := make(map[string]map[string]SecretSpec)
+
+	if err := yaml.Unmarshal([]byte(ymlContent), &out); err != nil {
+		return nil, err
+	}
+
+	if _, ok := out[env]; !ok {
+		return nil, fmt.Errorf("No such environment '%v' found in secrets file", env)
+	}
+
+	secretsMap := make(SecretsMap)
+
+	for i, spec := range out[env] {
+		err := spec.applySubstitutions(subs)
+		if err != nil {
+			return nil, err
+		}
+
+		secretsMap[i] = spec
+	}
+
+	return secretsMap, nil
+}
+
+// Parse a secrets yaml that has no environment sections
+func parseRegular(ymlContent string, subs map[string]string) (SecretsMap, error) {
 	out := make(map[string]SecretSpec)
 
-	err := yaml.Unmarshal([]byte(ymlContent), &out)
-
-	if err != nil {
+	if err := yaml.Unmarshal([]byte(ymlContent), &out); err != nil {
 		return nil, err
 	}
 
 	for i, spec := range out {
-		err = spec.applySubstitutions(subs)
+		err := spec.applySubstitutions(subs)
 		if err != nil {
 			return nil, err
 		}
+
 		out[i] = spec
 	}
 

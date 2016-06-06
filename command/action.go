@@ -59,9 +59,9 @@ func runAction(ac *ActionConfig) (string, error) {
 
 	switch ac.YamlInline {
 	case "":
-		secrets, err = secretsyml.ParseFromFile(ac.Filepath, ac.Subs)
+		secrets, err = secretsyml.ParseFromFile(ac.Filepath, ac.Environment, ac.Subs)
 	default:
-		secrets, err = secretsyml.ParseFromString(ac.YamlInline, ac.Subs)
+		secrets, err = secretsyml.ParseFromString(ac.YamlInline, ac.Environment, ac.Subs)
 	}
 
 	if err != nil {
