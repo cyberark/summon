@@ -15,39 +15,39 @@ func TestRunAction(t *testing.T) {
 		providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
 
 		Convey("Passing in secrets.yml via --yaml", func() {
-			out, err := runAction(
-				[]string{"printenv", "MYVAR"},
-				providerPath,
-				"",
-				"MYVAR: !var somesecret/on/a/path",
-				map[string]string{},
-				[]string{},
-			)
+			out, err := runAction(&ActionConfig{
+				Args:       []string{"printenv", "MYVAR"},
+				Provider:   providerPath,
+				Filepath:   "",
+				YamlInline: "MYVAR: !var somesecret/on/a/path",
+				Subs:       map[string]string{},
+				Ignores:    []string{},
+			})
 			So(out, ShouldEqual, "mysecret\n")
 			So(err, ShouldBeNil)
 		})
 
 		Convey("Errors when fetching keys keys return error", func() {
-			_, err := runAction(
-				[]string{"printenv", "MYVAR"},
-				providerPath,
-				"",
-				"MYVAR: !var error",
-				map[string]string{},
-				[]string{},
-			)
+			_, err := runAction(&ActionConfig{
+				Args:       []string{"printenv", "MYVAR"}, // args
+				Provider:   providerPath,                  // provider
+				Filepath:   "",                            // filepath
+				YamlInline: "MYVAR: !var error",           // yaml inline
+				Subs:       map[string]string{},           // subs
+				Ignores:    []string{},                    // ignore
+			})
 			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Errors when fetching keys keys don't return error if ignored", func() {
-			out, err := runAction(
-				[]string{"printenv", "MYVAR"},
-				providerPath,
-				"",
-				"{MYVAR: !var test, ERR: !var error}",
-				map[string]string{},
-				[]string{"ERR"},
-			)
+			out, err := runAction(&ActionConfig{
+				Args:       []string{"printenv", "MYVAR"},
+				Provider:   providerPath,
+				Filepath:   "",
+				YamlInline: "{MYVAR: !var test, ERR: !var error}",
+				Subs:       map[string]string{},
+				Ignores:    []string{"ERR"},
+			})
 			So(err, ShouldBeNil)
 			So(out, ShouldEqual, "mysecret\n")
 		})

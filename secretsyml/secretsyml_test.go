@@ -6,6 +6,8 @@ import (
 )
 
 func TestParseFromString(t *testing.T) {
+	testEnv := ""
+
 	Convey("Given a string in secrets.yml format", t, func() {
 		input := `
     SENTRY_API_KEY: !var $env/sentry/api_key
@@ -17,7 +19,7 @@ func TestParseFromString(t *testing.T) {
     INT: 27
     `
 		Convey("It should correctly identify the types from tags", func() {
-			parsed, err := ParseFromString(input, map[string]string{"env": "prod"})
+			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
 			So(err, ShouldBeNil)
 
 			spec := parsed["SENTRY_API_KEY"]

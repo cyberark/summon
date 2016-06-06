@@ -13,6 +13,8 @@ import (
 type YamlTag uint8
 
 const (
+	COMMON_SECTION = "common"
+
 	File YamlTag = iota
 	Var
 	Literal
@@ -119,6 +121,28 @@ func parseEnvironment(ymlContent, env string, subs map[string]string) (SecretsMa
 	for i, spec := range out[env] {
 		err := spec.applySubstitutions(subs)
 		if err != nil {
+			return nil, err
+		}
+
+		secretsMap[i] = spec
+	}
+
+	// parse and merge optional 'common' section with secretsMap
+	if _, ok := out[COMMON_SECTION]; ok {
+		return parseAndMergeCommon(out[COMMON_SECTION], secretsMap, subs)
+	}
+
+	return secretsMap, nil
+}
+
+func parseAndMergeCommon(out, secretsMap SecretsMap, subs map[string]string) (SecretsMap, error) {
+	for i, spec := range out {
+		// Skip any env vars that already exist in primary secrets map
+		if _, ok := secretsMap[i]; ok {
+			continue
+		}
+
+		if err := spec.applySubstitutions(subs); err != nil {
 			return nil, err
 		}
 
