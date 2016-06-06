@@ -27,7 +27,7 @@ func TestRunAction(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
-		Convey("Errors when fetching keys keys return error", func() {
+		Convey("Errors when fetching keys return error", func() {
 			_, err := runAction(&ActionConfig{
 				Args:       []string{"printenv", "MYVAR"}, // args
 				Provider:   providerPath,                  // provider
@@ -39,7 +39,7 @@ func TestRunAction(t *testing.T) {
 			So(err, ShouldNotBeNil)
 		})
 
-		Convey("Errors when fetching keys keys don't return error if ignored", func() {
+		Convey("Errors when fetching keys don't return error if ignored", func() {
 			out, err := runAction(&ActionConfig{
 				Args:       []string{"printenv", "MYVAR"},
 				Provider:   providerPath,
