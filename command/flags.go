@@ -10,6 +10,10 @@ var Flags = []cli.Flag{
 		Usage: "Path to provider for fetching secrets",
 	},
 	cli.StringFlag{
+		Name:  "e, environment",
+		Usage: "Specify section/environment to parse from secrets.yaml",
+	},
+	cli.StringFlag{
 		Name:  "f",
 		Value: "secrets.yml",
 		Usage: "Path to secrets.yml",
