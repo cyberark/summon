@@ -1,5 +1,8 @@
 # unreleased
 
+# v0.5.0
+* added `-e`/`--environment` flag
+
 # v0.4.0
 * **breaking change** Default provider path is now `/usr/local/lib/summon`.
 
