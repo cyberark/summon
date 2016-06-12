@@ -21,6 +21,8 @@ Note that summon is still in **early stages**, we are looking for feedback and c
 
 ## Install
 
+Note basic **summon** install is not fully functional; you need to also install a [provider of your choice](http://conjurinc.github.io/summon/#providers) before it's ready for use.
+
 ### OSX
 
 Install via [Homebrew](http://brew.sh/).
