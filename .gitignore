@@ -1,3 +1,4 @@
+acceptance/tmp
 *.tmp
 .vagrant
 _site
