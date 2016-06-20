@@ -29,6 +29,11 @@
 			"Rev": "68c22200a00354e2a63e1a0ade46eadd20e00333"
 		},
 		{
+			"ImportPath": "golang.org/x/net/context",
+			"Comment": "null-223",
+			"Rev": "'5dedbdc181629d2f3557caf2667e60eb82c5e6d7'"
+		},
+		{
 			"ImportPath": "gopkg.in/yaml.v1",
 			"Rev": "9f9df34309c04878acc86042b16630b0f696e1de"
 		}
