@@ -3,7 +3,7 @@ package command
 import (
 	"github.com/conjurinc/summon/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
-	. "golang.org/x/net/context"
+	_ "golang.org/x/net/context"
 	"io/ioutil"
 	"os"
 	"path"
