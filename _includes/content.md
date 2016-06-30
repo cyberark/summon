@@ -8,7 +8,7 @@ process exits, the secrets are gone.
   <img src="//i.imgur.com/ZeSpdZT.png" width="80%" />
 </div>
 
-summon is not tied a particular secrets source. Instead, sources are implemented as providers
+summon is not tied to a particular secrets source. Instead, sources are implemented as providers
 that summon calls to fetch values for secrets. Providers need only satisfy a simple contract
 and can be written in any language.
 
