@@ -1,5 +1,8 @@
 # unreleased
 
+#v0.6.1
+* Support Boolean literals - [PR #35](https://github.com/conjurinc/summon/pull/35)
+
 # v0.6.0
 * Write temporary files to home directory if possible
 
