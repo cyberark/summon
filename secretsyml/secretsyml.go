@@ -53,14 +53,14 @@ func (s *SecretSpec) IsLiteral() bool {
 type SecretsMap map[string]SecretSpec
 
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
-	r, _ := regexp.Compile("(var|file|str|int)")
+	r, _ := regexp.Compile("(var|file|str|int|bool)")
 	tags := r.FindAllString(tag, -1)
 	if len(tags) == 0 {
 		return false
 	}
 	for _, t := range tags {
 		switch t {
-		case "str", "int":
+		case "str", "int", "bool":
 			spec.Tags = append(spec.Tags, Literal)
 		case "file":
 			spec.Tags = append(spec.Tags, File)
@@ -75,6 +75,8 @@ func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 		spec.Path = s
 	} else if s, ok := value.(int); ok {
 		spec.Path = strconv.Itoa(s)
+	} else if s, ok := value.(bool); ok {
+		spec.Path = strconv.FormatBool(s)
 	} else {
 		return false
 	}

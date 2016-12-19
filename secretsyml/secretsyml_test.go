@@ -17,7 +17,8 @@ PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
 SOME_FILE: !file my content
 RAILS_ENV: $env
 FLOAT: 27.1111
-INT: 27`
+INT: 27
+BOOL: true`
 		Convey("It should correctly identify the types from tags", func() {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
 			So(err, ShouldBeNil)
@@ -52,6 +53,11 @@ INT: 27`
 			So(found, ShouldBeTrue)
 			So(spec.IsLiteral(), ShouldBeTrue)
 			So(spec.Path, ShouldEqual, "27")
+
+			spec, found = parsed["BOOL"]
+			So(found, ShouldBeTrue)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "true")
 		})
 	})
 
@@ -64,7 +70,8 @@ INT: 27`
   SOME_FILE: !file my content
   RAILS_ENV: $env
   FLOAT: 27.1111
-  INT: 27`
+  INT: 27
+  BOOL: true`
 
 		Convey("It should correctly identify the types from tags", func() {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
@@ -100,6 +107,11 @@ INT: 27`
 			So(found, ShouldBeTrue)
 			So(spec.IsLiteral(), ShouldBeTrue)
 			So(spec.Path, ShouldEqual, "27")
+
+			spec, found = parsed["BOOL"]
+			So(found, ShouldBeTrue)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "true")
 		})
 	})
 
