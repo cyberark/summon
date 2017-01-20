@@ -106,7 +106,7 @@ the secrets stored in temp files and in the Python process environment are gone.
 
 * `-e, --environment` Specify section (environment) to parse from secret YAML
 
-    This flag specifies which specific environment/section to parse from the secrets YAML file (or string). In addition, it will also enable the usage of a `common` section which will be inherited by other sections/environments. In other words, if your `secrets.yaml` looks something like this:
+    This flag specifies which specific environment/section to parse from the secrets YAML file (or string). In addition, it will also enable the usage of a `common` (or `default`) section which will be inherited by other sections/environments. In other words, if your `secrets.yaml` looks something like this:
 
 ```yaml
 common:
@@ -122,6 +122,8 @@ production:
 ```
 
 Doing something along the lines of: `summon -f secrets.yaml -e staging printenv | grep DB_`, `summon` will populate `DB_USER`, `DB_NAME`, `DB_HOST` with values from `common` and set `DB_PASS` to `some_password`.
+
+Note: `default` is an alias for `common` section. You can use either one.
 
 View help and all flags with `summon -h`.
 
