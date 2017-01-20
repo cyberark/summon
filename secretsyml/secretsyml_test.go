@@ -155,4 +155,30 @@ TestEnvironment:
 			So(spec.Path, ShouldEqual, "prod")
 		})
 	})
+
+	// Verify that 'default' works in addition to 'common'
+	Convey("Given a default section and environment ", t, func() {
+		testEnv := "TestEnvironment"
+		input := `default:
+  SOMETHING_COMMON: should-be-available
+  RAILS_ENV: should-be-overridden
+
+TestEnvironment:
+  RAILS_ENV: $env`
+
+		Convey("It should merge the environment section with default section", func() {
+			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
+			So(err, ShouldBeNil)
+
+			spec := parsed["SOMETHING_COMMON"]
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "should-be-available")
+
+			// RAILS_ENV should be overridden (specific section takes precedence)
+			spec = parsed["RAILS_ENV"]
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "prod")
+		})
+	})
+
 }
