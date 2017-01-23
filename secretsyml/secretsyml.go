@@ -10,11 +10,11 @@ import (
 	"strconv"
 )
 
+var COMMON_SECTIONS = []string{"common", "default"}
+
 type YamlTag uint8
 
 const (
-	COMMON_SECTION = "common"
-
 	File YamlTag = iota
 	Var
 	Literal
@@ -129,9 +129,11 @@ func parseEnvironment(ymlContent, env string, subs map[string]string) (SecretsMa
 		secretsMap[i] = spec
 	}
 
-	// parse and merge optional 'common' section with secretsMap
-	if _, ok := out[COMMON_SECTION]; ok {
-		return parseAndMergeCommon(out[COMMON_SECTION], secretsMap, subs)
+	// parse and merge optional 'common/default' section with secretsMap
+	for _, section := range COMMON_SECTIONS {
+		if _, ok := out[section]; ok {
+			return parseAndMergeCommon(out[section], secretsMap, subs)
+		}
 	}
 
 	return secretsMap, nil
