@@ -1,5 +1,8 @@
 # unreleased
 
+#v0.6.2
+* Added 'default' section support, this is an alias for 'common' - [PR #37](https://github.com/conjurinc/summon/pull/37)
+
 #v0.6.1
 * Support Boolean literals - [PR #35](https://github.com/conjurinc/summon/pull/35)
 
