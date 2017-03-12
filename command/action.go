@@ -6,8 +6,10 @@ import (
 	prov "github.com/conjurinc/summon/provider"
 	"github.com/conjurinc/summon/secretsyml"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
@@ -15,13 +17,13 @@ const ENV_FILE_MAGIC = "@SUMMONENVFILE"
 var Action = func(c *cli.Context) {
 	if !c.Args().Present() {
 		fmt.Println("Enter a subprocess to run!")
-		os.Exit(1)
+		os.Exit(127)
 	}
 
 	provider, err := prov.Resolve(c.String("provider"))
 	if err != nil {
 		fmt.Println(err.Error())
-		os.Exit(1)
+		os.Exit(127)
 	}
 
 	out, err := runAction(
@@ -33,10 +35,14 @@ var Action = func(c *cli.Context) {
 		c.StringSlice("ignore"),
 	)
 
+	code, err := returnStatusOfError(err)
+
 	if err != nil {
 		fmt.Println(out + ": " + err.Error())
-		os.Exit(1)
+		os.Exit(127)
 	}
+
+	os.Exit(code)
 }
 
 // runAction encapsulates the logic of Action without cli Context for easier testing
@@ -158,4 +164,15 @@ func convertSubsToMap(subs []string) map[string]string {
 		out[key] = val
 	}
 	return out
+}
+
+func returnStatusOfError(err error) (int, error) {
+	if eerr, ok := err.(*exec.ExitError); ok {
+		if ws, ok := eerr.Sys().(syscall.WaitStatus); ok {
+			if ws.Exited() {
+				return ws.ExitStatus(), nil
+			}
+		}
+	}
+	return 0, err
 }

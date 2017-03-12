@@ -5,9 +5,11 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"testing"
+	"errors"
 )
 
 func TestRunAction(t *testing.T) {
@@ -135,5 +137,26 @@ func TestJoinEnv(t *testing.T) {
 	Convey("adds a trailing newline", t, func() {
 		result := joinEnv([]string{"foo", "bar"})
 		So(result, ShouldEqual, "foo\nbar\n")
+	})
+}
+
+func TestReturnStatusOfError(t *testing.T) {
+	Convey("returns no error as 0", t, func() {
+		res, err := returnStatusOfError(nil)
+		So(res, ShouldEqual, 0)
+		So(err, ShouldBeNil)
+	})
+
+	Convey("returns ExitError as the wrapped exit status", t, func() {
+		exit := exec.Command("false").Run()
+		res, err := returnStatusOfError(exit)
+		So(res, ShouldEqual, 1)
+		So(err, ShouldBeNil)
+	})
+
+	Convey("returns other errors unchanged", t, func() {
+		expected := errors.New("test")
+		_, err := returnStatusOfError(expected)
+		So(err, ShouldEqual, expected)
 	})
 }
