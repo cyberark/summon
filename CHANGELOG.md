@@ -1,5 +1,8 @@
 # unreleased
 
+#v0.6.3
+* Summon now passes the child exit status to the caller - [PR #39](https://github.com/conjurinc/summon/pull/39)
+
 #v0.6.2
 * Added 'default' section support, this is an alias for 'common' - [PR #37](https://github.com/conjurinc/summon/pull/37)
 
