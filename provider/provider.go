@@ -36,13 +36,9 @@ func Resolve(providerArg string) (string, error) {
 		return "", fmt.Errorf("Could not resolve a provider!")
 	}
 
-	info, err := os.Stat(provider)
+	_, err := os.Stat(provider)
 	if err != nil {
 		return "", err
-	}
-
-	if (info.Mode() & 0111) == 0 {
-		return "", fmt.Errorf("%s is not executable", provider)
 	}
 
 	return provider, nil
@@ -62,7 +58,11 @@ func Call(provider, specPath string) (string, error) {
 	err := cmd.Run()
 
 	if err != nil {
-		return "", fmt.Errorf(stdErr.String())
+		errstr := err.Error()
+		if stdErr.Len() > 0 {
+			errstr += ": " + strings.TrimSpace(stdErr.String())
+		}
+		return "", fmt.Errorf(errstr)
 	}
 
 	return strings.TrimSpace(stdOut.String()), nil

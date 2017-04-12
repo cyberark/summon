@@ -82,5 +82,13 @@ func TestCall(t *testing.T) {
 			So(out, ShouldBeBlank)
 			So(err.Error(), ShouldContainSubstring, "No such file or directory")
 		})
+		Convey("If it can't be executed, returns a descriptive error", func() {
+			err := os.Setenv("LC_ALL", "C")
+			So(err, ShouldBeNil)
+			out, err := Call("/etc/passwd", "foo")
+
+			So(out, ShouldBeBlank)
+			So(err.Error(), ShouldContainSubstring, "permission denied")
+		})
 	})
 }

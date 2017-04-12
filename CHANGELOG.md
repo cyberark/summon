@@ -1,5 +1,8 @@
 # unreleased
 
+#v0.6.4
+* Don't rely on executable bit on the provider; instead provide descriptive error if it fails to run - [Issue #40](https://github.com/conjurinc/summon/issues/40)
+
 #v0.6.3
 * Summon now passes the child exit status to the caller - [PR #39](https://github.com/conjurinc/summon/pull/39)
 
