@@ -9,18 +9,19 @@ pipeline {
   }
 
   stages {
-    stage('Test: Unit') {
+    stage('Build Go binaries') {
+      steps {
+        sh './build.sh'
+      }
+    }
+    stage('Run unit tests') {
       steps {
         sh './test.sh'
         junit 'junit.xml'
       }
     }
-    stage('Build') {
-      steps {
-        sh './build.sh'
-      }
-    }
-    stage('Test: Acceptance') {
+
+    stage('Run acceptance tests') {
       steps {
         sh 'cp ./pkg/linux-amd64/summon .'
         dir('acceptance') {
@@ -29,7 +30,7 @@ pipeline {
         // TODO: collect the acceptance test results
       }
     }
-    stage('Package') {
+    stage('Package distribution tarballs') {
       steps {
         sh 'sudo chmod -R 777 pkg/'  // TODO: remove need to sudo here
         sh './package.sh'
