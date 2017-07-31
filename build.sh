@@ -17,7 +17,7 @@ PLATFORMS=(
 )
 OUTPUT_DIR='output'
 
-echo "Creating summon binaries in $OUTPUT_DIR/..."
+echo "Creating summon binaries in $OUTPUT_DIR/"
 docker-compose build --pull summon-builder
 
 for platform in "${PLATFORMS[@]}"; do

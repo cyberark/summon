@@ -1,4 +1,4 @@
-built/
+output/
 acceptance/tmp
 *.tmp
 .vagrant

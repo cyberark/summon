@@ -1,5 +1,5 @@
 .git
-built/*
+output/*
 build.sh
 _site
 .vagrant

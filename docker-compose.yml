@@ -5,7 +5,7 @@ services:
     build: .
     image: summon-builder
     volumes:
-      - ./built:/go/src/github.com/conjurinc/summon/output
+      - ./output:/go/src/github.com/conjurinc/summon/output
     environment:
       GOOS:
       GOARCH:
