@@ -1,4 +1,7 @@
-#!/bin/bash
+#!/bin/bash -ex
+
+exit 1
+
 set -e
 
 # Get the version from the command line

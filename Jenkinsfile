@@ -42,7 +42,7 @@ pipeline {
     stage('Package distribution tarballs') {
       steps {
         // sh 'sudo chmod -R 777 pkg/'  // TODO: remove need to sudo here
-        // sh './package.sh'
+        sh './package.sh'
         // archiveArtifacts artifacts: 'pkg/**/*', fingerprint: true
       }
     }
