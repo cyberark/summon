@@ -2,11 +2,6 @@
 
 GLOB='summon-*-amd64'
 
-# Get the version from the command line
-if [ -z $VERSION ]; then
-    VERSION=$(git describe --abbrev=0 --tags)
-fi
-
 echo "==> Packaging..."
 
 rm -rf output/dist && mkdir -p output/dist
