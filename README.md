@@ -34,7 +34,7 @@ brew install summon
 
 ### Linux
 
-Use the auto-install script. This will install the latest version of summon. 
+Use the auto-install script. This will install the latest version of summon.
 The script requires sudo to place summon in `/usr/local/bin`.
 
 ```
@@ -165,4 +165,10 @@ To build 64bit versions for Linux, OSX and Windows:
 ./build.sh
 ```
 
-Binaries will be placed in `pkg/`.
+Binaries will be placed in `output/`.
+
+### Packaging
+
+```
+./package.sh
+```
