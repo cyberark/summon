@@ -6,14 +6,12 @@ pipeline {
   options {
     timestamps()
     buildDiscarder(logRotator(numToKeepStr: '30'))
-    skipDefaultCheckout()  // see 'Checkout SCM' below, once perms are fixed this is no longer needed
+    skipDefaultCheckout()  // see 'post' below, once perms are fixed this is no longer needed
   }
 
   stages {
     stage('Checkout SCM') {
       steps {
-        sh 'sudo chown -R jenkins:jenkins .'  // bad docker mount creates unreadable files TODO fix this
-
         checkout scm
       }
     }
@@ -36,6 +34,8 @@ pipeline {
         dir('acceptance') {
           sh 'make'
         }
+        // TODO: remove need to sudo here
+        sh 'sudo chown -R jenkins:jenkins .'
         // TODO: collect the acceptance test results
       }
     }
