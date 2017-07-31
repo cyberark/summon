@@ -1,0 +1,11 @@
+version: '2'
+services:
+  # summon:
+  summon-builder:
+    build: .
+    image: summon-builder
+    volumes:
+      - ./built:/go/src/github.com/conjurinc/summon/output
+    environment:
+      GOOS:
+      GOARCH:

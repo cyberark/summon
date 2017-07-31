@@ -12,6 +12,7 @@ pipeline {
     stage('Build Go binaries') {
       steps {
         sh './build.sh'
+        archiveArtifacts artifacts: 'output/*', fingerprint: true
       }
     }
     stage('Run unit tests') {

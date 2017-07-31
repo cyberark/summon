@@ -1,3 +1,6 @@
+.git
+built/*
+build.sh
 _site
 .vagrant
 Vagrantfile

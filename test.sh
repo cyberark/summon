@@ -1,12 +1,8 @@
 #!/bin/bash
 
-APP="summon"
-WORKDIR="/go/src/github.com/conjurinc/${APP}/"
+echo "Running unit tests"
 
-docker run --rm \
--v "$PWD":$WORKDIR \
--w $WORKDIR \
-golang:1.6 \
-bash -ceo pipefail "go get -u github.com/jstemmer/go-junit-report && \
-go test -v ./... | tee test.tmp \
-&& cat test.tmp | go-junit-report > junit.xml && rm test.tmp"
+docker-compose build --pull summon-builder
+
+docker-compose run --rm --entrypoint bash summon-builder \
+  -c 'go test -v ./... | tee junit.output && cat junit.output | go-junit-report > output/junit.xml'
