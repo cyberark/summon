@@ -6,9 +6,17 @@ pipeline {
   options {
     timestamps()
     buildDiscarder(logRotator(numToKeepStr: '30'))
+    skipDefaultCheckout()  // see 'Checkout SCM' below, once perms are fixed this is no longer needed
   }
 
   stages {
+    stage('Checkout SCM') {
+      steps {
+        sh 'sudo chown -R jenkins:jenkins .'  // bad docker mount creates unreadable files TODO fix this
+
+        checkout scm
+      }
+    }
     stage('Build Go binaries') {
       steps {
         sh './build.sh'
@@ -42,6 +50,7 @@ pipeline {
 
   post {
     always {
+      sh 'sudo chown -R jenkins:jenkins .'
       deleteDir()
     }
     failure {
