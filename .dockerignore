@@ -1,3 +1,6 @@
+.git
+output/*
+build.sh
 _site
 .vagrant
 Vagrantfile
@@ -5,4 +8,3 @@ git
 pkg/*
 provider/provider
 summon
-junit.xml

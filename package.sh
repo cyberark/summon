@@ -1,33 +1,27 @@
-#!/bin/bash
-set -e
+#!/bin/bash -e
 
-# Get the version from the command line
-if [ -z $VERSION ]; then
-    VERSION=$(git describe --abbrev=0 --tags)
-fi
+GLOB='summon-*-amd64'
 
-app="summon"
-
-# Zip and copy to the dist dir
 echo "==> Packaging..."
-rm -rf pkg/dist/*
-mkdir -p pkg/dist
 
-for PLATFORM in $(find pkg -mindepth 1 -maxdepth 1 -type d); do
-    OSARCH=$(basename ${PLATFORM} | tr - _)
+rm -rf output/dist && mkdir -p output/dist
 
-    if [ $OSARCH = "dist" ]; then
-        continue
-    fi
+pushd output
 
-    echo "--> ${OSARCH}"
-    pushd $PLATFORM >/dev/null 2>&1
-    tar -cvzf ../dist/${app}_${VERSION}_${OSARCH}.tar.gz ./*
-    popd >/dev/null 2>&1
+for binary_name in $GLOB; do
+  pushd dist
+
+  cp ../$binary_name summon && \
+  tar -cvzf $binary_name.tar.gz summon && \
+  rm -f summon
+
+  popd
 done
 
-# Make the checksums
+popd
+
+# # Make the checksums
 echo "==> Checksumming..."
-pushd pkg/dist >/dev/null 2>&1
-shasum -a256 * > ${app}_${VERSION}_SHA256SUMS
-popd >/dev/null 2>&1
+pushd output/dist
+shasum -a256 * > SHA256SUMS.txt
+popd
