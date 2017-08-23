@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-GLOB='summon-*-amd64'
+GLOB='summon_*_amd64'
 
 echo "==> Packaging..."
 
