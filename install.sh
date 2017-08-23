@@ -46,7 +46,7 @@ get_latest_version() {
   echo "${version}"
 }
 
-LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/conjurinc/summon/master/version.go')
+LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/cyberark/summon/master/version.go')
 BASEURL="https://github.com/cyberark/summon/releases/download/"
 URL=${BASEURL}"v${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
 
