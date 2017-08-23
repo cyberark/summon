@@ -1,7 +1,7 @@
 .PHONY: cucumber
 
 # currently built ad-hoc based on modified buncker
-TEST_HARNESS = cyberark/summon-acceptance:v1
+TEST_HARNESS = conjurinc/summon-acceptance:v1
 TTY_MODE := $(shell tty -s && echo -t)
 
 cucumber:
