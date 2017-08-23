@@ -30,7 +30,7 @@ pipeline {
 
     stage('Run acceptance tests') {
       steps {
-        sh 'package_name=(summon*linux-amd64); cp ./output/$package_name summon'
+        sh './prepare-acceptance.sh'
         dir('acceptance') {
           sh 'make'
         }
