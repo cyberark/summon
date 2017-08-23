@@ -1,4 +1,4 @@
-# github.com/conjurinc/summon/provider
+# github.com/cyberark/summon/provider
 
 Functions to resolve and call a Summon provider.
 

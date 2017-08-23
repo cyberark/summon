@@ -3,8 +3,8 @@ package command
 import (
 	"fmt"
 	"github.com/codegangsta/cli"
-	prov "github.com/conjurinc/summon/provider"
-	"github.com/conjurinc/summon/secretsyml"
+	prov "github.com/cyberark/summon/provider"
+	"github.com/cyberark/summon/secretsyml"
 	"os"
 	"os/exec"
 	"strings"

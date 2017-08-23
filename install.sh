@@ -50,7 +50,6 @@ LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/conjurinc
 BASEURL="https://github.com/conjurinc/summon/releases/download/"
 URL=${BASEURL}"v${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
 
-
 ZIP_PATH="${tmp_dir}/summon.tar.gz"
 do_download ${URL} ${ZIP_PATH}
 
@@ -59,7 +58,7 @@ echo "Installing summon v${LATEST_VERSION} into /usr/local/bin"
 sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH}
 
 if [ -d "/etc/bash_completion.d" ]; then
-  do_download "https://raw.githubusercontent.com/conjurinc/summon/master/script/complete_summon" "/etc/bash_completion.d/complete_summon"
+  do_download "https://raw.githubusercontent.com/cyberark/summon/master/script/complete_summon" "/etc/bash_completion.d/complete_summon"
 fi
 
 echo "Success!"
