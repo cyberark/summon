@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Get the version from the command line
-if [ -z $VERSION ]; then
-    VERSION=$(git describe --abbrev=0 --tags)
-fi
-
 # Platforms to build: https://golang.org/doc/install/source#environment
 PLATFORMS=(
   'darwin:amd64'     # MacOS
@@ -36,5 +31,5 @@ for platform in "${PLATFORMS[@]}"; do
   docker-compose run --rm \
     -e GOOS=$GOOS -e GOARCH=$GOARCH \
     summon-builder \
-    build -v -o $OUTPUT_DIR/summon_$VERSION_$GOOS_$GOARCH
+    build -v -o $OUTPUT_DIR/summon-$GOOS-$GOARCH
 done
