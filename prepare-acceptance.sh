@@ -1,7 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash -e
 
-set -e
+GLOB='./output/summon_*_linux_amd64'
 
-for file in ./output/summon_*_linux_amd64 ; do
+for file in $GLOB ; do
   cp $file summon
 done
