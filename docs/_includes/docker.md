@@ -81,12 +81,12 @@ $ curl -sSL https://raw.githubusercontent.com/cyberark/summon/master/install.sh 
 
 or [download the latest release](https://github.com/cyberark/summon/releases/latest) and unzip it into your `PATH`.
 
-We'll use the [keyring provider](https://github.com/cyberark/summon-keyring) for this tutorial since it is cross-platform and doesn't require communication with a secrets server.
+We'll use the [keyring provider](https://github.com/conjurinc/summon-keyring) for this tutorial since it is cross-platform and doesn't require communication with a secrets server.
 
 ```sh
 $ pip install keyring # dependency of the provider
 $ mkdir -p /usr/libexec/summon
-$ sudo curl -sSL -o /usr/libexec/summon/ring.py https://raw.githubusercontent.com/cyberark/summon-keyring/master/ring.py
+$ sudo curl -sSL -o /usr/libexec/summon/ring.py https://raw.githubusercontent.com/conjurinc/summon-keyring/master/ring.py
 $ sudo chmod a+x /usr/libexec/summon/ring.py
 ```
 
