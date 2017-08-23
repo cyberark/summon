@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/codegangsta/cli"
-	"github.com/conjurinc/summon/command"
+	"github.com/cyberark/summon/command"
 	"io"
 	"os"
 )
