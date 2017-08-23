@@ -7,16 +7,16 @@
   - Simpler docker-compose development environment.
 
 #v0.6.4
-* Don't rely on executable bit on the provider; instead provide descriptive error if it fails to run - [Issue #40](https://github.com/conjurinc/summon/issues/40)
+* Don't rely on executable bit on the provider; instead provide descriptive error if it fails to run - [Issue #40](https://github.com/cyberark/summon/issues/40)
 
 #v0.6.3
-* Summon now passes the child exit status to the caller - [PR #39](https://github.com/conjurinc/summon/pull/39)
+* Summon now passes the child exit status to the caller - [PR #39](https://github.com/cyberark/summon/pull/39)
 
 #v0.6.2
-* Added 'default' section support, this is an alias for 'common' - [PR #37](https://github.com/conjurinc/summon/pull/37)
+* Added 'default' section support, this is an alias for 'common' - [PR #37](https://github.com/cyberark/summon/pull/37)
 
 #v0.6.1
-* Support Boolean literals - [PR #35](https://github.com/conjurinc/summon/pull/35)
+* Support Boolean literals - [PR #35](https://github.com/cyberark/summon/pull/35)
 
 # v0.6.0
 * Write temporary files to home directory if possible
@@ -31,10 +31,10 @@
 * Now fails more gracefully on unknown flags
 
 # v0.3.2
-* `@SUMMONENVFILE` is now ensured to contain a trailing newline [GH-22](https://github.com/conjurinc/summon/issues/22)
+* `@SUMMONENVFILE` is now ensured to contain a trailing newline [GH-22](https://github.com/cyberark/summon/issues/22)
 
 # v0.3.1
-* Integer values set in secrets.yml are now parsed correctly [GH-21](https://github.com/conjurinc/summon/issues/21)
+* Integer values set in secrets.yml are now parsed correctly [GH-21](https://github.com/cyberark/summon/issues/21)
 
 # v0.3.0
 * Install bash completions if available
@@ -44,7 +44,7 @@
 * Check if provider exists and is executable
 
 # v0.2.1
-* Improve provider path handling [5df0fde](https://github.com/conjurinc/summon/commit/5df0fdeb182884371ad647d0a9493a5e07d3e0e4)
+* Improve provider path handling [5df0fde](https://github.com/cyberark/summon/commit/5df0fdeb182884371ad647d0a9493a5e07d3e0e4)
 
 # v0.2.0
 * -D variable interpolation now plays nicely with the shell

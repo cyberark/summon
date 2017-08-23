@@ -1,9 +1,9 @@
 # summon
 
 <div align="center">
-  <a href="https://conjurinc.github.io/summon">
-    <img src="https://conjurinc.github.io/summon/images/logo.png" height="200"/><br>
-    conjurinc.github.io/summon
+  <a href="https://cyberark.github.io/summon">
+    <img src="https://cyberark.github.io/summon/images/logo.png" height="200"/><br>
+    cyberark.github.io/summon
   </a>
 </div>
 
@@ -21,14 +21,14 @@ Note that summon is still in **early stages**, we are looking for feedback and c
 
 ## Install
 
-Note basic **summon** install is not fully functional; you need to also install a [provider of your choice](http://conjurinc.github.io/summon/#providers) before it's ready for use.
+Note basic **summon** install is not fully functional; you need to also install a [provider of your choice](http://cyberark.github.io/summon/#providers) before it's ready for use.
 
 ### OSX
 
 Install via [Homebrew](http://brew.sh/).
 
 ```sh
-brew tap conjurinc/tools
+brew tap cyberark/tools
 brew install summon
 ```
 
@@ -38,10 +38,10 @@ Use the auto-install script. This will install the latest version of summon.
 The script requires sudo to place summon in `/usr/local/bin`.
 
 ```
-curl -sSL https://raw.githubusercontent.com/conjurinc/summon/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/cyberark/summon/master/install.sh | bash
 ```
 
-For other platforms, download the [latest release](https://github.com/conjurinc/summon/releases/latest)
+For other platforms, download the [latest release](https://github.com/cyberark/summon/releases/latest)
 and unzip it to a location on your PATH.
 
 ## Usage
