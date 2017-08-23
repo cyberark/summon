@@ -1,7 +1,7 @@
 package command
 
 import (
-	"github.com/conjurinc/summon/secretsyml"
+	"github.com/cyberark/summon/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
 	_ "golang.org/x/net/context"
 	"io/ioutil"

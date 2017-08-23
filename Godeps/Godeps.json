@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/conjurinc/summon",
+	"ImportPath": "github.com/cyberark/summon",
 	"GoVersion": "go1.6.2",
 	"Packages": [
 		"./..."
