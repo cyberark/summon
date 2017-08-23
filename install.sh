@@ -47,7 +47,7 @@ get_latest_version() {
 }
 
 LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/conjurinc/summon/master/version.go')
-BASEURL="https://github.com/conjurinc/summon/releases/download/"
+BASEURL="https://github.com/cyberark/summon/releases/download/"
 URL=${BASEURL}"v${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
 
 ZIP_PATH="${tmp_dir}/summon.tar.gz"
