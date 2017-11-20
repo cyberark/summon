@@ -30,8 +30,8 @@ tmp_dir="$tmp/install.sh.$$"
 # do_download URL DIR
 function do_download(){
   echo "Downloading $1"
-  if   [[ $(type -t wget) ]]; then wget -q -c -O "$2" "$1" >/dev/null
-  elif [[ $(type -t curl) ]]; then curl -sSL -C -o "$2" "$1"
+  if   [[ $(type -t wget) ]]; then wget -q -O "$2" "$1" >/dev/null
+  elif [[ $(type -t curl) ]]; then curl -sSL -o "$2" "$1"
   else
     error "Could not find wget or curl"
     return 1
