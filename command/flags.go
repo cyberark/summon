@@ -32,4 +32,13 @@ var Flags = []cli.Flag{
 		Value: &cli.StringSlice{},
 		Usage: "Ignore the specified key if is isn't accessible or doesn’t exist",
 	},
+	cli.BoolFlag{
+		Name:  "watch, w",
+		Usage: "Watch for changes in secret values from provider then re-summon",
+	},
+	cli.IntFlag{
+		Name:  "watch-poll-interval",
+		Value: 5000,
+		Usage: "Polling interval when watching for changes in secret values from provider",
+	},
 }

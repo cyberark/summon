@@ -10,6 +10,11 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"reflect"
+	"time"
+	"sort"
+	"hash/fnv"
+	"os/signal"
 )
 
 type ActionConfig struct {
@@ -20,6 +25,8 @@ type ActionConfig struct {
 	Subs        map[string]string
 	Ignores     []string
 	Environment string
+	WatchPollInterval time.Duration
+	WatchMode bool
 }
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
@@ -36,28 +43,65 @@ var Action = func(c *cli.Context) {
 		os.Exit(127)
 	}
 
-	out, err := runAction(&ActionConfig{
+	runAction(&ActionConfig{
 		Args:        c.Args(),
 		Provider:    provider,
 		Environment: c.String("environment"),
 		Filepath:    c.String("f"),
 		YamlInline:  c.String("yaml"),
+		WatchMode:  c.Bool("w"),
+		WatchPollInterval:  time.Duration(c.Int("watch-poll-interval")) * time.Millisecond,
 		Ignores:     c.StringSlice("ignore"),
 		Subs:        convertSubsToMap(c.StringSlice("D")),
 	})
-
-	code, err := returnStatusOfError(err)
-
-	if err != nil {
-		fmt.Println(out + ": " + err.Error())
-		os.Exit(127)
-	}
-
-	os.Exit(code)
 }
 
-// runAction encapsulates the logic of Action without cli Context for easier testing
-func runAction(ac *ActionConfig) (string, error) {
+type ProviderResult struct {
+	Spec secretsyml.SecretSpec
+	Key string
+	Value string
+	Error error
+}
+
+func runProvider(secrets secretsyml.SecretsMap, provider string) []ProviderResult {
+	var err error
+
+	// Run provider calls concurrently
+	results := make(chan ProviderResult, len(secrets))
+	var wg sync.WaitGroup
+
+	for key, spec := range secrets {
+		wg.Add(1)
+		go func(key string, spec secretsyml.SecretSpec) {
+			var value string
+			if spec.IsVar() {
+				value, err = prov.Call(provider, spec.Path)
+				if err != nil {
+					results <- ProviderResult{Key: key, Error: err}
+					wg.Done()
+					return
+				}
+			} else {
+				// If the spec isn't a variable, use its value as-is
+				value = spec.Path
+			}
+
+			results <- ProviderResult{Key: key, Value: value, Spec: spec}
+			wg.Done()
+		}(key, spec)
+	}
+	wg.Wait()
+	close(results)
+
+	resultsSlice := make([]ProviderResult, 0)
+
+	for result := range results {
+		resultsSlice = append(resultsSlice, result)
+	}
+	return resultsSlice
+}
+
+func getProviderResults(ac *ActionConfig) ([]ProviderResult, string, error) {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
@@ -71,63 +115,151 @@ func runAction(ac *ActionConfig) (string, error) {
 	}
 
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
-	var env []string
-	tempFactory := NewTempFactory("")
-	defer tempFactory.Cleanup()
-
-	type Result struct {
-		string
-		error
-	}
-
-	// Run provider calls concurrently
-	results := make(chan Result, len(secrets))
-	var wg sync.WaitGroup
-
-	for key, spec := range secrets {
-		wg.Add(1)
-		go func(key string, spec secretsyml.SecretSpec) {
-			var value string
-			if spec.IsVar() {
-				value, err = prov.Call(ac.Provider, spec.Path)
-				if err != nil {
-					results <- Result{key, err}
-					wg.Done()
-					return
-				}
-			} else {
-				// If the spec isn't a variable, use its value as-is
-				value = spec.Path
-			}
-
-			envvar := formatForEnv(key, value, spec, &tempFactory)
-			results <- Result{envvar, nil}
-			wg.Done()
-		}(key, spec)
-	}
-	wg.Wait()
-	close(results)
+	results := runProvider(secrets, ac.Provider)
 
 EnvLoop:
-	for envvar := range results {
-		if envvar.error == nil {
-			env = append(env, envvar.string)
-		} else {
+	for _, envvar := range results {
+		if envvar.Error != nil {
 			for i := range ac.Ignores {
-				if ac.Ignores[i] == envvar.string {
+				if ac.Ignores[i] == envvar.Key {
 					continue EnvLoop
 				}
 			}
-			return "Error fetching variable " + envvar.string, envvar.error
+			return nil, "Error fetching variable " + envvar.Key, envvar.Error
 		}
 	}
 
-	setupEnvFile(ac.Args, env, &tempFactory)
+	return results, "", nil
+}
 
-	return runSubcommand(ac.Args, append(os.Environ(), env...))
+func ProviderResultsHash(prs []ProviderResult) uint32 {
+	s := make([]string, 0)
+	for _, pr := range prs {
+		s = append(s, fmt.Sprintf("%s=%s", pr.Key, pr.Value))
+	}
+
+	sort.Strings(s)
+	h := fnv.New32a()
+	h.Write([]byte(strings.Join(s, ",")))
+	return h.Sum32()
+
+	// TODO: same hash but hey it's not meant for secrecy?
+	//fmt.Println(hash([]string{"a", "b", "c,x"}))
+	//fmt.Println(hash([]string{"b", "a", "c", "x"}))
+}
+
+// runAction encapsulates the logic of Action without cli Context for easier testing
+func runAction(ac *ActionConfig) {
+
+	var (
+		previousSecretsHash uint32
+		currentTempFactory *TempFactory
+		currentRunner *exec.Cmd
+	)
+	done := make(chan bool)
+
+	// clean up tempfiles when summon is abruptly cut
+	// https://stackoverflow.com/questions/41432193/how-to-delete-a-file-using-golang-on-program-exit
+	// maybe also clean up tmp files from summon when summon is run
+
+	gracefulStop := make(chan os.Signal)
+	signal.Notify(gracefulStop, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-gracefulStop
+		currentTempFactory.Cleanup()
+		os.Exit(0)
+	}()
+
+	cleanUp := func() {}
+	for multiRun := true; multiRun; multiRun = ac.WatchMode {
+		results, out, err := getProviderResults(ac)
+		if err != nil {
+			code, err := returnStatusOfError(err)
+			currentRunner.Process.Kill()
+
+			if err != nil {
+				fmt.Println(out + ": " + err.Error())
+				os.Exit(127)
+			}
+
+			os.Exit(code)
+			return
+		}
+
+		currentSecretsHash := ProviderResultsHash(results)
+
+		secretsMapHasBeenUpdated := !reflect.DeepEqual(currentSecretsHash, previousSecretsHash)
+
+		if secretsMapHasBeenUpdated {
+			// restart process
+			cleanUp()
+
+			// create temporary files
+			var env []string
+			tempFactory := NewTempFactory("")
+			// for clean up
+			currentTempFactory = &tempFactory
+
+			for _, result := range results {
+				env = append(env, formatForEnv(result.Key, result.Value, result.Spec, &tempFactory))
+			}
+
+			setupEnvFile(ac.Args, env, &tempFactory)
+
+			runner := runSubCommand(ac.Args, append(os.Environ(), env...))
+			err = runner.Start()
+			currentRunner = runner
+			respondToError("application starting error: ", err)
+
+			go func() {
+				defer tempFactory.Cleanup()
+				runner.Wait()
+				if !ac.WatchMode {
+					done <- true
+				}
+				// TODO: currently if a long running application dies abruptly nothing happens
+				// currently does no error handling.
+				// this makes sense because error handling for your application shouldn't be something that summon does for you
+				// we could try a couple times to restart then exit if it is a not so innocent error
+				// This only applies to long lived processes. Something like env will exit immediately
+				//err := runner.Wait()
+				//respondToError("application running error: ", err)
+			}()
+
+			cleanUp = func() {
+				runner.Process.Kill()
+			}
+		}
+		previousSecretsHash = currentSecretsHash
+
+		time.Sleep(ac.WatchPollInterval)
+	}
+
+	<-done
+	currentTempFactory.Cleanup()
+	os.Exit(0)
+}
+
+// runSubcommand executes a command with arguments in the context
+// of an environment populated with secret values.
+func runSubCommand(command []string, env []string) (*exec.Cmd) {
+	runner := exec.Command(command[0], command[1:]...)
+	runner.Stdin = os.Stdin
+	runner.Stdout = os.Stdout
+	runner.Stderr = os.Stderr
+	runner.Env = env
+
+	return runner
+}
+
+func respondToError(out string, err error) {
+	if err != nil {
+		fmt.Println(out + ": " + err.Error())
+		os.Exit(127)
+	}
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and

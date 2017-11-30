@@ -49,6 +49,28 @@ func (tf *TempFactory) Push(value string) string {
 	tf.files = append(tf.files, name)
 	return name
 }
+// pipes
+//func () {
+//	tmpDir, _ := ioutil.TempDir(tf.path, ".summon")
+//	// Create named pipe
+//	namedPipe := filepath.Join(tmpDir, "pipe")
+//	syscall.Mkfifo(namedPipe, 0600)
+//
+//	go func() {
+//		// a blocking file descriptor when writing
+//		f, _ := os.OpenFile(namedPipe, os.O_WRONLY, 0600)
+//		defer func() {
+//			// clean up
+//			f.Close()
+//			os.Remove(namedPipe)
+//			os.Remove(tmpDir)
+//		}()
+//		f.Write([]byte(value))
+//	}()
+//
+//	tf.files = append(tf.files, namedPipe)
+//	return namedPipe
+//}
 
 // Remove the temporary files created with this factory.
 func (tf *TempFactory) Cleanup() {
