@@ -9,14 +9,10 @@ var Flags = []cli.Flag{
 		Name:  "p, provider",
 		Usage: "Path to provider for fetching secrets",
 	},
-	cli.StringFlag{
+	cli.StringSliceFlag{
 		Name:  "t, template",
-		Usage: "Template string for generating @SUMMONENVFILE",
-		Value: `
-{{- range $key, $value := . -}}
-	{{$key}}={{$value}}
-{{ end -}}
-`,
+		Usage: "Path pairs of template source and destination separated by colon e.g. /from/path:to/path",
+		Value: &cli.StringSlice{},
 	},
 	cli.StringFlag{
 		Name:  "e, environment",

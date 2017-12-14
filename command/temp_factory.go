@@ -50,6 +50,17 @@ func (tf *TempFactory) Push(value string) string {
 	return name
 }
 
+// Create a temp file with given value. Returns the path.
+func (tf *TempFactory) PushTo(path, value string) string {
+	f, _ := os.OpenFile(path, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0777)
+	defer f.Close()
+
+	f.Write([]byte(value))
+	name := f.Name()
+	tf.files = append(tf.files, name)
+	return name
+}
+
 // Remove the temporary files created with this factory.
 func (tf *TempFactory) Cleanup() {
 	for _, file := range tf.files {

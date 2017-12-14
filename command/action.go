@@ -19,11 +19,16 @@ import (
 	"bytes"
 )
 
+type Template struct {
+	From  string
+	To    string
+}
+
 type ActionConfig struct {
 	Args              []string
 	Provider          string
 	Filepath          string
-	TemplatePath      string
+	Templates	      []Template
 	YamlInline        string
 	Subs              map[string]string
 	Ignores           []string
@@ -46,17 +51,35 @@ var Action = func(c *cli.Context) {
 		os.Exit(127)
 	}
 
+	templatePathPairs := c.StringSlice("t")
+	templates := make([]Template, 0)
+
+	for _, templatePathPair := range templatePathPairs {
+		matches := strings.SplitN(templatePathPair, ":", -1)
+		if len(matches) != 2 {
+			err = fmt.Errorf("%s does not match the expected format", templatePathPair)
+			break
+		}
+
+		tmpl := Template{From: matches[0], To: matches[1],}
+		templates = append(templates, tmpl)
+	}
+	if err != nil {
+		fmt.Println(fmt.Sprintf("template error: %s", err.Error()))
+		os.Exit(127)
+	}
+
 	runAction(&ActionConfig{
-		Args:        c.Args(),
-		Provider:    provider,
-		Environment: c.String("environment"),
-		Filepath:    c.String("f"),
-		TemplatePath:    c.String("t"),
-		YamlInline:  c.String("yaml"),
-		WatchMode:  c.Bool("w"),
+		Args:        		c.Args(),
+		Provider:    		provider,
+		Environment: 		c.String("environment"),
+		Filepath:    		c.String("f"),
+		Templates:      	templates,
+		YamlInline:  		c.String("yaml"),
+		WatchMode:  		c.Bool("w"),
 		WatchPollInterval:  time.Duration(c.Int("watch-poll-interval")) * time.Millisecond,
-		Ignores:     c.StringSlice("ignore"),
-		Subs:        convertSubsToMap(c.StringSlice("D")),
+		Ignores:     		c.StringSlice("ignore"),
+		Subs:        		convertSubsToMap(c.StringSlice("D")),
 	})
 }
 
@@ -139,7 +162,7 @@ EnvLoop:
 	return results, "", nil
 }
 
-func singleQuoteEscape(line string) string {
+func escapeSingleQuotes(line string) string {
 	line = strings.Replace(line, string('\''), `'\''`, -1)
 
 	return line
@@ -188,7 +211,9 @@ func runAction(ac *ActionConfig) {
 		results, out, err := getProviderResults(ac)
 		if err != nil {
 			code, err := returnStatusOfError(err)
-			currentRunner.Process.Kill()
+			if currentRunner != nil {
+				currentRunner.Process.Kill()
+			}
 
 			if err != nil {
 				fmt.Println(out + ": " + err.Error())
@@ -217,7 +242,9 @@ func runAction(ac *ActionConfig) {
 				env = append(env, formatForEnv(result.Key, result.Value, result.Spec, &tempFactory))
 			}
 
-			setupEnvFile(ac.Args, ac.TemplatePath, results,  &tempFactory)
+			setupEnvFile(ac.Args, env,  &tempFactory)
+
+			setupTemplateFiles(ac.Templates, results,  &tempFactory)
 
 			runner := runSubCommand(ac.Args, append(os.Environ(), env...))
 			err = runner.Start()
@@ -295,11 +322,7 @@ func joinEnv(env []string) string {
 // creates a tempfile to which all the environment mappings are dumped
 // and replaces the magic string with its path.
 // Returns the path if so, returns an empty string otherwise.
-func setupEnvFile(args []string, tmpl string, results []ProviderResult, tempFactory *TempFactory) string {
-	resultsMap := make(map[string]string)
-	for _, result := range results {
-		resultsMap[result.Key] = result.Value
-	}
+func setupEnvFile(args []string, env []string, tempFactory *TempFactory) string {
 
 	var envFile = ""
 
@@ -307,24 +330,45 @@ func setupEnvFile(args []string, tmpl string, results []ProviderResult, tempFact
 		idx := strings.Index(arg, ENV_FILE_MAGIC)
 		if idx >= 0 {
 			if envFile == "" {
-				var templateBuffer bytes.Buffer
-
-				fmap := template.FuncMap{
-					"singleQuoteEscape": singleQuoteEscape,
-				}
-				t := template.Must(template.New("summonenvtemplate").Funcs(fmap).Parse(tmpl))
-				err := t.Execute(&templateBuffer, resultsMap)
-				if err != nil {
-					fmt.Println(err.Error())
-					os.Exit(-1)
-				}
-				envFile = tempFactory.Push(templateBuffer.String())
+				envFile = tempFactory.Push(joinEnv(env))
 			}
 			args[i] = strings.Replace(arg, ENV_FILE_MAGIC, envFile, -1)
 		}
 	}
 
 	return envFile
+}
+
+func setupTemplateFiles(tmpls[] Template, results []ProviderResult, tempFactory *TempFactory) {
+	resultsMap := make(map[string]string)
+	for _, result := range results {
+		resultsMap[result.Key] = result.Value
+	}
+
+	fmap := template.FuncMap{
+		"escapeSingleQuotes": escapeSingleQuotes,
+	}
+
+	var err error
+	for _, tmpl := range tmpls {
+		var (
+			templateBuffer bytes.Buffer
+			t *template.Template
+		)
+
+		t, err = template.New(tmpl.From).Funcs(fmap).ParseFiles(tmpl.From)
+		if err != nil { break }
+
+		err = t.Execute(&templateBuffer, resultsMap)
+		if err != nil { break }
+
+		tempFactory.PushTo(tmpl.To, templateBuffer.String())
+	}
+
+	if err != nil {
+		fmt.Println(fmt.Sprintf("template eval: %s", err.Error()))
+		os.Exit(-1)
+	}
 }
 
 // convertSubsToMap converts the list of substitutions passed in via
