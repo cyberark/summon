@@ -139,6 +139,12 @@ EnvLoop:
 	return results, "", nil
 }
 
+func singleQuoteEscape(line string) string {
+	line = strings.Replace(line, string('\''), `'\''`, -1)
+
+	return line
+}
+
 func ProviderResultsHash(prs []ProviderResult) uint32 {
 	s := make([]string, 0)
 	for _, pr := range prs {
@@ -178,7 +184,7 @@ func runAction(ac *ActionConfig) {
 	}()
 
 	cleanUp := func() {}
-	for multiRun := true; multiRun; multiRun = ac.WatchMode {
+	for {
 		results, out, err := getProviderResults(ac)
 		if err != nil {
 			code, err := returnStatusOfError(err)
@@ -237,6 +243,10 @@ func runAction(ac *ActionConfig) {
 				runner.Process.Kill()
 			}
 		}
+
+
+		if !ac.WatchMode { break }
+
 		previousSecretsHash = currentSecretsHash
 
 		time.Sleep(ac.WatchPollInterval)
@@ -286,6 +296,11 @@ func joinEnv(env []string) string {
 // and replaces the magic string with its path.
 // Returns the path if so, returns an empty string otherwise.
 func setupEnvFile(args []string, tmpl string, results []ProviderResult, tempFactory *TempFactory) string {
+	resultsMap := make(map[string]string)
+	for _, result := range results {
+		resultsMap[result.Key] = result.Value
+	}
+
 	var envFile = ""
 
 	for i, arg := range args {
@@ -293,9 +308,12 @@ func setupEnvFile(args []string, tmpl string, results []ProviderResult, tempFact
 		if idx >= 0 {
 			if envFile == "" {
 				var templateBuffer bytes.Buffer
-				fmap := template.FuncMap{}
+
+				fmap := template.FuncMap{
+					"singleQuoteEscape": singleQuoteEscape,
+				}
 				t := template.Must(template.New("summonenvtemplate").Funcs(fmap).Parse(tmpl))
-				err := t.Execute(&templateBuffer, results)
+				err := t.Execute(&templateBuffer, resultsMap)
 				if err != nil {
 					fmt.Println(err.Error())
 					os.Exit(-1)

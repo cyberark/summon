@@ -13,8 +13,8 @@ var Flags = []cli.Flag{
 		Name:  "t, template",
 		Usage: "Template string for generating @SUMMONENVFILE",
 		Value: `
-{{- range . -}}
-	{{.Key}}={{.Value}}
+{{- range $key, $value := . -}}
+	{{$key}}={{$value}}
 {{ end -}}
 `,
 	},
