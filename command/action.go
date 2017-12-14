@@ -15,18 +15,21 @@ import (
 	"sort"
 	"hash/fnv"
 	"os/signal"
+	"text/template"
+	"bytes"
 )
 
 type ActionConfig struct {
-	Args        []string
-	Provider    string
-	Filepath    string
-	YamlInline  string
-	Subs        map[string]string
-	Ignores     []string
-	Environment string
+	Args              []string
+	Provider          string
+	Filepath          string
+	TemplatePath      string
+	YamlInline        string
+	Subs              map[string]string
+	Ignores           []string
+	Environment       string
 	WatchPollInterval time.Duration
-	WatchMode bool
+	WatchMode         bool
 }
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
@@ -48,6 +51,7 @@ var Action = func(c *cli.Context) {
 		Provider:    provider,
 		Environment: c.String("environment"),
 		Filepath:    c.String("f"),
+		TemplatePath:    c.String("t"),
 		YamlInline:  c.String("yaml"),
 		WatchMode:  c.Bool("w"),
 		WatchPollInterval:  time.Duration(c.Int("watch-poll-interval")) * time.Millisecond,
@@ -207,7 +211,7 @@ func runAction(ac *ActionConfig) {
 				env = append(env, formatForEnv(result.Key, result.Value, result.Spec, &tempFactory))
 			}
 
-			setupEnvFile(ac.Args, env, &tempFactory)
+			setupEnvFile(ac.Args, ac.TemplatePath, results,  &tempFactory)
 
 			runner := runSubCommand(ac.Args, append(os.Environ(), env...))
 			err = runner.Start()
@@ -281,14 +285,22 @@ func joinEnv(env []string) string {
 // creates a tempfile to which all the environment mappings are dumped
 // and replaces the magic string with its path.
 // Returns the path if so, returns an empty string otherwise.
-func setupEnvFile(args []string, env []string, tempFactory *TempFactory) string {
+func setupEnvFile(args []string, tmpl string, results []ProviderResult, tempFactory *TempFactory) string {
 	var envFile = ""
 
 	for i, arg := range args {
 		idx := strings.Index(arg, ENV_FILE_MAGIC)
 		if idx >= 0 {
 			if envFile == "" {
-				envFile = tempFactory.Push(joinEnv(env))
+				var templateBuffer bytes.Buffer
+				fmap := template.FuncMap{}
+				t := template.Must(template.New("summonenvtemplate").Funcs(fmap).Parse(tmpl))
+				err := t.Execute(&templateBuffer, results)
+				if err != nil {
+					fmt.Println(err.Error())
+					os.Exit(-1)
+				}
+				envFile = tempFactory.Push(templateBuffer.String())
 			}
 			args[i] = strings.Replace(arg, ENV_FILE_MAGIC, envFile, -1)
 		}

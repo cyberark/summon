@@ -10,6 +10,15 @@ var Flags = []cli.Flag{
 		Usage: "Path to provider for fetching secrets",
 	},
 	cli.StringFlag{
+		Name:  "t, template",
+		Usage: "Template string for generating @SUMMONENVFILE",
+		Value: `
+{{- range . -}}
+	{{.Key}}={{.Value}}
+{{ end -}}
+`,
+	},
+	cli.StringFlag{
 		Name:  "e, environment",
 		Usage: "Specify section/environment to parse from secrets.yaml",
 	},
