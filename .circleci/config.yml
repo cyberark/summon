@@ -1,11 +1,23 @@
-machine:
-  services:
-    - docker
+version: 2.0
 
-compile:
-  override:
-    - ./build.sh
+jobs:
+  build:
+    steps:
+      - checkout
+      # Build
+      - run: ./build.sh
 
-test:
-  override:
-    - ./test.sh
+  test:
+    steps:
+      - run:
+          name: Unit tests
+          command: ./test.sh
+
+workflows:
+  version: 2
+  build-and-test:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
