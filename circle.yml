@@ -1,0 +1,11 @@
+machine:
+  services:
+    - docker
+
+compile:
+  override:
+    - ./build.sh
+
+test:
+  override:
+    - ./test.sh
