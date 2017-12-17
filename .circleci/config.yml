@@ -7,10 +7,17 @@ jobs:
       - checkout
       # Build
       - run: ./build.sh
+      
+      - persist_to_workspace:
+          # Must be an absolute path, or relative path from working_directory
+          root: .
 
   test:
     machine: true
     steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
       - run:
           name: Unit tests
           command: ./test.sh
