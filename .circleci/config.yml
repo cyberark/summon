@@ -2,12 +2,14 @@ version: 2.0
 
 jobs:
   build:
+    machine: true
     steps:
       - checkout
       # Build
       - run: ./build.sh
 
   test:
+    machine: true
     steps:
       - run:
           name: Unit tests
