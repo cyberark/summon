@@ -11,6 +11,7 @@ jobs:
       - persist_to_workspace:
           # Must be an absolute path, or relative path from working_directory
           root: .
+          # Must be relative path from root
           paths:
             - *
 
