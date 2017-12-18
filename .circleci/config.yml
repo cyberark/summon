@@ -28,6 +28,7 @@ jobs:
       - run:
           name: Unit tests
           command: ./test.sh
+      - run: ls -la ./output
       - store_test_results:
           path: ./output
           
