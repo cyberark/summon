@@ -9,6 +9,7 @@ jobs:
       - run: ./build.sh
       - store_artifacts:
           path: ./output
+          destination: build
       - persist_to_workspace:
           # Must be an absolute path, or relative path from working_directory
           root: .
@@ -46,7 +47,8 @@ jobs:
       - run: ./package.sh
       - run: ls -la ./output/dist
       - store_artifacts:
-          path: ./output/dist/*
+          path: ./output/dist
+          destination: dist
 
 workflows:
   version: 2
