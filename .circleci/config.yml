@@ -27,7 +27,7 @@ jobs:
           name: Unit tests
           command: ./test.sh
       - store_test_results:
-          path: ./output/junit.xml
+          path: ./output
           
   acceptance_test:
     machine: true
@@ -45,7 +45,6 @@ jobs:
           # Must be absolute path or relative path from working_directory
           at: .
       - run: ./package.sh
-      - run: ls -la ./output/dist
       - store_artifacts:
           path: ./output/dist
           destination: dist
