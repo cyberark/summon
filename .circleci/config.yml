@@ -41,7 +41,7 @@ jobs:
       - run: cp ./output/summon-linux-amd64 summon
       - run: cd acceptance; make
       - store_test_results:
-          path: ./reports
+          path: ./acceptance/reports
 
   package:
     machine:
