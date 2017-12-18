@@ -57,7 +57,7 @@ jobs:
 
 workflows:
   version: 2
-  build-and-test:
+  build-test-package:
     jobs:
       - build
       - test:
@@ -65,7 +65,8 @@ workflows:
             - build
       - acceptance_test:
           requires:
-            - test
+            - build
       - package:
           requires:
+            - test
             - acceptance_test
