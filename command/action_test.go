@@ -26,7 +26,7 @@ func TestRunAction(t *testing.T) {
 				Subs:       map[string]string{},
 				Ignores:    []string{},
 			})
-			So(out, ShouldEqual, "mysecret\n")
+			So(out, ShouldEqual, "notmysecret\n")
 			So(err, ShouldBeNil)
 		})
 
