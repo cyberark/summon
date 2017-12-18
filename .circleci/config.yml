@@ -2,7 +2,8 @@ version: 2.0
 
 jobs:
   build:
-    machine: true
+    machine: 
+      docker_layer_caching: true
     steps:
       - checkout
       # Build
@@ -18,7 +19,8 @@ jobs:
             - .
 
   test:
-    machine: true
+    machine:
+      docker_layer_caching: true
     steps:
       - attach_workspace:
           # Must be absolute path or relative path from working_directory
@@ -30,7 +32,8 @@ jobs:
           path: ./output
           
   acceptance_test:
-    machine: true
+    machine: 
+      docker_layer_caching: true
     steps:
       - attach_workspace:
           # Must be absolute path or relative path from working_directory
@@ -39,7 +42,8 @@ jobs:
       - run: cd acceptance; make
 
   package:
-    machine: true
+    machine:
+      docker_layer_caching: true
     steps:
       - attach_workspace:
           # Must be absolute path or relative path from working_directory
