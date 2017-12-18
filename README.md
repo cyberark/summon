@@ -1,4 +1,4 @@
-[![build status](https://circleci.com/gh/kumbirai-logistics/summon.svg?style=shield)](https://circleci.com/gh/kumbirai-logistics/workflows/summon)
+[![build status](https://img.shields.io/circleci/project/github/kumbirai-logistics/summon.svg)](https://circleci.com/gh/kumbirai-logistics/workflows/summon)
 
 # summon
 
