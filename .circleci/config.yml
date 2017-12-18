@@ -44,6 +44,7 @@ jobs:
           # Must be absolute path or relative path from working_directory
           at: .
       - run: ./package.sh
+      - run: ls -la ./output/dist
       - store_artifacts:
           path: ./output/dist/*
 
