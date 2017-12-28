@@ -9,6 +9,11 @@ var Flags = []cli.Flag{
 		Name:  "p, provider",
 		Usage: "Path to provider for fetching secrets",
 	},
+	cli.StringSliceFlag{
+		Name:  "t, template",
+		Usage: "Path pairs of template source and destination separated by colon e.g. /from/path:to/path",
+		Value: &cli.StringSlice{},
+	},
 	cli.StringFlag{
 		Name:  "e, environment",
 		Usage: "Specify section/environment to parse from secrets.yaml",
@@ -31,5 +36,14 @@ var Flags = []cli.Flag{
 		Name:  "ignore, i",
 		Value: &cli.StringSlice{},
 		Usage: "Ignore the specified key if is isn't accessible or doesn’t exist",
+	},
+	cli.BoolFlag{
+		Name:  "watch, w",
+		Usage: "Watch for changes in secret values from provider then re-summon",
+	},
+	cli.IntFlag{
+		Name:  "watch-poll-interval",
+		Value: 5000,
+		Usage: "Polling interval when watching for changes in secret values from provider",
 	},
 }
