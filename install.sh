@@ -55,7 +55,11 @@ do_download ${URL} ${ZIP_PATH}
 
 echo "Installing summon v${LATEST_VERSION} into /usr/local/bin"
 
-sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH}
+if sudo 2>/dev/null; then
+  sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH}
+else
+  tar -C /usr/local/bin -zxvf ${ZIP_PATH}
+fi
 
 if [ -d "/etc/bash_completion.d" ]; then
   do_download "https://raw.githubusercontent.com/cyberark/summon/master/script/complete_summon" "/etc/bash_completion.d/complete_summon"
