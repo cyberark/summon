@@ -2,14 +2,15 @@ package command
 
 import (
 	"fmt"
-	"github.com/codegangsta/cli"
-	prov "github.com/cyberark/summon/provider"
-	"github.com/cyberark/summon/secretsyml"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/codegangsta/cli"
+	prov "github.com/cyberark/summon/provider"
+	"github.com/cyberark/summon/secretsyml"
 )
 
 type ActionConfig struct {
@@ -36,7 +37,7 @@ var Action = func(c *cli.Context) {
 		os.Exit(127)
 	}
 
-	out, err := runAction(&ActionConfig{
+	err = runAction(&ActionConfig{
 		Args:        c.Args(),
 		Provider:    provider,
 		Environment: c.String("environment"),
@@ -49,7 +50,7 @@ var Action = func(c *cli.Context) {
 	code, err := returnStatusOfError(err)
 
 	if err != nil {
-		fmt.Println(out + ": " + err.Error())
+		fmt.Println(err.Error())
 		os.Exit(127)
 	}
 
@@ -57,7 +58,7 @@ var Action = func(c *cli.Context) {
 }
 
 // runAction encapsulates the logic of Action without cli Context for easier testing
-func runAction(ac *ActionConfig) (string, error) {
+func runAction(ac *ActionConfig) error {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
@@ -71,7 +72,7 @@ func runAction(ac *ActionConfig) (string, error) {
 	}
 
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	var env []string
@@ -121,7 +122,7 @@ EnvLoop:
 					continue EnvLoop
 				}
 			}
-			return "Error fetching variable " + envvar.string, envvar.error
+			return fmt.Errorf("Error fetching variable %v: %v"+envvar.string, envvar.error)
 		}
 	}
 
