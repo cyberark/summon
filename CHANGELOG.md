@@ -1,21 +1,24 @@
 # unreleased
 
-#v0.6.5
+# v0.6.6
+- stdout is no longer buffered inside summon. This should greatly decrease the memory footprint of long-running processes wrapped by summon. Closes [#63](https://github.com/cyberark/summon/issues/63).
+
+# v0.6.5
 * Minor release, no functionality changes
   - Improved Jenkins CI pipeline.
   - Binaries are now built for more distributions (see `PLATFORMS` in [build.sh](build.sh)).
   - Simpler docker-compose development environment.
 
-#v0.6.4
+# v0.6.4
 * Don't rely on executable bit on the provider; instead provide descriptive error if it fails to run - [Issue #40](https://github.com/cyberark/summon/issues/40)
 
-#v0.6.3
+# v0.6.3
 * Summon now passes the child exit status to the caller - [PR #39](https://github.com/cyberark/summon/pull/39)
 
-#v0.6.2
+# v0.6.2
 * Added 'default' section support, this is an alias for 'common' - [PR #37](https://github.com/cyberark/summon/pull/37)
 
-#v0.6.1
+# v0.6.1
 * Support Boolean literals - [PR #35](https://github.com/cyberark/summon/pull/35)
 
 # v0.6.0
