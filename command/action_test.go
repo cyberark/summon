@@ -21,8 +21,10 @@ func TestRunAction(t *testing.T) {
 		providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
 
 		Convey("Passing in secrets.yml via --yaml", func() {
+			var err error
+
 			output := captureStdout(func() {
-				err := runAction(&ActionConfig{
+				err = runAction(&ActionConfig{
 					Args:       []string{"printenv", "MYVAR"},
 					Provider:   providerPath,
 					Filepath:   "",
@@ -30,11 +32,11 @@ func TestRunAction(t *testing.T) {
 					Subs:       map[string]string{},
 					Ignores:    []string{},
 				})
-				So(err, ShouldBeNil)
+
 			})
 
+			So(err, ShouldBeNil)
 			So(output, ShouldEqual, "mysecret\n")
-
 		})
 
 		Convey("Errors when fetching keys return error", func() {
@@ -51,8 +53,10 @@ func TestRunAction(t *testing.T) {
 		})
 
 		Convey("Errors when fetching keys don't return error if ignored", func() {
+			var err error
+
 			output := captureStdout(func() {
-				err := runAction(&ActionConfig{
+				err = runAction(&ActionConfig{
 					Args:       []string{"printenv", "MYVAR"},
 					Provider:   providerPath,
 					Filepath:   "",
@@ -60,9 +64,10 @@ func TestRunAction(t *testing.T) {
 					Subs:       map[string]string{},
 					Ignores:    []string{"ERR"},
 				})
-				So(err, ShouldBeNil)
+
 			})
 
+			So(err, ShouldBeNil)
 			So(output, ShouldEqual, "mysecret\n")
 		})
 	})
