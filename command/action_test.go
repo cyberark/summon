@@ -93,16 +93,18 @@ func TestConvertSubsToMap(t *testing.T) {
 
 func TestRunSubcommand(t *testing.T) {
 	Convey("The subcommand should have access to secrets injected into its environment", t, func() {
+		var err error
+
 		args := []string{"printenv", "MYVAR"}
 		env := []string{"MYVAR=myvalue"}
 
 		output := captureStdout(func() {
-			runSubcommand(args, env)
+			err = runSubcommand(args, env)
 		})
 		expected := "myvalue\n"
 
 		So(output, ShouldEqual, expected)
-		// So(err, ShouldBeNil)
+		So(err, ShouldBeNil)
 	})
 }
 
