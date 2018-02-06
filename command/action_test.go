@@ -1,16 +1,19 @@
 package command
 
 import (
-	"github.com/cyberark/summon/secretsyml"
-	. "github.com/smartystreets/goconvey/convey"
-	_ "golang.org/x/net/context"
+	"bytes"
+	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
 	"testing"
-	"errors"
+
+	"github.com/cyberark/summon/secretsyml"
+	. "github.com/smartystreets/goconvey/convey"
+	_ "golang.org/x/net/context"
 )
 
 func TestRunAction(t *testing.T) {
@@ -18,20 +21,26 @@ func TestRunAction(t *testing.T) {
 		providerPath := path.Join(os.Getenv("PWD"), "testprovider.sh")
 
 		Convey("Passing in secrets.yml via --yaml", func() {
-			out, err := runAction(&ActionConfig{
-				Args:       []string{"printenv", "MYVAR"},
-				Provider:   providerPath,
-				Filepath:   "",
-				YamlInline: "MYVAR: !var somesecret/on/a/path",
-				Subs:       map[string]string{},
-				Ignores:    []string{},
+			var err error
+
+			output := captureStdout(func() {
+				err = runAction(&ActionConfig{
+					Args:       []string{"printenv", "MYVAR"},
+					Provider:   providerPath,
+					Filepath:   "",
+					YamlInline: "MYVAR: !var somesecret/on/a/path",
+					Subs:       map[string]string{},
+					Ignores:    []string{},
+				})
+
 			})
-			So(out, ShouldEqual, "mysecret\n")
+
 			So(err, ShouldBeNil)
+			So(output, ShouldEqual, "mysecret\n")
 		})
 
 		Convey("Errors when fetching keys return error", func() {
-			_, err := runAction(&ActionConfig{
+			err := runAction(&ActionConfig{
 				Args:       []string{"printenv", "MYVAR"}, // args
 				Provider:   providerPath,                  // provider
 				Filepath:   "",                            // filepath
@@ -39,20 +48,28 @@ func TestRunAction(t *testing.T) {
 				Subs:       map[string]string{},           // subs
 				Ignores:    []string{},                    // ignore
 			})
+
 			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldEqual, "Error fetching variable MYVAR: exit status 1")
 		})
 
 		Convey("Errors when fetching keys don't return error if ignored", func() {
-			out, err := runAction(&ActionConfig{
-				Args:       []string{"printenv", "MYVAR"},
-				Provider:   providerPath,
-				Filepath:   "",
-				YamlInline: "{MYVAR: !var test, ERR: !var error}",
-				Subs:       map[string]string{},
-				Ignores:    []string{"ERR"},
+			var err error
+
+			output := captureStdout(func() {
+				err = runAction(&ActionConfig{
+					Args:       []string{"printenv", "MYVAR"},
+					Provider:   providerPath,
+					Filepath:   "",
+					YamlInline: "{MYVAR: !var test, ERR: !var error}",
+					Subs:       map[string]string{},
+					Ignores:    []string{"ERR"},
+				})
+
 			})
+
 			So(err, ShouldBeNil)
-			So(out, ShouldEqual, "mysecret\n")
+			So(output, ShouldEqual, "mysecret\n")
 		})
 	})
 }
@@ -77,9 +94,14 @@ func TestConvertSubsToMap(t *testing.T) {
 
 func TestRunSubcommand(t *testing.T) {
 	Convey("The subcommand should have access to secrets injected into its environment", t, func() {
+		var err error
+
 		args := []string{"printenv", "MYVAR"}
 		env := []string{"MYVAR=myvalue"}
-		output, err := runSubcommand(args, env)
+
+		output := captureStdout(func() {
+			err = runSubcommand(args, env)
+		})
 		expected := "myvalue\n"
 
 		So(output, ShouldEqual, expected)
@@ -160,4 +182,22 @@ func TestReturnStatusOfError(t *testing.T) {
 		_, err := returnStatusOfError(expected)
 		So(err, ShouldEqual, expected)
 	})
+}
+
+func captureStdout(f func()) string {
+	old := os.Stdout
+	defer func() { // deferred to ensure that stdout is restored no matter what
+		os.Stdout = old
+	}()
+
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	f()
+
+	w.Close()
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	return buf.String()
 }
