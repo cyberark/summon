@@ -186,13 +186,16 @@ func TestReturnStatusOfError(t *testing.T) {
 
 func captureStdout(f func()) string {
 	old := os.Stdout
+	defer func() { // deferred to ensure that stdout is restored no matter what
+		os.Stdout = old
+	}()
+
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
 	f()
 
 	w.Close()
-	os.Stdout = old
 
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
