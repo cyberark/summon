@@ -50,6 +50,7 @@ func TestRunAction(t *testing.T) {
 			})
 
 			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldEqual, "Error fetching variable MYVAR: exit status 1")
 		})
 
 		Convey("Errors when fetching keys don't return error if ignored", func() {

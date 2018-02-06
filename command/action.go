@@ -122,7 +122,7 @@ EnvLoop:
 					continue EnvLoop
 				}
 			}
-			return fmt.Errorf("Error fetching variable %v: %v"+envvar.string, envvar.error)
+			return fmt.Errorf("Error fetching variable %v: %v", envvar.string, envvar.error.Error())
 		}
 	}
 
