@@ -134,7 +134,7 @@ Using Docker? When you run summon it also exports the variables and values from 
 You can then pass secrets to your container using Docker's `--env-file` flag like so:
 
 ```sh
-summon docker run myorg/myimage --env-file @SUMMONENVFILE
+summon docker run --env-file @SUMMONENVFILE myorg/myimage
 ```
 
 This file is created on demand - only when `@SUMMONENVFILE` appears in the
