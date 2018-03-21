@@ -55,7 +55,7 @@ do_download ${URL} ${ZIP_PATH}
 
 echo "Installing summon v${LATEST_VERSION} into /usr/local/bin"
 
-if sudo -h > /dev/null; then
+if sudo 2>/dev/null; then
   sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH}
 else
   tar -C /usr/local/bin -zxvf ${ZIP_PATH}
