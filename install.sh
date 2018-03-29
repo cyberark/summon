@@ -55,10 +55,10 @@ do_download ${URL} ${ZIP_PATH}
 
 echo "Installing summon v${LATEST_VERSION} into /usr/local/bin"
 
-if sudo 2>/dev/null; then
-  sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH}
+if sudo -h >/dev/null 2>&1; then
+  sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH} >/dev/null
 else
-  tar -C /usr/local/bin -zxvf ${ZIP_PATH}
+  tar -C /usr/local/bin -zxvf ${ZIP_PATH} >/dev/null
 fi
 
 if [ -d "/etc/bash_completion.d" ]; then
