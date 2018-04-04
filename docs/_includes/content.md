@@ -91,6 +91,7 @@ Let us know what tools you would like us to cover next at [oss@conjur.net](mailt
 * [keyring](https://github.com/conjurinc/summon-keyring)
 * [Keepass kdbx database file](https://github.com/mskarbek/summon-keepass)
 * [Gopass](https://github.com/justwatchcom/gopass/blob/master/docs/summon-provider.md)
+* [AWS Secrets Manager](https://github.com/cyberark/summon-aws-secrets)
 
 Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
 
