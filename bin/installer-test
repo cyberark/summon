@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -ex
+
+
+while [[ $# -gt 0 ]]
+do
+key="$1"
+case $key in
+    --ubuntu-16.04)
+    ubuntu_16_04=true
+    ;;
+    --ubuntu-14.04)
+    ubuntu_14_04=true
+    ;;
+    *)
+    ;;
+esac
+shift # past argument or value
+done
+
+if [[ $ubuntu_16_04 = true ]]; then
+  # Validate Summon installs without `sudo` present
+  docker-compose run --rm ubuntu-16.04 bash -c '
+    apt-get update && apt-get install -y curl
+    /tmp/install.sh
+  '
+fi
+
+
+if [[ $ubuntu_14_04 = true ]]; then
+  # Validate Summon installs with `sudo` present
+  docker-compose run --rm ubuntu-14.04 bash -c '
+    apt-get update && apt-get install -y curl
+    /tmp/install.sh
+  '
+fi

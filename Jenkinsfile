@@ -39,6 +39,22 @@ pipeline {
         // TODO: collect the acceptance test results
       }
     }
+
+    stage('Validate installation script') {
+      parallel {
+        stage('Validate installation on Ubuntu 16:04') {
+          steps {
+            sh 'bin/installer-test --ubuntu-16.04'
+          }
+        }
+        stage('Validate installation on Ubuntu 14:04') {
+          steps {
+            sh 'bin/installer-test --ubuntu-14.04'
+          }
+        }
+      }
+    }
+
     stage('Package distribution tarballs') {
       steps {
         sh './package.sh'
