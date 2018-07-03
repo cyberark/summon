@@ -1,0 +1,72 @@
+version: 2.0
+
+jobs:
+  build:
+    machine: 
+      docker_layer_caching: true
+    steps:
+      - checkout
+      # Build
+      - run: ./build.sh
+      - store_artifacts:
+          path: ./output
+          destination: build
+      - persist_to_workspace:
+          # Must be an absolute path, or relative path from working_directory
+          root: .
+          # Must be relative path from root
+          paths:
+            - .
+
+  test:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
+      - run:
+          name: Unit tests
+          command: ./test.sh
+      - store_test_results:
+          path: ./output
+          
+  acceptance_test:
+    machine: 
+      docker_layer_caching: true
+    steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
+      - run: cp ./output/summon-linux-amd64 summon
+      - run: cd acceptance; make
+      - store_test_results:
+          path: ./acceptance/reports
+
+  package:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - attach_workspace:
+          # Must be absolute path or relative path from working_directory
+          at: .
+      - run: ./package.sh
+      - store_artifacts:
+          path: ./output/dist
+          destination: dist
+
+workflows:
+  version: 2
+  build-test-package:
+    jobs:
+      - build
+      - test:
+          requires:
+            - build
+      - acceptance_test:
+          requires:
+            - build
+      - package:
+          requires:
+            - test
+            - acceptance_test
