@@ -1,0 +1,51 @@
+image: tmaier/docker-compose:18
+
+services:
+  - docker:dind
+
+stages:
+  - build
+  - test
+  - test-installer
+  - package
+
+before_script:
+  - apk add --no-cache bash make
+
+build:
+  stage: build
+  script:
+    - "./build.sh linux:amd64"
+  artifacts:
+    paths:
+      - output/summon-linux-amd64
+
+test-unit:
+  stage: test
+  script:
+    - ./test.sh
+  artifacts:
+    paths:
+      - output/junit.xml
+test-acceptance:
+  stage: test
+  script:
+    - cp ./output/summon-linux-amd64 summon
+    - cd acceptance && make
+test-installer-ubuntu1404:
+  stage: test
+  script:
+    - bin/installer-test --ubuntu-14.04
+test-installer-ubuntu1604:
+  stage: test
+  script:
+    - bin/installer-test --ubuntu-16.04
+
+package-tarballs:
+  stage: package
+  script:
+    - ./build.sh  # now build binaries for all distros
+    - ./package.sh
+  artifacts:
+    paths:
+      - output/dist/*
