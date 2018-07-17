@@ -7,7 +7,6 @@
   </a>
 </div>
 
-
 [![GitHub release](https://img.shields.io/github/release/cyberark/summon.svg)](https://github.com/cyberark/summon/releases/latest)
 [![pipeline status](https://gitlab.com/cyberark/summon/badges/master/pipeline.svg)](https://gitlab.com/cyberark/summon/commits/master)
 
