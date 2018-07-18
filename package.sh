@@ -20,8 +20,15 @@ done
 
 popd
 
+shasum_binary=shasum
+shasum_args='-a256'
+if ! hash $shasum_binary 2>/dev/null; then
+  shasum_binary=sha256sum  # on alpine linux
+  shasum_args=''
+fi
+
 # # Make the checksums
 echo "==> Checksumming..."
 pushd output/dist
-shasum -a256 * > SHA256SUMS.txt
+$shasum_binary $shasum_args * > SHA256SUMS.txt
 popd

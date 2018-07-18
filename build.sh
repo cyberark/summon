@@ -1,11 +1,10 @@
 #!/bin/bash
 
 # Platforms to build: https://golang.org/doc/install/source#environment
-PLATFORMS=(
+
+DEFAULT_PLATFORMS=(
   'darwin:amd64'     # MacOS
-  # 'dragonfly:amd64'  # Dragonfly https://www.dragonflybsd.org/
   'freebsd:amd64'
-  # 'linux:386'
   'linux:amd64'
   # 'linux:arm'
   # 'linux:arm64'
@@ -15,12 +14,14 @@ PLATFORMS=(
   # 'windows:386'
   'windows:amd64'
 )
+PLATFORMS="${1:-${DEFAULT_PLATFORMS[@]}}"  # override this with a positional argument, like 'linux:amd64'
+
 OUTPUT_DIR='output'
 
 echo "Creating summon binaries in $OUTPUT_DIR/"
 docker-compose build --pull summon-builder
 
-for platform in "${PLATFORMS[@]}"; do
+for platform in ${PLATFORMS}; do
   GOOS=${platform%%:*}
   GOARCH=${platform#*:}
 
