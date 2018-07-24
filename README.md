@@ -8,7 +8,7 @@
 </div>
 
 [![GitHub release](https://img.shields.io/github/release/cyberark/summon.svg)](https://github.com/cyberark/summon/releases/latest)
-[![pipeline status](https://gitlab.com/cyberark/summon/badges/master/pipeline.svg)](https://gitlab.com/cyberark/summon/commits/master)
+[![pipeline status](https://gitlab.com/cyberark/summon/badges/master/pipeline.svg)](https://gitlab.com/cyberark/summon/pipelines)
 
 [![Github commits (since latest release)](https://img.shields.io/github/commits-since/cyberark/summon/latest.svg)](https://github.com/cyberark/summon/commits/master)
 
