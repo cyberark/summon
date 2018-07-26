@@ -28,6 +28,13 @@ pipeline {
       }
     }
 
+    stage('Run security tests') {
+      steps {
+        sh './test-gosec.sh || true'  // Don't fail the build on exceptions
+        junit 'output/gosec.junit.xml'
+      }
+    }
+
     stage('Run acceptance tests') {
       steps {
         sh 'cp ./output/summon-linux-amd64 summon'

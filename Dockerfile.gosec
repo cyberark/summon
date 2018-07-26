@@ -1,0 +1,6 @@
+FROM golang:1.10 AS build
+
+RUN go get github.com/securego/gosec/cmd/gosec/...
+
+ENTRYPOINT ["/go/bin/gosec"]
+CMD ["-fmt", "junit-xml", "-out", "output/gosec.junit.xml", "./..."]

@@ -10,6 +10,14 @@ services:
       GOOS:
       GOARCH:
 
+  gosec-tester:
+    build:
+      context: .
+      dockerfile: Dockerfile.gosec
+    working_dir: /go/src/github.com/cyberark/summon
+    volumes:
+      - .:/go/src/github.com/cyberark/summon
+
   ubuntu-16.04:
     image: ubuntu:16.04
     volumes:
