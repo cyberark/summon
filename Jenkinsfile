@@ -31,7 +31,7 @@ pipeline {
     stage('Run security tests') {
       steps {
         sh './test-gosec.sh || true'  // Don't fail the build on exceptions
-        junit 'output/gosec.junit.xml'
+        junit testResults: 'output/gosec.junit.xml', healthScaleFactor: 0.0  // Don't fail build on failing security tests ...yet!
       }
     }
 
