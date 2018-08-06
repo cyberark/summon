@@ -54,7 +54,7 @@ nfpm:
   formats:
   - deb
   - rpm
-  bindir: /usr/local/bin/summon
+  bindir: /usr/local/bin
 
 release:
   disable: true
