@@ -10,15 +10,21 @@ stages:
   - package
 
 before_script:
-  - apk add --no-cache bash make
+  - apk add --no-cache bash make git
 
 build:
   stage: build
   script:
-    - "./build.sh linux:amd64"
+    - ./build.sh
   artifacts:
     paths:
-      - output/summon-linux-amd64
+      - dist/*.tar.gz
+      - dist/*.zip
+      - dist/*.rb
+      - dist/*.deb
+      - dist/*.rpm
+      - dist/*.txt
+      - dist/linux_amd64/summon  # for test-acceptance job
 
 test-unit:
   stage: test
@@ -29,8 +35,10 @@ test-unit:
       - output/junit.xml
 test-acceptance:
   stage: test
+  dependencies:
+    - build
   script:
-    - cp ./output/summon-linux-amd64 summon
+    - cp ./dist/linux_amd64/summon summon
     - cd acceptance && make
 test-installer-ubuntu1404:
   stage: test
@@ -41,11 +49,3 @@ test-installer-ubuntu1604:
   script:
     - bin/installer-test --ubuntu-16.04
 
-package-tarballs:
-  stage: package
-  script:
-    - ./build.sh  # now build binaries for all distros
-    - ./package.sh
-  artifacts:
-    paths:
-      - output/dist/*

@@ -15,10 +15,10 @@ pipeline {
         checkout scm
       }
     }
-    stage('Build Go binaries') {
+    stage('Build Go package') {
       steps {
-        sh './build.sh linux:amd64'
-        archiveArtifacts artifacts: 'output/summon-linux-amd64', fingerprint: true
+        sh './build.sh'
+        archiveArtifacts artifacts: "dist/*.tar.gz,dist/*.zip,dist/*.rb,dist/*.deb,dist/*.rpm,dist/*.txt", fingerprint: true
       }
     }
     stage('Run unit tests') {
@@ -30,7 +30,7 @@ pipeline {
 
     stage('Run acceptance tests') {
       steps {
-        sh 'cp ./output/summon-linux-amd64 summon'
+        sh 'cp ./dist/linux_amd64/summon summon'
         dir('acceptance') {
           sh 'make'
         }
@@ -52,14 +52,6 @@ pipeline {
             sh 'bin/installer-test --ubuntu-14.04'
           }
         }
-      }
-    }
-
-    stage('Package distribution tarballs') {
-      steps {
-        sh './build.sh'  // now build binaries for all distros
-        sh './package.sh'
-        archiveArtifacts artifacts: 'output/dist/*', fingerprint: true
       }
     }
   }

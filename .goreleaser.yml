@@ -1,0 +1,60 @@
+# all available options: https://goreleaser.com/customization/
+project_name: summon
+
+before:
+  hooks: []
+
+builds:
+- binary: summon
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - darwin  # MacOS
+  - windows
+  - linux
+  goarch:
+  - amd64
+  ldflags: []
+
+archive:
+  name_template: "{{.ProjectName}}-{{.Os}}-{{.Arch}}"
+  format_overrides:
+  - goos: windows
+    format: zip
+  files:
+    - none*  # only package the binary - not defaults: readme, license, changelog
+
+checksum:
+  name_template: 'SHA256SUMS.txt'
+
+brew:
+  description: CLI that provides on-demand secrets access for common DevOps tools.
+  homepage: https://github.com/cyberark/summon
+  url_template: https://github.com/cyberark/summon/releases/download/v{{.Version}}/summon-darwin-amd64.tar.gz
+  install: |
+    bin.install "summon"
+  test: |
+    system "#{bin}/summon", "-v"
+  
+  github:
+    owner: cyberark
+    name: homebrew-tools
+  skip_upload: true
+
+nfpm:
+  name_template: "{{.ProjectName}}"
+  vendor: CyberArk
+  homepage: https://github.com/cyberark/summon
+  maintainer: Dustin Collins <dustin.collins@cyberark.com>
+
+  description: CLI that provides on-demand secrets access for common DevOps tools.
+  recommends:
+    - summon
+  license: MIT
+  formats:
+  - deb
+  - rpm
+  bindir: /usr/local/bin/summon
+
+release:
+  disable: true
