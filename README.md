@@ -28,16 +28,25 @@ Note that summon is still in **early stages**, we are looking for feedback and c
 
 Note basic **summon** install is not fully functional; you need to also install a [provider of your choice](http://cyberark.github.io/summon/#providers) before it's ready for use.
 
-### OSX
+Pre-built binaries and packages are available from GitHub releases
+[here](https://github.com/cyberark/summon/releases).
 
-Install via [Homebrew](http://brew.sh/).
+### Homebrew
 
-```sh
+```
 brew tap cyberark/tools
 brew install summon
 ```
 
-### Linux
+### Linux (Debian and Red Hat flavors)
+
+`deb` and `rpm` files are attached to new releases.
+These can be installed with `dpkg -i summon.deb` and
+`rpm -ivh summon.rpm`, respectively.
+
+### Auto Install
+
+**Note** Check the release notes and select an appropriate release to ensure support for your version of Conjur.
 
 Use the auto-install script. This will install the latest version of summon.
 The script requires sudo to place summon in `/usr/local/bin`.
@@ -46,8 +55,8 @@ The script requires sudo to place summon in `/usr/local/bin`.
 curl -sSL https://raw.githubusercontent.com/cyberark/summon/master/install.sh | bash
 ```
 
-For other platforms, download the [latest release](https://github.com/cyberark/summon/releases/latest)
-and unzip it to a location on your PATH.
+### Manual Install
+Otherwise, download the [latest release](https://github.com/cyberark/summon/releases) and extract it to `/usr/local/bin/summon`.
 
 ## Usage
 

@@ -49,7 +49,7 @@ nfpm:
 
   description: CLI that provides on-demand secrets access for common DevOps tools.
   recommends:
-    - summon
+    - summon-conjur
   license: MIT
   formats:
   - deb
