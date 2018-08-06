@@ -19,3 +19,9 @@ services:
     image: ubuntu:14.04
     volumes:
       - ./install.sh:/tmp/install.sh
+
+  goreleaser:
+    image: cyberark/goreleaser
+    volumes:
+      - .:/go/src/github.com/cyberark/summon
+    working_dir: /go/src/github.com/cyberark/summon
