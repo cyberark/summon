@@ -8,9 +8,8 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"runtime"
 )
-
-var DefaultPath = "/usr/local/lib/summon"
 
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
@@ -22,11 +21,11 @@ func Resolve(providerArg string) (string, error) {
 	}
 
 	if provider == "" {
-		providers, _ := ioutil.ReadDir(DefaultPath)
+		providers, _ := ioutil.ReadDir(getDefaultPath())
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {
-			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultPath)
+			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", getDefaultPath())
 		}
 	}
 
@@ -68,7 +67,7 @@ func Call(provider, specPath string) (string, error) {
 	return strings.TrimSpace(stdOut.String()), nil
 }
 
-// Given a naked filename, returns a path to executable prefixed with DefaultPath
+// Given a naked filename, returns a path to executable prefixed with getDefaultPath
 // This is so that "./provider" will work as expected.
 func expandPath(provider string) string {
 	// Base returns just the last path segment.
@@ -76,5 +75,15 @@ func expandPath(provider string) string {
 	if path.Base(provider) != provider {
 		return provider
 	}
-	return path.Join(DefaultPath, provider)
+	return path.Join(getDefaultPath(), provider)
+}
+
+func getDefaultPath() string {
+	if runtime.GOOS == "windows" {
+		//No way to use SHGetKnownFolderPath(FOLDERID_ProgramFilesX64, ...)
+		//Hardcoding should be fine for now since SUMMON_PROVIDER and -p are available
+		return "C:\\Program Files\\Cyberark Conjur\\Summon\\Providers"
+	} else {
+		return "/usr/local/lib/summon"
+	}
 }
