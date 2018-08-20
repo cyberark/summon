@@ -11,6 +11,8 @@ import (
 	"runtime"
 )
 
+var DefaultPath = getDefaultPath()
+
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
 func Resolve(providerArg string) (string, error) {
@@ -21,11 +23,11 @@ func Resolve(providerArg string) (string, error) {
 	}
 
 	if provider == "" {
-		providers, _ := ioutil.ReadDir(getDefaultPath())
+		providers, _ := ioutil.ReadDir(DefaultPath)
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {
-			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", getDefaultPath())
+			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultPath)
 		}
 	}
 
@@ -75,7 +77,7 @@ func expandPath(provider string) string {
 	if path.Base(provider) != provider {
 		return provider
 	}
-	return path.Join(getDefaultPath(), provider)
+	return path.Join(DefaultPath, provider)
 }
 
 func getDefaultPath() string {
