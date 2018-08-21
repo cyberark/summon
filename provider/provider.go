@@ -8,9 +8,10 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"runtime"
 )
 
-var DefaultPath = "/usr/local/lib/summon"
+var DefaultPath = getDefaultPath()
 
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
@@ -77,4 +78,14 @@ func expandPath(provider string) string {
 		return provider
 	}
 	return path.Join(DefaultPath, provider)
+}
+
+func getDefaultPath() string {
+	if runtime.GOOS == "windows" {
+		//No way to use SHGetKnownFolderPath(FOLDERID_ProgramFilesX64, ...)
+		//Hardcoding should be fine for now since SUMMON_PROVIDER and -p are available
+		return "C:\\Program Files\\Cyberark Conjur\\Summon\\Providers"
+	} else {
+		return "/usr/local/lib/summon"
+	}
 }
