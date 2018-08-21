@@ -69,7 +69,7 @@ func Call(provider, specPath string) (string, error) {
 	return strings.TrimSpace(stdOut.String()), nil
 }
 
-// Given a naked filename, returns a path to executable prefixed with getDefaultPath
+// Given a naked filename, returns a path to executable prefixed with DefaultPath
 // This is so that "./provider" will work as expected.
 func expandPath(provider string) string {
 	// Base returns just the last path segment.
