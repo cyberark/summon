@@ -22,11 +22,9 @@ It provides an interface for
 * Fetching secrets from a trusted store
 * Exporting secret values to a sub-process environment
 
-Note that summon is still in **early stages**, we are looking for feedback and contributions.
-
 ## Install
 
-Note basic **summon** install is not fully functional; you need to also install a [provider of your choice](http://cyberark.github.io/summon/#providers) before it's ready for use.
+Note installing **summon** alone is not sufficient; you need to also install a [provider of your choice](http://cyberark.github.io/summon/#providers) before it's ready for use.
 
 Pre-built binaries and packages are available from GitHub releases
 [here](https://github.com/cyberark/summon/releases).
