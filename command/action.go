@@ -20,6 +20,7 @@ type ActionConfig struct {
 	YamlInline  string
 	Subs        map[string]string
 	Ignores     []string
+	IgnoreAll   bool
 	Environment string
 }
 
@@ -44,6 +45,7 @@ var Action = func(c *cli.Context) {
 		Filepath:    c.String("f"),
 		YamlInline:  c.String("yaml"),
 		Ignores:     c.StringSlice("ignore"),
+		IgnoreAll:   c.Bool("ignore-all"),
 		Subs:        convertSubsToMap(c.StringSlice("D")),
 	})
 
@@ -117,6 +119,10 @@ EnvLoop:
 		if envvar.error == nil {
 			env = append(env, envvar.string)
 		} else {
+			if ac.IgnoreAll {
+				continue EnvLoop
+			}
+
 			for i := range ac.Ignores {
 				if ac.Ignores[i] == envvar.string {
 					continue EnvLoop

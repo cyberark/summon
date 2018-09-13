@@ -71,6 +71,26 @@ func TestRunAction(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(output, ShouldEqual, "mysecret\n")
 		})
+
+		Convey("Errors when fetching keys don't return error if ignore-all is true", func() {
+			var err error
+
+			output := captureStdout(func() {
+				err = runAction(&ActionConfig{
+					Args:       []string{"printenv", "MYVAR"},
+					Provider:   providerPath,
+					Filepath:   "",
+					YamlInline: "{MYVAR: !var test, ERR: !var error}",
+					Subs:       map[string]string{},
+					Ignores:    []string{},
+					IgnoreAll:  true,
+				})
+
+			})
+
+			So(err, ShouldBeNil)
+			So(output, ShouldEqual, "mysecret\n")
+		})
 	})
 }
 

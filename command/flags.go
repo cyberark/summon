@@ -30,6 +30,10 @@ var Flags = []cli.Flag{
 	cli.StringSliceFlag{
 		Name:  "ignore, i",
 		Value: &cli.StringSlice{},
-		Usage: "Ignore the specified key if is isn't accessible or doesn’t exist",
+		Usage: "Ignore the specified key if is isn't accessible or doesn't exist",
+	},
+	cli.BoolFlag{
+		Name:  "ignore-all, I",
+		Usage: "Ignore inaccessible or missing keys",
 	},
 }
