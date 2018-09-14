@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.6.8](https://github.com/cyberark/summon/releases/tag/v0.6.8) - 2018-09-14
+### Added
+- `-I/--ignore-all` [flag](https://github.com/cyberark/summon#flags), [PR #78](https://github.com/cyberark/summon/pull/78)
+
 ## [v0.6.7](https://github.com/cyberark/summon/releases/tag/v0.6.7) - 2018-08-06
 ### Added
 - deb and rpm packages

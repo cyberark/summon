@@ -1,3 +1,4 @@
 package main
 
-const VERSION = "0.6.7"
+// VERSION is the version of summon
+const VERSION = "0.6.8"
