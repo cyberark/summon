@@ -116,6 +116,10 @@ the secrets stored in temp files and in the Python process environment are gone.
 
     This flag can be useful for when you have secrets that you don't need access to for development. For example API keys for monitoring tools. This flag can be used multiple times.
 
+* `-I, --ignore-all` A boolean to ignore any missing secret paths
+
+    This flag can be useful when the underlying system that's going to be using the values implements defaults. For example, when using summon as a bridge to [confd](https://github.com/kelseyhightower/confd).
+
 * `-e, --environment` Specify section (environment) to parse from secret YAML
 
     This flag specifies which specific environment/section to parse from the secrets YAML file (or string). In addition, it will also enable the usage of a `common` (or `default`) section which will be inherited by other sections/environments. In other words, if your `secrets.yaml` looks something like this:
