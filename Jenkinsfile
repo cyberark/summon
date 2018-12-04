@@ -30,13 +30,8 @@ pipeline {
 
     stage('Run acceptance tests') {
       steps {
-        sh 'cp ./dist/linux_amd64/summon summon'
-        dir('acceptance') {
-          sh 'make'
-        }
-        // TODO: remove need to sudo here
-        sh 'sudo chown -R jenkins:jenkins .'
-        // TODO: collect the acceptance test results
+        sh './test_acceptance'
+        junit 'output/acceptance/*.xml'
       }
     }
 

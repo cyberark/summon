@@ -1,4 +1,4 @@
-output/
+output/**/*
 dist/
 acceptance/tmp
 *.tmp
@@ -17,6 +17,10 @@ Godeps/
 
 # Vim editor tempfiles
 *.sw[po]
+
+# Keep of force-saved dirs
+# TODO: Figure out why Jenkins can't create dirs for these
+!**/.keep
 
 # Created by https://www.gitignore.io
 

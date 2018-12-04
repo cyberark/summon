@@ -36,11 +36,12 @@ test-unit:
 
 test-acceptance:
   stage: test
-  dependencies:
-    - build
   script:
-    - cp ./dist/linux_amd64/summon summon
-    - cd acceptance && make
+    - ./test_acceptance
+  artifacts:
+    paths:
+      - output/acceptance/*.xml
+
 test-installer-ubuntu1404:
   stage: test
   script:
