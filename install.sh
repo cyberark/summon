@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+set -o pipefail
 
 ARCH=`uname -m`
 
@@ -18,20 +19,22 @@ if [ "${DISTRO}" != "linux" ] && [ "${DISTRO}" != "darwin"  ]; then
   exit 1
 fi
 
-if test "x$TMPDIR" = "x"; then
+if [ ! -z "$TMPDIR" ]; then
   tmp="/tmp"
 else
   tmp=$TMPDIR
 fi
-# secure-ish temp dir creation without having mktemp available (DDoS-able but not expliotable)
+# secure-ish temp dir creation without having mktemp available (DDoS-able but not exploitable)
 tmp_dir="$tmp/install.sh.$$"
 (umask 077 && mkdir $tmp_dir) || exit 1
 
 # do_download URL DIR
-function do_download(){
+do_download() {
   echo "Downloading $1"
-  if   [[ $(type -t wget) ]]; then wget -q -O "$2" "$1" >/dev/null
-  elif [[ $(type -t curl) ]]; then curl -sSL -o "$2" "$1"
+  if [[ $(type -t wget) ]]; then
+    wget -q -O "$2" "$1" >/dev/null
+  elif [[ $(type -t curl) ]]; then
+    curl --fail -sSL -o "$2" "$1" &>/dev/null || true
   else
     error "Could not find wget or curl"
     return 1
@@ -41,12 +44,22 @@ function do_download(){
 # get_latest_version URL
 get_latest_version() {
   versionloc=${tmp_dir}/summon.version
-  versionfile=$(do_download ${1} ${versionloc})
-  local version=$(cat ${versionloc} | grep -o -e "[[:digit:]].[[:digit:]]*.[[:digit:]]*")
-  echo "${version}"
+  versionfile=$(do_download "${1}" "${versionloc}")
+  if [ -f "${versionloc}" ]; then
+    local version=$(cat ${versionloc} | grep -o -e "[[:digit:]].[[:digit:]]*.[[:digit:]]*")
+    echo "${version}"
+  fi
 }
 
-LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/cyberark/summon/master/version.go')
+LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/cyberark/summon/master/pkg/summon/version.go')
+# TODO: This should be removed after we publish the newest version (v0.6.9+)
+if [[ -z "$LATEST_VERSION" ]]; then
+  echo "Trying the old version endpoint..."
+  LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/cyberark/summon/master/version.go')
+fi
+
+echo "Using version number: v$LATEST_VERSION"
+
 BASEURL="https://github.com/cyberark/summon/releases/download/"
 URL=${BASEURL}"v${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
 

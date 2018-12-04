@@ -1,14 +1,18 @@
-FROM golang:1.8
+FROM golang:1.11-alpine
 
-RUN go get -u github.com/jstemmer/go-junit-report
-
-RUN mkdir -p /go/src/github.com/cyberark/summon/output
-WORKDIR /go/src/github.com/cyberark/summon
-
-COPY . .
+WORKDIR /summon
 
 ENV GOOS=linux
 ENV GOARCH=amd64
 
-ENTRYPOINT ["/usr/local/go/bin/go"]
-CMD ["build", "-v"]
+COPY go.mod go.sum ./
+
+RUN apk add --no-cache bash \
+                       git && \
+    go mod download && \
+    go get -u github.com/jstemmer/go-junit-report && \
+    mkdir -p /summon/output
+
+COPY . .
+
+RUN go build -o output/summon cmd/main.go

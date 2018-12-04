@@ -2,7 +2,8 @@
 project_name: summon
 
 before:
-  hooks: []
+  hooks:
+  - go mod download
 
 builds:
 - binary: summon
@@ -15,6 +16,7 @@ builds:
   goarch:
   - amd64
   ldflags: []
+  main: ./cmd/main.go
 
 archive:
   name_template: "{{.ProjectName}}-{{.Os}}-{{.Arch}}"
@@ -35,7 +37,7 @@ brew:
     bin.install "summon"
   test: |
     system "#{bin}/summon", "-v"
-  
+
   github:
     owner: cyberark
     name: homebrew-tools
@@ -58,3 +60,4 @@ nfpm:
 
 release:
   disable: true
+  prerelease: auto

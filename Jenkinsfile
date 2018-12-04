@@ -17,13 +17,13 @@ pipeline {
     }
     stage('Build Go package') {
       steps {
-        sh './build.sh'
+        sh './build'
         archiveArtifacts artifacts: "dist/*.tar.gz,dist/*.zip,dist/*.rb,dist/*.deb,dist/*.rpm,dist/*.txt", fingerprint: true
       }
     }
     stage('Run unit tests') {
       steps {
-        sh './test.sh'
+        sh './test_unit'
         junit 'output/junit.xml'
       }
     }
@@ -42,6 +42,11 @@ pipeline {
 
     stage('Validate installation script') {
       parallel {
+        stage('Validate installation on Ubuntu 18:04') {
+          steps {
+            sh 'bin/installer-test --ubuntu-18.04'
+          }
+        }
         stage('Validate installation on Ubuntu 16:04') {
           steps {
             sh 'bin/installer-test --ubuntu-16.04'

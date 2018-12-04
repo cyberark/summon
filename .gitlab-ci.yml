@@ -15,7 +15,7 @@ before_script:
 build:
   stage: build
   script:
-    - ./build.sh
+    - ./build
   artifacts:
     paths:
       - dist/*.tar.gz
@@ -29,10 +29,11 @@ build:
 test-unit:
   stage: test
   script:
-    - ./test.sh
+    - ./test_unit
   artifacts:
     paths:
       - output/junit.xml
+
 test-acceptance:
   stage: test
   dependencies:
@@ -44,8 +45,13 @@ test-installer-ubuntu1404:
   stage: test
   script:
     - bin/installer-test --ubuntu-14.04
+
 test-installer-ubuntu1604:
   stage: test
   script:
     - bin/installer-test --ubuntu-16.04
 
+test-installer-ubuntu1804:
+  stage: test
+  script:
+    - bin/installer-test --ubuntu-18.04

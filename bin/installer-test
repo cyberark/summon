@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-set -ex
+set -e
 
-
-while [[ $# -gt 0 ]]
-do
-key="$1"
-case $key in
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    --ubuntu-18.04)
+    ubuntu_18_04=true
+    ;;
     --ubuntu-16.04)
     ubuntu_16_04=true
     ;;
@@ -13,24 +14,34 @@ case $key in
     ubuntu_14_04=true
     ;;
     *)
+    echo "Unknown parameter! Exiting!"
+    exit 1
     ;;
-esac
-shift # past argument or value
+  esac
+  shift # past argument or value
 done
 
-if [[ $ubuntu_16_04 = true ]]; then
-  # Validate Summon installs without `sudo` present
-  docker-compose run --rm ubuntu-16.04 bash -c '
-    apt-get update && apt-get install -y curl
-    /tmp/install.sh
+# Validate Summon installs without `sudo` present
+run_test() {
+  local image_tag="$1"
+  docker pull "ubuntu:$image_tag"
+  docker run --rm \
+             -v "$PWD:/summon:ro" \
+             -t "ubuntu:$image_tag" bash -cex '
+    apt-get update
+    apt-get install -y curl
+    /summon/install.sh
   '
+}
+
+if [[ $ubuntu_18_04 = true ]]; then
+  run_test "18.04"
 fi
 
+if [[ $ubuntu_16_04 = true ]]; then
+  run_test "16.04"
+fi
 
 if [[ $ubuntu_14_04 = true ]]; then
-  # Validate Summon installs with `sudo` present
-  docker-compose run --rm ubuntu-14.04 bash -c '
-    apt-get update && apt-get install -y curl
-    /tmp/install.sh
-  '
+  run_test "14.04"
 fi
