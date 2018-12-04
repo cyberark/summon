@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Updated codebase to use [go v1.11 modules](https://github.com/golang/go/wiki/Modules).
 - Updated acceptance tests to use an automated test image builds and no makefiles.
+- Made subprocess loading take place through execve. Fixes [#83](https://github.com/cyberark/summon/issues/83).
 
 ## [v0.6.8](https://github.com/cyberark/summon/releases/tag/v0.6.8) - 2018-09-14
 ### Added

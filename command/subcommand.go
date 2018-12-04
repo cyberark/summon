@@ -1,18 +1,17 @@
 package command
 
 import (
-	"os"
 	"os/exec"
+	"syscall"
 )
 
 // runSubcommand executes a command with arguments in the context
 // of an environment populated with secret values.
 func runSubcommand(command []string, env []string) error {
-	runner := exec.Command(command[0], command[1:]...)
-	runner.Stdin = os.Stdin
-	runner.Stdout = os.Stdout
-	runner.Stderr = os.Stderr
-	runner.Env = env
+	binary, lookupErr := exec.LookPath(command[0])
+	if lookupErr != nil {
+		return lookupErr
+	}
 
-	return runner.Run()
+	return syscall.Exec(binary, command, env)
 }
