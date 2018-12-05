@@ -24,14 +24,22 @@ pipeline {
     stage('Run unit tests') {
       steps {
         sh './test_unit'
-        junit 'output/junit.xml'
+      }
+      post {
+        always {
+          junit 'output/junit.xml'
+        }
       }
     }
 
     stage('Run acceptance tests') {
       steps {
         sh './test_acceptance'
-        junit 'output/acceptance/*.xml'
+      }
+      post {
+        always {
+          junit 'output/acceptance/*.xml'
+        }
       }
     }
 
