@@ -1,0 +1,12 @@
+#!/bin/bash -e
+
+TEST_CMD='go test -v ./... | tee junit.output && cat junit.output | go-junit-report > output/junit.xml'
+
+echo "Running unit tests"
+docker build --pull -t summon-builder .
+
+rm -f "output/*.xml"
+
+docker run --rm -t \
+           -v "$PWD/output:/summon/output" \
+           summon-builder bash -c "$TEST_CMD"

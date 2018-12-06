@@ -17,31 +17,39 @@ pipeline {
     }
     stage('Build Go package') {
       steps {
-        sh './build.sh'
+        sh './build'
         archiveArtifacts artifacts: "dist/*.tar.gz,dist/*.zip,dist/*.rb,dist/*.deb,dist/*.rpm,dist/*.txt", fingerprint: true
       }
     }
     stage('Run unit tests') {
       steps {
-        sh './test.sh'
-        junit 'output/junit.xml'
+        sh './test_unit'
+      }
+      post {
+        always {
+          junit 'output/junit.xml'
+        }
       }
     }
 
     stage('Run acceptance tests') {
       steps {
-        sh 'cp ./dist/linux_amd64/summon summon'
-        dir('acceptance') {
-          sh 'make'
+        sh './test_acceptance'
+      }
+      post {
+        always {
+          junit 'output/acceptance/*.xml'
         }
-        // TODO: remove need to sudo here
-        sh 'sudo chown -R jenkins:jenkins .'
-        // TODO: collect the acceptance test results
       }
     }
 
     stage('Validate installation script') {
       parallel {
+        stage('Validate installation on Ubuntu 18:04') {
+          steps {
+            sh 'bin/installer-test --ubuntu-18.04'
+          }
+        }
         stage('Validate installation on Ubuntu 16:04') {
           steps {
             sh 'bin/installer-test --ubuntu-16.04'

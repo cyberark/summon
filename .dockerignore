@@ -4,7 +4,10 @@ build.sh
 _site
 .vagrant
 Vagrantfile
-git
-pkg/*
 provider/provider
 summon
+vendor/
+Godeps/
+
+# Vim editor tempfiles
+*.sw[po]

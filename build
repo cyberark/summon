@@ -1,0 +1,9 @@
+#!/bin/bash -e
+
+git fetch --tags  # jenkins does not do this automatically yet
+
+docker pull goreleaser/goreleaser
+
+docker run --rm \
+           -v "$PWD:/summon" \
+           -w /summon goreleaser/goreleaser release --rm-dist --skip-validate

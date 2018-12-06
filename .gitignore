@@ -1,19 +1,26 @@
-output/
+output/**/*
 dist/
 acceptance/tmp
 *.tmp
 .vagrant
 _site
-Godeps/_workspace/src/github.com/jstemmer/
 test.rb
 test.out
 junit.xml
 *.sublime-*
-summon
+main
 keychain
 secrets.yml
-pkg
 .godeps
+vendor/
+Godeps/
+
+# Vim editor tempfiles
+*.sw[po]
+
+# Keep of force-saved dirs
+# TODO: Figure out why Jenkins can't create dirs for these
+!**/.keep
 
 # Created by https://www.gitignore.io
 
@@ -24,7 +31,6 @@ pkg
 
 # Icon must end with two \r
 Icon
-
 
 # Thumbnails
 ._*
@@ -43,30 +49,6 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
-
-# Created by https://www.gitignore.io
-
-### Go ###
-# Compiled Object files, Static and Dynamic libs (Shared Objects)
-*.o
-*.a
-*.so
-
-# Folders
-_obj
-_test
-
-# Architecture specific extensions/prefixes
-*.[568vq]
-[568vq].out
-
-*.cgo1.go
-*.cgo2.c
-_cgo_defun.c
-_cgo_gotypes.go
-_cgo_export.*
-
-_testmain.go
 
 *.exe
 *.test

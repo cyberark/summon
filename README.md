@@ -159,32 +159,23 @@ you can use `@SUMMONENVFILE` just the same.
 
 ## Development
 
-Dependencies are vendored with [godep](https://github.com/tools/godep).
-To make them available, run `export GOPATH=$(godep path):$GOPATH`.
-
 Run the project with:
 
 ```
-go run *.go
+go run cmd/main.go
 ```
 
 ### Testing
 
 Tests are written using [GoConvey](http://goconvey.co/).
-Run tests with `go test -v ./...` or `./test.sh` (for CI).
+Run tests with `go test -v ./...` or `./test` (for CI).
 
-### Building
+### Building and packaging
 
-To build 64bit versions for Linux, OSX and Windows:
+To build versions for Linux, OSX and Windows:
 
 ```
-./build.sh
+./build
 ```
 
 Binaries will be placed in `output/`.
-
-### Packaging
-
-```
-./package.sh
-```
