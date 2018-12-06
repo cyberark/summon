@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/codegangsta/cli"
-	"github.com/cyberark/summon/command"
+	"github.com/cyberark/summon/internal/command"
 	"github.com/cyberark/summon/pkg/summon"
 )
 
