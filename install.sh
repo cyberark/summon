@@ -43,9 +43,14 @@ do_download() {
 
 # get_latest_version
 get_latest_version() {
-  curl --silent "https://api.github.com/repos/cyberark/summon/releases/latest" | # Get latest release from GitHub api
+  if [[ $(command -v curl) ]]; then
+    curl --silent "https://api.github.com/repos/cyberark/summon/releases/latest" | # Get latest release from GitHub api
     grep '"tag_name":' |                                            # Get tag line
     sed -E 's/.*"([^"]+)".*/\1/'                                    # Pluck JSON value
+  else
+    error "Could not find curl"
+    return 1
+  fi
 }
 
 LATEST_VERSION=$(get_latest_version)
