@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.6.9](https://github.com/cyberark/summon/releases/tag/v0.6.9) - 2018-12-07
 ### Changed
 - Updated codebase to use [go v1.11 modules](https://github.com/golang/go/wiki/Modules).
 - Updated acceptance tests to use an automated test image builds and no makefiles.
