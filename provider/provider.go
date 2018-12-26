@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 	"runtime"
+	"strings"
 )
 
 var DefaultPath = getDefaultPath()
