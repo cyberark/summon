@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 	"runtime"
+	"strings"
 )
 
 var DefaultPath = getDefaultPath()
@@ -82,9 +82,14 @@ func expandPath(provider string) string {
 
 func getDefaultPath() string {
 	if runtime.GOOS == "windows" {
-		//No way to use SHGetKnownFolderPath(FOLDERID_ProgramFilesX64, ...)
-		//Hardcoding should be fine for now since SUMMON_PROVIDER and -p are available
-		return "C:\\Program Files\\Cyberark Conjur\\Summon\\Providers"
+		// Try to get the appropriate "Program Files" directory but if one doesn't
+		// exist, use a hardcoded value we think should be right.
+		program_files_dir := os.Getenv("ProgramW6432")
+		if program_files_dir == "" {
+			program_files_dir = path.Join("C:", "Program Files")
+		}
+
+		return path.Join(program_files_dir, "Cyberark Conjur", "Summon", "Providers")
 	} else {
 		return "/usr/local/lib/summon"
 	}
