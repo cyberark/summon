@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Added exporting of `SUMMON_ENV` if `-e` flag is present. Closes[#92](https://github.com/cyberark/summon/issues/92).
 
 ## [v0.6.10](https://github.com/cyberark/summon/releases/tag/v0.6.10) - 2019-01-03
 ### Fixed

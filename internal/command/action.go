@@ -25,6 +25,7 @@ type ActionConfig struct {
 }
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
+const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
 
 var Action = func(c *cli.Context) {
 	if !c.Args().Present() {
@@ -130,6 +131,11 @@ EnvLoop:
 			}
 			return fmt.Errorf("Error fetching variable %v: %v", envvar.string, envvar.error.Error())
 		}
+	}
+
+	// Append environment variable if one is specified
+	if ac.Environment != "" {
+		env = append(env, fmt.Sprintf("%s=%s", SUMMON_ENV_KEY_NAME, ac.Environment))
 	}
 
 	setupEnvFile(ac.Args, env, &tempFactory)
