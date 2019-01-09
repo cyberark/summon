@@ -1,7 +1,4 @@
 #!/bin/bash -e
 
-TEST_CMD='go test -v ./... | tee junit.output && cat junit.output | go-junit-report > output/junit.xml'
-
 ./test_unit
-
 ./test_acceptance
