@@ -43,19 +43,19 @@ do_download() {
 
 # get_latest_version
 get_latest_version() {
-  local latest;
+  local latest_payload;
   if [[ $(command -v wget) ]]; then
-    latest=$(wget -q -O - "https://api.github.com/repos/cyberark/summon/releases/latest")
+    latest_payload=$(wget -q -O - "https://api.github.com/repos/cyberark/summon/releases/latest")
   elif [[ $(command -v curl) ]]; then
-    latest=$(curl --silent "https://api.github.com/repos/cyberark/summon/releases/latest")
+    latest_payload=$(curl --fail -sSL "https://api.github.com/repos/cyberark/summon/releases/latest")
   else
-    error "Could not find curl"
+    error "Could not find wget or curl"
     return 1
   fi
   
-  echo "$latest" | # Get latest release from GitHub api
-    grep '"tag_name":' |                                            # Get tag line
-    sed -E 's/.*"([^"]+)".*/\1/'                                    # Pluck JSON value
+  echo "$latest_payload" | # Get latest release from GitHub api
+    grep '"tag_name":' | # Get tag line
+    sed -E 's/.*"([^"]+)".*/\1/' # Pluck JSON value
 }
 
 LATEST_VERSION=$(get_latest_version)
