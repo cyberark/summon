@@ -43,14 +43,19 @@ do_download() {
 
 # get_latest_version
 get_latest_version() {
-  if [[ $(command -v curl) ]]; then
-    curl --silent "https://api.github.com/repos/cyberark/summon/releases/latest" | # Get latest release from GitHub api
-    grep '"tag_name":' |                                            # Get tag line
-    sed -E 's/.*"([^"]+)".*/\1/'                                    # Pluck JSON value
+  local latest;
+  if [[ $(command -v wget) ]]; then
+    latest=$(wget -q -O - "https://api.github.com/repos/cyberark/summon/releases/latest")
+  elif [[ $(command -v curl) ]]; then
+    latest=$(curl --silent "https://api.github.com/repos/cyberark/summon/releases/latest")
   else
     error "Could not find curl"
     return 1
   fi
+  
+  echo "$latest" | # Get latest release from GitHub api
+    grep '"tag_name":' |                                            # Get tag line
+    sed -E 's/.*"([^"]+)".*/\1/'                                    # Pluck JSON value
 }
 
 LATEST_VERSION=$(get_latest_version)
@@ -63,7 +68,7 @@ URL=${BASEURL}"${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
 ZIP_PATH="${tmp_dir}/summon.tar.gz"
 do_download ${URL} ${ZIP_PATH}
 
-echo "Installing summon ${LATEST_VERSION} into /usr/local/bin"
+echo "Installing summon v${LATEST_VERSION} into /usr/local/bin"
 
 if sudo -h >/dev/null 2>&1; then
   sudo tar -C /usr/local/bin -zxvf ${ZIP_PATH} >/dev/null
