@@ -37,20 +37,21 @@ do_download() {
     curl --fail -sSL -o "$2" "$1" &>/dev/null || true
   else
     error "Could not find wget or curl"
-    return 1
+    exit 1
   fi
 }
 
 # get_latest_version
 get_latest_version() {
   local latest_payload;
+  local LATEST_VERSION_URL="https://api.github.com/repos/cyberark/summon/releases/latest"
   if [[ $(command -v wget) ]]; then
-    latest_payload=$(wget -q -O - "https://api.github.com/repos/cyberark/summon/releases/latest")
+    latest_payload=$(wget -q -O - "$LATEST_VERSION_URL")
   elif [[ $(command -v curl) ]]; then
-    latest_payload=$(curl --fail -sSL "https://api.github.com/repos/cyberark/summon/releases/latest")
+    latest_payload=$(curl --fail -sSL "$LATEST_VERSION_URL")
   else
     error "Could not find wget or curl"
-    return 1
+    exit 1
   fi
   
   echo "$latest_payload" | # Get latest release from GitHub api
