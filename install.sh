@@ -31,37 +31,41 @@ tmp_dir="$tmp/install.sh.$$"
 # do_download URL DIR
 do_download() {
   echo "Downloading $1"
-  if [[ $(type -t wget) ]]; then
+  if [[ $(command -v wget) ]]; then
     wget -q -O "$2" "$1" >/dev/null
-  elif [[ $(type -t curl) ]]; then
+  elif [[ $(command -v curl) ]]; then
     curl --fail -sSL -o "$2" "$1" &>/dev/null || true
   else
     error "Could not find wget or curl"
-    return 1
+    exit 1
   fi
 }
 
-# get_latest_version URL
+# get_latest_version
 get_latest_version() {
-  versionloc=${tmp_dir}/summon.version
-  versionfile=$(do_download "${1}" "${versionloc}")
-  if [ -f "${versionloc}" ]; then
-    local version=$(cat ${versionloc} | grep -o -e "[[:digit:]].[[:digit:]]*.[[:digit:]]*")
-    echo "${version}"
+  local LATEST_VERSION_URL="https://api.github.com/repos/cyberark/summon/releases/latest"
+  local latest_payload
+
+  if [[ $(command -v wget) ]]; then
+    latest_payload=$(wget -q -O - "$LATEST_VERSION_URL")
+  elif [[ $(command -v curl) ]]; then
+    latest_payload=$(curl --fail -sSL "$LATEST_VERSION_URL")
+  else
+    error "Could not find wget or curl"
+    exit 1
   fi
+  
+  echo "$latest_payload" | # Get latest release from GitHub api
+    grep '"tag_name":' | # Get tag line
+    sed -E 's/.*"([^"]+)".*/\1/' # Pluck JSON value
 }
 
-LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/cyberark/summon/master/pkg/summon/version.go')
-# TODO: This should be removed after we publish the newest version (v0.6.9+)
-if [[ -z "$LATEST_VERSION" ]]; then
-  echo "Trying the old version endpoint..."
-  LATEST_VERSION=$(get_latest_version 'https://raw.githubusercontent.com/cyberark/summon/master/version.go')
-fi
+LATEST_VERSION=$(get_latest_version)
 
 echo "Using version number: v$LATEST_VERSION"
 
 BASEURL="https://github.com/cyberark/summon/releases/download/"
-URL=${BASEURL}"v${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
+URL=${BASEURL}"${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
 
 ZIP_PATH="${tmp_dir}/summon.tar.gz"
 do_download ${URL} ${ZIP_PATH}
