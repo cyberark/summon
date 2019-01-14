@@ -43,8 +43,9 @@ do_download() {
 
 # get_latest_version
 get_latest_version() {
-  local latest_payload;
   local LATEST_VERSION_URL="https://api.github.com/repos/cyberark/summon/releases/latest"
+  local latest_payload
+
   if [[ $(command -v wget) ]]; then
     latest_payload=$(wget -q -O - "$LATEST_VERSION_URL")
   elif [[ $(command -v curl) ]]; then
