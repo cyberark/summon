@@ -50,7 +50,7 @@ func (tf *TempFactory) Push(value string) string {
 	return name
 }
 
-// Remove the temporary files created with this factory.
+// Cleanup removes the temporary files created with this factory.
 func (tf *TempFactory) Cleanup() {
 	for _, file := range tf.files {
 		os.Remove(file)
