@@ -1,0 +1,5 @@
+tenets:
+  - import: codelingo/effective-go/comment-first-word-as-subject
+  - import: codelingo/effective-go/underscores-in-name
+  - import: codelingo/code-review-comments/avoid-renaming-imports
+  - import: codelingo/code-review-comments/go-error-fmt
