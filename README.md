@@ -157,25 +157,6 @@ This file is created on demand - only when `@SUMMONENVFILE` appears in the
 arguments of the command summon is wrapping. This feature is not Docker-specific; if you have another tools that reads variables in `VAR=VAL` format
 you can use `@SUMMONENVFILE` just the same.
 
-## Development
+## Contributing
 
-Run the project with:
-
-```
-go run cmd/main.go
-```
-
-### Testing
-
-Tests are written using [GoConvey](http://goconvey.co/).
-Run tests with `go test -v ./...` or `./test` (for CI).
-
-### Building and packaging
-
-To build versions for Linux, OSX and Windows:
-
-```
-./build
-```
-
-Binaries will be placed in `output/`.
+For more info on contributing, please see [CONTRIBUTING.md](CONTRIBUTING.md).
