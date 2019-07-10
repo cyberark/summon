@@ -1,3 +1,4 @@
 source 'https://rubygems.org'
 
 gem 'aruba'
+gem "ffi", ">= 1.9.24"
