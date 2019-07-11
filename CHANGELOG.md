@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.7.0](https://github.com/cyberark/summon/releases/tag/v0.7.0) - 2019-07-11
+### Changed
+- Updated yaml.v1 dependency to [yaml.v3](gopkg.in/yaml.v3) in part to address
+  [cyberark/secretless-broker#785](https://github.com/cyberark/secretless-broker/issues/785)
+- Updates goreleaser config to address deprecated sections
+
+### Fixed
+- Bumps `ffi` in the `acceptance/` directory to address [this CVE](https://nvd.nist.gov/vuln/detail/CVE-2018-1000201)
+
+### Added
+- Added CONTRIBUTING.md for contribution guidelines for the project, including
+  contributor agreement
+
 ## [v0.6.11](https://github.com/cyberark/summon/releases/tag/v0.6.11) - 2019-01-09
 ### Changed
 - Added exporting of `SUMMON_ENV` if `-e` flag is present. Closes[#92](https://github.com/cyberark/summon/issues/92).
