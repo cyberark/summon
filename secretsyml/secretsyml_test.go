@@ -46,8 +46,10 @@ BOOL: true`
 			So(spec.IsFile(), ShouldBeFalse)
 			So(spec.IsLiteral(), ShouldBeTrue)
 
-			_, found := parsed["FLOAT"]
-			So(found, ShouldBeFalse)
+			spec, found := parsed["FLOAT"]
+			So(found, ShouldBeTrue)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "27.1111")
 
 			spec, found = parsed["INT"]
 			So(found, ShouldBeTrue)
@@ -100,8 +102,10 @@ BOOL: true`
 			So(spec.IsFile(), ShouldBeFalse)
 			So(spec.IsLiteral(), ShouldBeTrue)
 
-			_, found := parsed["FLOAT"]
-			So(found, ShouldBeFalse)
+			spec, found := parsed["FLOAT"]
+			So(found, ShouldBeTrue)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "27.1111")
 
 			spec, found = parsed["INT"]
 			So(found, ShouldBeTrue)
