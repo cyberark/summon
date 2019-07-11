@@ -1,4 +1,4 @@
 package summon
 
 // VERSION is the version of summon
-const VERSION = "0.6.11"
+const VERSION = "0.7.0"

@@ -4,10 +4,11 @@ package secretsyml
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v1"
 	"io/ioutil"
 	"regexp"
 	"strconv"
+
+	"gopkg.in/yaml.v3"
 )
 
 var COMMON_SECTIONS = []string{"common", "default"}
@@ -38,29 +39,29 @@ type SecretSpec struct {
 	Path string
 }
 
-func (s *SecretSpec) IsFile() bool {
-	return tagInSlice(File, s.Tags)
+func (spec *SecretSpec) IsFile() bool {
+	return tagInSlice(File, spec.Tags)
 }
 
-func (s *SecretSpec) IsVar() bool {
-	return tagInSlice(Var, s.Tags)
+func (spec *SecretSpec) IsVar() bool {
+	return tagInSlice(Var, spec.Tags)
 }
 
-func (s *SecretSpec) IsLiteral() bool {
-	return tagInSlice(Literal, s.Tags)
+func (spec *SecretSpec) IsLiteral() bool {
+	return tagInSlice(Literal, spec.Tags)
 }
 
 type SecretsMap map[string]SecretSpec
 
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
-	r, _ := regexp.Compile("(var|file|str|int|bool)")
+	r, _ := regexp.Compile("(var|file|str|int|bool|float)")
 	tags := r.FindAllString(tag, -1)
 	if len(tags) == 0 {
 		return false
 	}
 	for _, t := range tags {
 		switch t {
-		case "str", "int", "bool":
+		case "str", "int", "bool", "float":
 			spec.Tags = append(spec.Tags, Literal)
 		case "file":
 			spec.Tags = append(spec.Tags, File)
@@ -71,16 +72,40 @@ func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 		}
 	}
 
-	if s, ok := value.(string); ok {
-		spec.Path = s
-	} else if s, ok := value.(int); ok {
+	if s, ok := value.(int); ok {
 		spec.Path = strconv.Itoa(s)
 	} else if s, ok := value.(bool); ok {
 		spec.Path = strconv.FormatBool(s)
+	} else if s, ok := value.(float64); ok {
+		spec.Path = strconv.FormatFloat(s, 'f', -1, 64)
+	} else if s, ok := value.(string); ok {
+		spec.Path = s
 	} else {
 		return false
 	}
+
 	return true
+}
+
+func (secretMap *SecretsMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	*secretMap = SecretsMap{}
+
+	m := map[string]yaml.Node{}
+	if err := unmarshal(&m); err != nil {
+		return err
+	}
+
+	for k, v := range m {
+		spec := SecretSpec{}
+		ok := spec.SetYAML(v.Tag, v.Value)
+		if !ok {
+			return fmt.Errorf("OOPS! %+v", v)
+		}
+
+		(*secretMap)[k] = spec
+	}
+
+	return nil
 }
 
 // ParseFromString parses a string in secrets.yml format to a map.
@@ -108,7 +133,7 @@ func parse(ymlContent, env string, subs map[string]string) (SecretsMap, error) {
 
 // Parse secrets yaml that has environment sections
 func parseEnvironment(ymlContent, env string, subs map[string]string) (SecretsMap, error) {
-	out := make(map[string]map[string]SecretSpec)
+	out := make(map[string]SecretsMap)
 
 	if err := yaml.Unmarshal([]byte(ymlContent), &out); err != nil {
 		return nil, err
@@ -158,7 +183,7 @@ func parseAndMergeCommon(out, secretsMap SecretsMap, subs map[string]string) (Se
 
 // Parse a secrets yaml that has no environment sections
 func parseRegular(ymlContent string, subs map[string]string) (SecretsMap, error) {
-	out := make(map[string]SecretSpec)
+	out := make(SecretsMap)
 
 	if err := yaml.Unmarshal([]byte(ymlContent), &out); err != nil {
 		return nil, err
@@ -189,7 +214,7 @@ func (spec *SecretSpec) applySubstitutions(subs map[string]string) error {
 		if ok {
 			return text
 		} else {
-			substitutionError = fmt.Errorf("Variable %v not declared!", variable)
+			substitutionError = fmt.Errorf("variable %v not declared", variable)
 			return ""
 		}
 	}
