@@ -81,8 +81,6 @@ Here are some specific examples of how you can use summon with your current tool
 
 * [Docker](http://cyberark.github.io/summon/docker.html)
 
-Let us know what tools you would like us to cover next at [oss@conjur.net](mailto:oss@conjur.net).
-
 <h1 id="providers">providers</h1>
 
 * [AWS S3](https://github.com/conjurinc/summon-s3)

@@ -124,4 +124,3 @@ AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ---
 
 We hope Summon makes it easier for you to work with Docker and secrets. If you have an idea for a new feature or notice a problem, please don't hesitate to [open an issue or pull request on GitHub](https://github.com/cyberark/summon).
-You can also send any feedback to [oss@conjur.net](mailto:oss@conjur.net).
