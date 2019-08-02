@@ -180,6 +180,15 @@ tags = ["key", "twilio"]
 files = [
   ".gitleaks.toml"
 ]
+regexes= [
+  "AKIAIOSFODNN7EXAMPLE"
+]
+commits = [
+  "923689f11e8636d5de9cc33f8eb99bf951c6b9b5",
+  "95b468ac083a093b5b2779438ba6bf15163178da",
+  "662186377423d00c77781f6459a08f70c3c30ceb",
+  "9c098b504d5d6d5e5b157f129e450131bce48041"
+]
 
 #commits = [
 #  "whitelisted-commit1",
