@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+- Added gitleaks configuration
+
+### Fixed
+- Fixed broken website links
+
 ## [v0.7.0](https://github.com/cyberark/summon/releases/tag/v0.7.0) - 2019-07-11
 ### Changed
 - Updated yaml.v1 dependency to [yaml.v3](gopkg.in/yaml.v3) in part to address
