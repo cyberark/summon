@@ -1,5 +1,3 @@
-// +build windows
-
 package command
 
 import (
@@ -10,10 +8,9 @@ import (
 )
 
 // runSubcommand executes a command with arguments in the context
-// of an environment populated with secret values.
-// XXX: Since Windows doesn't do fork/exec, we have to run the child
-//      process the old-fashioned parent-child relationship and shuffle
-//      the signals around.
+// of an environment populated with secret values. Since we have to
+// clean up our temp directories, we remain resident and shuffle
+// signals around to the chld and back
 func runSubcommand(command []string, env []string) error {
 	binary, lookupErr := exec.LookPath(command[0])
 	if lookupErr != nil {

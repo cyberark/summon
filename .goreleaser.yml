@@ -6,17 +6,33 @@ before:
   - go mod download
 
 builds:
-- binary: summon
+- id: summon
+  binary: summon
   env:
   - CGO_ENABLED=0
+  flags:
+  - -tags=netgo
   goos:
   - darwin  # MacOS
   - windows
+  goarch:
+  - amd64
+  main: ./cmd/main.go
+
+# Make a static build for Linux
+- id: summon-linux
+  binary: summon
+  env:
+  - CGO_ENABLED=1
+  flags:
+  - -tags=netgo
+  goos:
   - linux
   goarch:
   - amd64
-  ldflags: []
+  ldflags: -s -w -linkmode external -extldflags "-static"
   main: ./cmd/main.go
+
 
 archives:
   - id: summon-release-archive

@@ -1,7 +1,6 @@
 package command
 
 import (
-	"github.com/mitchellh/go-homedir"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -31,7 +30,7 @@ func DefaultTempPath() string {
 	if err == nil && fi.Mode().IsDir() {
 		return DEVSHM
 	}
-	home, err := homedir.Dir()
+	home, err := os.UserHomeDir()
 	if err == nil {
 		dir, _ := ioutil.TempDir(home, ".tmp")
 		return dir
