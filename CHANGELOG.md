@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - To ensure cleanup of files on non-windows platforms we now remain resident
   until the child is killed or it exits [#106](https://github.com/cyberark/summon/issues/106)
 - Updated base Golang version to 1.13
+- Made Linux builds create static binaries [#65](https://github.com/cyberark/summon/issues/65)
 
 ### Added
 - Added gitleaks configuration
