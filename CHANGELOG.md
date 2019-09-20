@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.8.0](https://github.com/cyberark/summon/releases/tag/v0.8.0) - 2019-09-20
+
+### Changed
+- To ensure cleanup of files on non-windows platforms we now remain resident
+  until the child is killed or it exits [#106](https://github.com/cyberark/summon/issues/106)
+
 ### Added
 - Added gitleaks configuration
 
