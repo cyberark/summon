@@ -16,6 +16,7 @@ PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
 PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
 SOME_FILE: !file my content
 RAILS_ENV: $env
+SOME_ESCAPING_VAR: FOO$$BAR
 FLOAT: 27.1111
 INT: 27
 BOOL: true`
@@ -45,6 +46,11 @@ BOOL: true`
 			So(spec.IsVar(), ShouldBeFalse)
 			So(spec.IsFile(), ShouldBeFalse)
 			So(spec.IsLiteral(), ShouldBeTrue)
+
+			spec = parsed["SOME_ESCAPING_VAR"]
+			So(spec.IsVar(), ShouldBeFalse)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "FOO$BAR")
 
 			spec, found := parsed["FLOAT"]
 			So(found, ShouldBeTrue)
