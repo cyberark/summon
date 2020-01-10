@@ -80,6 +80,7 @@ Summon is meant to work with your existing toolchains. If you can access environ
 Here are some specific examples of how you can use summon with your current tools.
 
 * [Docker](http://cyberark.github.io/summon/docker.html)
+* [Buildkite](https://github.com/angaza/summon-buildkite-plugin)
 
 <h1 id="providers">providers</h1>
 
