@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -22,6 +23,7 @@ type ActionConfig struct {
 	Ignores     []string
 	IgnoreAll   bool
 	Environment string
+	RecurseUp   bool
 }
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
@@ -48,6 +50,7 @@ var Action = func(c *cli.Context) {
 		Ignores:     c.StringSlice("ignore"),
 		IgnoreAll:   c.Bool("ignore-all"),
 		Subs:        convertSubsToMap(c.StringSlice("D")),
+		RecurseUp:   c.Bool("-u"),
 	})
 
 	code, err := returnStatusOfError(err)
@@ -66,6 +69,14 @@ func runAction(ac *ActionConfig) error {
 		secrets secretsyml.SecretsMap
 		err     error
 	)
+
+	if ac.RecurseUp {
+		currentDir, err := os.Getwd()
+		err = walkFn(&ac.Filepath, currentDir)
+		if err != nil {
+			return err
+		}
+	}
 
 	switch ac.YamlInline {
 	case "":
@@ -156,6 +167,22 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 
 func joinEnv(env []string) string {
 	return strings.Join(env, "\n") + "\n"
+}
+
+func walkFn(file *string, path string) error {
+	for {
+		joinedPath := filepath.Join(path, *file)
+		if _, err := os.Stat(joinedPath); err == nil {
+			// File found - store the current filepath
+			*file = joinedPath
+			return nil
+		} else if os.IsNotExist(err) {
+			// Move up to parent dir
+			path = filepath.Dir(path)
+		} else {
+			return fmt.Errorf("unable to locate file specified")
+		}
+	}
 }
 
 // scans arguments for the magic string; if found,

@@ -2,9 +2,11 @@ package command
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -103,5 +105,42 @@ func TestReturnStatusOfError(t *testing.T) {
 		expected := errors.New("test")
 		_, err := returnStatusOfError(expected)
 		So(err, ShouldEqual, expected)
+	})
+}
+
+func TestLocateFileRecurseUp(t *testing.T) {
+	filename := "test.txt"
+	currentDir, _ := os.Getwd()
+
+	Convey("Finds file in current working directory", t, func() {
+		fileNameLocalCopy := filename
+		localFilePath := filepath.Join(currentDir, filename)
+		_, _ = os.Create(localFilePath)
+
+		_ = walkFn(&fileNameLocalCopy, currentDir)
+
+		So(fileNameLocalCopy, ShouldEqual, localFilePath)
+
+		_ = os.Remove(localFilePath)
+	})
+
+	Convey("Finds file in a higher working directory", t, func() {
+		fileNameHigherCopy := filename
+		higherFilePath := filepath.Join(filepath.Dir(filepath.Dir(currentDir)), filename)
+		_, _ = os.Create(higherFilePath)
+
+		_ = walkFn(&fileNameHigherCopy, currentDir)
+
+		So(fileNameHigherCopy, ShouldEqual, higherFilePath)
+		_ = os.Remove(higherFilePath)
+	})
+
+	Convey("returns a friendly error", t, func() {
+		badFileName := "foo.bar"
+		testErr := fmt.Errorf("unable to locate file specified")
+
+		err := walkFn(&badFileName, currentDir)
+
+		So(testErr, ShouldEqual, err)
 	})
 }
