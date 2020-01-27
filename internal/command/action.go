@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,6 +27,7 @@ type ActionConfig struct {
 	Ignores              []string
 	IgnoreAll            bool
 	Environment          string
+	RecurseUp            bool
 	ShowProviderVersions bool
 }
 
@@ -56,6 +58,7 @@ var Action = func(c *cli.Context) {
 		YamlInline:           c.String("yaml"),
 		Ignores:              c.StringSlice("ignore"),
 		IgnoreAll:            c.Bool("ignore-all"),
+		RecurseUp:            c.Bool("-u"),
 		ShowProviderVersions: c.Bool("all-provider-versions"),
 		Subs:                 convertSubsToMap(c.StringSlice("D")),
 	})
@@ -85,6 +88,14 @@ func runAction(ac *ActionConfig) error {
 
 		fmt.Print(output)
 		return nil
+	}
+
+	if ac.RecurseUp {
+		currentDir, err := os.Getwd()
+		err = walkFn(&ac.Filepath, currentDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	switch ac.YamlInline {
@@ -181,6 +192,22 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 
 func joinEnv(env []string) string {
 	return strings.Join(env, "\n") + "\n"
+}
+
+func walkFn(file *string, path string) error {
+	for {
+		joinedPath := filepath.Join(path, *file)
+		if _, err := os.Stat(joinedPath); err == nil {
+			// File found - store the current filepath
+			*file = joinedPath
+			return nil
+		} else if os.IsNotExist(err) {
+			// Move up to parent dir
+			path = filepath.Dir(path)
+		} else {
+			return fmt.Errorf("unable to locate file specified")
+		}
+	}
 }
 
 // scans arguments for the magic string; if found,
