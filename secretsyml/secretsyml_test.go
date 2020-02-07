@@ -63,6 +63,25 @@ BOOL: true`
 		})
 	})
 
+	Convey("Given an empty variable in secrets.yml", t, func() {
+		testEnv := "TestEnvironment"
+		input := `TestEnvironment:
+  SOME_VAR1: !var $env/sentry/api_key
+  EMPTY_VAR:
+  SOME_VAR2: !var:file $env/aws/ec2/private_key`
+
+		Convey("It should correctly parse the file", func() {
+			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
+			So(err, ShouldBeNil)
+
+			spec := parsed["EMPTY_VAR"]
+			So(spec.IsVar(), ShouldBeFalse)
+			So(spec.IsFile(), ShouldBeFalse)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "")
+		})
+	})
+
 	Convey("Given a string with environment in secrets.yml format", t, func() {
 		testEnv := "TestEnvironment"
 		input := `TestEnvironment:
