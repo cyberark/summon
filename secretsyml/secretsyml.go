@@ -53,12 +53,13 @@ func (spec *SecretSpec) IsLiteral() bool {
 
 type SecretsMap map[string]SecretSpec
 
-func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
+func (spec *SecretSpec) SetYAML(tag string, value interface{}) error {
 	r, _ := regexp.Compile("(var|file|str|int|bool|float)")
 	tags := r.FindAllString(tag, -1)
 	if len(tags) == 0 {
-		return false
+		spec.Tags = append(spec.Tags, Literal)
 	}
+
 	for _, t := range tags {
 		switch t {
 		case "str", "int", "bool", "float":
@@ -68,7 +69,7 @@ func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 		case "var":
 			spec.Tags = append(spec.Tags, Var)
 		default:
-			return false
+			return fmt.Errorf("unknown tag type found!")
 		}
 	}
 
@@ -81,10 +82,10 @@ func (spec *SecretSpec) SetYAML(tag string, value interface{}) bool {
 	} else if s, ok := value.(string); ok {
 		spec.Path = s
 	} else {
-		return false
+		return fmt.Errorf("unable to convert value to a known type!")
 	}
 
-	return true
+	return nil
 }
 
 func (secretMap *SecretsMap) UnmarshalYAML(unmarshal func(interface{}) error) error {
@@ -97,9 +98,9 @@ func (secretMap *SecretsMap) UnmarshalYAML(unmarshal func(interface{}) error) er
 
 	for k, v := range m {
 		spec := SecretSpec{}
-		ok := spec.SetYAML(v.Tag, v.Value)
-		if !ok {
-			return fmt.Errorf("OOPS! %+v", v)
+		err := spec.SetYAML(v.Tag, v.Value)
+		if err != nil {
+			return err
 		}
 
 		(*secretMap)[k] = spec
