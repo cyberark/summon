@@ -19,12 +19,18 @@ pipeline {
         checkout scm
       }
     }
+
+    stage('Validate Changelog') {
+      steps { sh './bin/parse-changelog' }
+    }
+
     stage('Build Go package') {
       steps {
         sh './build'
         archiveArtifacts artifacts: "dist/*.tar.gz,dist/*.zip,dist/*.rb,dist/*.deb,dist/*.rpm,dist/*.txt", fingerprint: true
       }
     }
+
     stage('Run unit tests') {
       steps {
         sh './test_unit'
