@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - Added better errors for unkown tags found in the yaml
+- Added ability to set a default variable value with `default='<value>'` tag [#38](https://github.com/cyberark/summon/issues/38)
 
 ## [v0.8.0](https://github.com/cyberark/summon/releases/tag/v0.8.0) - 2019-09-20
 
