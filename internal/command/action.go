@@ -107,6 +107,11 @@ func runAction(ac *ActionConfig) error {
 				value = spec.Path
 			}
 
+			// Set a default value if the provider didn't return one for the item
+			if value == "" && spec.DefaultValue != "" {
+				value = spec.DefaultValue
+			}
+
 			envvar := formatForEnv(key, value, spec, &tempFactory)
 			results <- Result{envvar, nil}
 			wg.Done()
