@@ -57,5 +57,6 @@ of the merged commit with the name `v<version>` and push it to the repository.
 - [ ] Publish the release as a regular release.
 - [ ] Update homebrew tools
   - [ ] In [`cyberark/homebrew-tools`](https://github.com/cyberark/homebrew-tools) repo, update
-  the [`summon.rb` formula](https://github.com/cyberark/homebrew-tools/blob/master/summon.rb#L4-L6) with a PR.
+  the [`summon.rb` formula](https://github.com/cyberark/homebrew-tools/blob/master/summon.rb#L4-L6) with a PR
+  using the file `dist/summon.rb`.
   - [ ] Once the PR is merged, verify that summon works by smoke testing it on OSX.
