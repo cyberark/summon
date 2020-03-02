@@ -49,7 +49,7 @@ checksum:
 brews:
   - description: CLI that provides on-demand secrets access for common DevOps tools.
     homepage: https://github.com/cyberark/summon
-    url_template: https://github.com/cyberark/summon/releases/download/v{{.Version}}/summon-darwin-amd64.tar.gz
+    url_template: https://github.com/cyberark/summon/releases/download/v{{.Version}}/summon-{{ tolower .Os }}-{{ tolower .Arch }}.tar.gz
     install: |
       bin.install "summon"
     test: |
