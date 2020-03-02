@@ -21,6 +21,8 @@ const (
 	Literal
 )
 
+var defaultValueRegex = regexp.MustCompile(`default='(?P<defaultValue>.*)'`)
+
 func (t YamlTag) String() string {
 	switch t {
 	case File:
@@ -35,8 +37,9 @@ func (t YamlTag) String() string {
 }
 
 type SecretSpec struct {
-	Tags []YamlTag
-	Path string
+	Tags         []YamlTag
+	Path         string
+	DefaultValue string
 }
 
 func (spec *SecretSpec) IsFile() bool {
@@ -54,20 +57,33 @@ func (spec *SecretSpec) IsLiteral() bool {
 type SecretsMap map[string]SecretSpec
 
 func (spec *SecretSpec) SetYAML(tag string, value interface{}) error {
-	r, _ := regexp.Compile("(var|file|str|int|bool|float)")
+	r, _ := regexp.Compile("(var|file|str|int|bool|float|" + defaultValueRegex.String() + ")")
 	tags := r.FindAllString(tag, -1)
 	if len(tags) == 0 {
 		spec.Tags = append(spec.Tags, Literal)
 	}
 
 	for _, t := range tags {
-		switch t {
-		case "str", "int", "bool", "float":
+		switch {
+		case t == "bool":
+			fallthrough
+		case t == "float":
+			fallthrough
+		case t == "int":
+			fallthrough
+		case t == "str":
 			spec.Tags = append(spec.Tags, Literal)
-		case "file":
+		case t == "file":
 			spec.Tags = append(spec.Tags, File)
-		case "var":
+		case t == "var":
 			spec.Tags = append(spec.Tags, Var)
+		case defaultValueRegex.MatchString(t):
+			match := defaultValueRegex.FindStringSubmatch(t)
+			spec.DefaultValue = match[1]
+
+			if len(tags) == 1 {
+				spec.Tags = append(spec.Tags, Literal)
+			}
 		default:
 			return fmt.Errorf("unknown tag type found!")
 		}

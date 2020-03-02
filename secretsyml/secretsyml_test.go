@@ -16,6 +16,8 @@ PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
 PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
 SOME_FILE: !file my content
 RAILS_ENV: $env
+DEFAULT_VAR: !var:default='defaultvalue':file $env/sentry/api_key
+DEFAULT_VAR2: !default='def' foo
 SOME_ESCAPING_VAR: FOO$$BAR
 FLOAT: 27.1111
 INT: 27
@@ -49,11 +51,28 @@ BOOL: true`
 
 			spec = parsed["SOME_ESCAPING_VAR"]
 			So(spec.IsVar(), ShouldBeFalse)
+			So(spec.IsFile(), ShouldBeFalse)
 			So(spec.IsLiteral(), ShouldBeTrue)
 			So(spec.Path, ShouldEqual, "FOO$BAR")
 
+			spec = parsed["DEFAULT_VAR"]
+			So(spec.IsFile(), ShouldBeTrue)
+			So(spec.IsVar(), ShouldBeTrue)
+			So(spec.IsLiteral(), ShouldBeFalse)
+			So(spec.Path, ShouldEqual, "prod/sentry/api_key")
+			So(spec.DefaultValue, ShouldEqual, "defaultvalue")
+
+			spec = parsed["DEFAULT_VAR2"]
+			So(spec.IsFile(), ShouldBeFalse)
+			So(spec.IsVar(), ShouldBeFalse)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "foo")
+			So(spec.DefaultValue, ShouldEqual, "def")
+
 			spec, found := parsed["FLOAT"]
 			So(found, ShouldBeTrue)
+			So(spec.IsFile(), ShouldBeFalse)
+			So(spec.IsVar(), ShouldBeFalse)
 			So(spec.IsLiteral(), ShouldBeTrue)
 			So(spec.Path, ShouldEqual, "27.1111")
 
@@ -95,6 +114,7 @@ BOOL: true`
   PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
   PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
   SOME_FILE: !file my content
+  DEFAULT_VAR: !default='def' $env/value
   RAILS_ENV: $env
   FLOAT: 27.1111
   INT: 27
@@ -121,6 +141,12 @@ BOOL: true`
 			So(spec.IsVar(), ShouldBeFalse)
 			So(spec.IsFile(), ShouldBeTrue)
 			So(spec.IsLiteral(), ShouldBeFalse)
+
+			spec = parsed["DEFAULT_VAR"]
+			So(spec.IsVar(), ShouldBeFalse)
+			So(spec.IsFile(), ShouldBeFalse)
+			So(spec.IsLiteral(), ShouldBeTrue)
+			So(spec.Path, ShouldEqual, "prod/value")
 
 			spec = parsed["RAILS_ENV"]
 			So(spec.IsVar(), ShouldBeFalse)
@@ -209,5 +235,4 @@ TestEnvironment:
 			So(spec.Path, ShouldEqual, "prod")
 		})
 	})
-
 }

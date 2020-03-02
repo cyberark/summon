@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -82,6 +83,114 @@ func TestJoinEnv(t *testing.T) {
 	Convey("adds a trailing newline", t, func() {
 		result := joinEnv([]string{"foo", "bar"})
 		So(result, ShouldEqual, "foo\nbar\n")
+	})
+}
+
+func TestRunAction(t *testing.T) {
+	Convey("Variable resolution correctly resolves variables", t, func() {
+		expectedValue := "valueOfVariable"
+
+		dir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		if err != nil {
+			return
+		}
+		defer os.RemoveAll(dir)
+
+		tempFile := filepath.Join(dir, "outputFile.txt")
+
+		err = runAction(&ActionConfig{
+			Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
+			YamlInline: "FOO: " + expectedValue,
+		})
+
+		code, err := returnStatusOfError(err)
+		So(err, ShouldBeNil)
+		So(code, ShouldEqual, 0)
+
+		if err != nil || code != 0 {
+			return
+		}
+
+		content, err := ioutil.ReadFile(tempFile)
+		So(err, ShouldBeNil)
+		if err != nil {
+			return
+		}
+
+		So(string(content), ShouldEqual, expectedValue)
+	})
+}
+
+func TestDefaultVariableResolution(t *testing.T) {
+	Convey("Variable resolution correctly resolves variables", t, func() {
+		expectedDefaultValue := "defaultValueOfVariable"
+
+		dir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		if err != nil {
+			return
+		}
+		defer os.RemoveAll(dir)
+
+		tempFile := filepath.Join(dir, "outputFile.txt")
+
+		err = runAction(&ActionConfig{
+			Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
+			YamlInline: "FOO: !str:default='" + expectedDefaultValue + "'",
+		})
+
+		code, err := returnStatusOfError(err)
+		So(err, ShouldBeNil)
+		So(code, ShouldEqual, 0)
+
+		if err != nil || code != 0 {
+			return
+		}
+
+		content, err := ioutil.ReadFile(tempFile)
+		So(err, ShouldBeNil)
+		if err != nil {
+			return
+		}
+
+		So(string(content), ShouldEqual, expectedDefaultValue)
+	})
+}
+
+func TestDefaultVariableResolutionWithValue(t *testing.T) {
+	Convey("Variable resolution correctly resolves variables", t, func() {
+		expectedValue := "valueOfVariable"
+
+		dir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		if err != nil {
+			return
+		}
+		defer os.RemoveAll(dir)
+
+		tempFile := filepath.Join(dir, "outputFile.txt")
+
+		err = runAction(&ActionConfig{
+			Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
+			YamlInline: "FOO: !str:default='something' " + expectedValue,
+		})
+
+		code, err := returnStatusOfError(err)
+		So(err, ShouldBeNil)
+		So(code, ShouldEqual, 0)
+
+		if err != nil || code != 0 {
+			return
+		}
+
+		content, err := ioutil.ReadFile(tempFile)
+		So(err, ShouldBeNil)
+		if err != nil {
+			return
+		}
+
+		So(string(content), ShouldEqual, expectedValue)
 	})
 }
 

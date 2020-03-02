@@ -18,13 +18,14 @@
 
 It provides an interface for
 
-* Reading a **secrets.yml** file
+* Reading a `secrets.yml` file
 * Fetching secrets from a trusted store
 * Exporting secret values to a sub-process environment
 
 ## Install
 
-Note installing **summon** alone is not sufficient; you need to also install a [provider of your choice](http://cyberark.github.io/summon/#providers) before it's ready for use.
+Note installing `summon` alone is not sufficient; you need to also install
+a [provider of your choice](http://cyberark.github.io/summon/#providers) before it's ready for use.
 
 Pre-built binaries and packages are available from GitHub releases
 [here](https://github.com/cyberark/summon/releases).
@@ -89,6 +90,47 @@ summon python listEC2.py
 
 `python listEC2.py` is the command that summon wraps. Once the Python program exits,
 the secrets stored in temp files and in the Python process environment are gone.
+
+### `secrets.yml` Flags
+
+Currently, you can define how the value of a variable will be processed using YAML tags. Multiple
+tags can be defined per variable by spearating them with `:`. By default, values are resolved
+as literal values.
+- `!file`: Resolves the variable value, places it into a tempfile, and returns the path to that
+file.
+- `!var`: Resolves the value as a variable ID from the provider.
+- `!str`: Resolves the value as a literal (default).
+- `!default='<value>'`: If the value resolution returns an empty string, use this literal value
+instead for it.
+
+**Examples**
+```yaml
+# Resolved summon-env string (eg. `production/sentry/api_key`) is sent to the provider
+# and the value returned is saved in the variable.
+API_KEY: !var $env/sentry/api_key
+
+# Resolved summon-env string (eg. `production/aws/ec2/private_key`) is sent to the provider.
+# The returned value is put into a tempfile and the path for that file is saved in the
+# variable.
+API_KEY_PATH: !file:var $env/aws/ec2/private_key
+
+# Literal value `my content` is saved into a tempfile and the path for that file is saved
+# in the variable.
+SECRET_DATA: !file my content
+
+# Resolved summon-env string (eg. `production/sentry/api_user`) is sent to the provider.
+# The returned value is put into a tempfile. If the value from the provider is an empty
+# string then the default value (`admin`) is put into that tempfile. The path to that
+# tempfile is saved in the variable.
+API_USER: !var:default='admin':file $env/sentry/api_user
+```
+
+### Default values
+
+Default values can be set by using the `default='yourdefaultvalue'` as an addtional tag on the variable:
+```yaml
+VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
+```
 
 ### Flags
 
