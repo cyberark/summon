@@ -12,6 +12,7 @@ import (
 )
 
 var DefaultPath = getDefaultPath()
+var Providers = make([]string, 0)/////////////		<-----------------
 
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
@@ -24,6 +25,11 @@ func Resolve(providerArg string) (string, error) {
 
 	if provider == "" {
 		providers, _ := ioutil.ReadDir(DefaultPath)
+		names := make([]string, len(providers))
+		for i, provider := range providers {
+        	names[i] = provider.Name()
+		}
+		Providers = names			/////////////		<-----------------
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {

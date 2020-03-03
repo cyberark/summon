@@ -7,7 +7,6 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/cyberark/summon/internal/command"
-	"github.com/cyberark/summon/pkg/summon"
 )
 
 var (
@@ -21,7 +20,7 @@ func RunCLI() error {
 	app := cli.NewApp()
 	app.Name = "summon"
 	app.Usage = "Parse secrets.yml and export environment variables"
-	app.Version = summon.VERSION
+	app.Version = command.GetVersions()
 	app.Writer = CLIWriter
 	app.Flags = command.Flags
 	app.Action = command.Action
