@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if [ $1 == "--version" ]; then
+    printf "1.2.3"
+    exit 0
+fi
+
+exit 1

@@ -1,9 +1,11 @@
 package command
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"sync"
 	"syscall"
@@ -14,40 +16,45 @@ import (
 )
 
 type ActionConfig struct {
-	Args        []string
-	Provider    string
-	Filepath    string
-	YamlInline  string
-	Subs        map[string]string
-	Ignores     []string
-	IgnoreAll   bool
-	Environment string
+	Args               []string
+	Provider             string
+	Filepath             string
+	YamlInline           string
+	Subs                 map[string]string
+	Ignores            []string
+	IgnoreAll            bool
+	Environment          string
+	ShowProviderVersions bool
 }
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
 const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
 
 var Action = func(c *cli.Context) {
-	if !c.Args().Present() {
+	if !c.Args().Present() && !c.Bool("all-provider-versions") {
 		fmt.Println("Enter a subprocess to run!")
 		os.Exit(127)
 	}
 
 	provider, err := prov.Resolve(c.String("provider"))
-	if err != nil {
+	// It's okay to not throw this error here, because `Resolve()` throws an
+	// error if there are multiple unspecified providers. `all-provider-versions`
+	// doesn't care about this and just looks in the default provider dir
+	if err != nil && !c.Bool("all-provider-versions") {
 		fmt.Println(err.Error())
 		os.Exit(127)
 	}
 
 	err = runAction(&ActionConfig{
-		Args:        c.Args(),
-		Provider:    provider,
-		Environment: c.String("environment"),
-		Filepath:    c.String("f"),
-		YamlInline:  c.String("yaml"),
-		Ignores:     c.StringSlice("ignore"),
-		IgnoreAll:   c.Bool("ignore-all"),
-		Subs:        convertSubsToMap(c.StringSlice("D")),
+		Args:                 c.Args(),
+		Provider:             provider,
+		Environment:          c.String("environment"),
+		Filepath:             c.String("f"),
+		YamlInline:           c.String("yaml"),
+		Ignores:              c.StringSlice("ignore"),
+		IgnoreAll:            c.Bool("ignore-all"),
+		ShowProviderVersions: c.Bool("all-provider-versions"),	
+		Subs:                 convertSubsToMap(c.StringSlice("D")),
 	})
 
 	code, err := returnStatusOfError(err)
@@ -66,6 +73,16 @@ func runAction(ac *ActionConfig) error {
 		secrets secretsyml.SecretsMap
 		err     error
 	)
+
+	if ac.ShowProviderVersions{
+		output, err := printProviderVersions(prov.DefaultPath)
+		if err != nil {
+			return err
+		}
+
+		fmt.Print(output)
+		return nil
+	}
 
 	switch ac.YamlInline {
 	case "":
@@ -204,4 +221,28 @@ func returnStatusOfError(err error) (int, error) {
 		}
 	}
 	return 0, err
+}
+
+// printProviderVersions returns a string of all provider versions
+func printProviderVersions(providerPath string)(string, error){
+	var providerVersions bytes.Buffer
+	
+	providers, err := prov.GetAllProviders(providerPath)
+	if err != nil {
+		return "", err
+	}
+
+	for _, provider := range providers {
+		version, err := exec.Command(path.Join(providerPath, provider), "--version").Output()
+		if err != nil {
+			providerVersions.WriteString(fmt.Sprintf("%s: unknown version\n", provider))
+			continue
+		}
+
+		versionString := fmt.Sprintf("%s",version)
+		versionString = strings.TrimSpace(versionString)
+
+		providerVersions.WriteString(fmt.Sprintf("%s version %s\n", provider, versionString))
+	}
+	return providerVersions.String(), nil
 }

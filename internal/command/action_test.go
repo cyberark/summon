@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"path"
 
 	"github.com/cyberark/summon/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
@@ -212,5 +213,30 @@ func TestReturnStatusOfError(t *testing.T) {
 		expected := errors.New("test")
 		_, err := returnStatusOfError(expected)
 		So(err, ShouldEqual, expected)
+	})
+}
+
+func TestPrintProviderVersions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping long-running test.")
+	}
+
+	Convey("printProviderVersions should return a string of all of the providers in the DefaultPath", t, func() {
+		pathTo,err := os.Getwd()
+		So(err, ShouldBeNil)
+		pathToTest := path.Join(pathTo, "testversions")
+
+		//test1 - regular formating and appending of version # to string
+		//test2 - chopping off of trailing newline
+		//test3 - failed `--version` call
+		output, err := printProviderVersions(pathToTest)
+		So(err, ShouldBeNil)
+
+		expected := `testprovider version 1.2.3
+testprovider-noversionsupport: unknown version
+testprovider-trailingnewline version 3.2.1
+`
+
+		So(output, ShouldEqual, expected)
 	})
 }
