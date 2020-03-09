@@ -4,6 +4,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
+	"path"
+	"strings"
 	"testing"
 )
 
@@ -89,6 +91,33 @@ func TestCall(t *testing.T) {
 
 			So(out, ShouldBeBlank)
 			So(err.Error(), ShouldContainSubstring, "permission denied")
+		})
+	})
+}
+
+func TestGetAllProviders(t *testing.T) {
+	Convey("GetAllProviders should return a []string of all the names of files in the provideded dir", t, func() {
+		pathTo,err := os.Getwd()
+		So(err, ShouldBeNil)
+		choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
+		So(choppedPathTo,ShouldEqual,pathTo[0:len(pathTo)-9])
+
+		pathToTest := path.Join(choppedPathTo, "internal/command/testversions")
+
+		Convey("If path doesn't exist return error", func() {
+			_, err := GetAllProviders(path.Join(pathToTest, "makebelievedir"))
+			So(err, ShouldNotBeNil)
+		})
+		Convey("Test for expected output in dir .../internal/command/testversions", func() {
+			output, err := GetAllProviders(pathToTest)
+			So(err, ShouldBeNil)
+
+			expected := make([]string, 3)
+			expected[0] = "testprovider"
+			expected[1] = "testprovider-noversionsupport"
+			expected[2] = "testprovider-trailingnewline"
+
+			So(output, ShouldResemble, expected)
 		})
 	})
 }

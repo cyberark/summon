@@ -12,7 +12,6 @@ import (
 )
 
 var DefaultPath = getDefaultPath()
-var Providers = make([]string, 0)/////////////		<-----------------
 
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
@@ -25,11 +24,6 @@ func Resolve(providerArg string) (string, error) {
 
 	if provider == "" {
 		providers, _ := ioutil.ReadDir(DefaultPath)
-		names := make([]string, len(providers))
-		for i, provider := range providers {
-        	names[i] = provider.Name()
-		}
-		Providers = names			/////////////		<-----------------
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {
@@ -99,4 +93,18 @@ func getDefaultPath() string {
 	} else {
 		return "/usr/local/lib/summon"
 	}
+}
+
+// GetAllProviders creates slice of all file names in the default path
+func GetAllProviders(providerDir string) ([]string, error){
+	files, err := ioutil.ReadDir(providerDir)
+	if err != nil{
+		return make([]string, 0), err
+	}
+
+	names := make([]string, len(files))
+	for i, file := range files {
+        names[i] = file.Name()
+	}
+	return names, nil
 }

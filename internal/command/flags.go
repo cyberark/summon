@@ -36,4 +36,8 @@ var Flags = []cli.Flag{
 		Name:  "ignore-all, I",
 		Usage: "Ignore inaccessible or missing keys",
 	},
+	cli.BoolFlag{
+		Name:  "all-provider-versions, V",
+		Usage: "List of all of the providers in the default path and their versions(if they have the --version tag)",
+	},
 }
