@@ -6,6 +6,8 @@ This provides patent protection for all Summon users and allows CyberArk
 to enforce its license terms. Please email a signed copy to
 <a href="oss@cyberark.com">oss@cyberark.com</a>.
 
+For general contribution and community guidelines, please see the [community repo](https://github.com/cyberark/community).
+
 ## Development
 
 Run the project with:
