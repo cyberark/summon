@@ -15,13 +15,15 @@ import (
 	"github.com/cyberark/summon/secretsyml"
 )
 
+// ActionConfig is an object that holds all the info needed to run
+// a Summon instance
 type ActionConfig struct {
-	Args               []string
+	Args                 []string
 	Provider             string
 	Filepath             string
 	YamlInline           string
 	Subs                 map[string]string
-	Ignores            []string
+	Ignores              []string
 	IgnoreAll            bool
 	Environment          string
 	ShowProviderVersions bool
@@ -30,6 +32,7 @@ type ActionConfig struct {
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
 const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
 
+// Action is the runner for the main program logic
 var Action = func(c *cli.Context) {
 	if !c.Args().Present() && !c.Bool("all-provider-versions") {
 		fmt.Println("Enter a subprocess to run!")
@@ -53,7 +56,7 @@ var Action = func(c *cli.Context) {
 		YamlInline:           c.String("yaml"),
 		Ignores:              c.StringSlice("ignore"),
 		IgnoreAll:            c.Bool("ignore-all"),
-		ShowProviderVersions: c.Bool("all-provider-versions"),	
+		ShowProviderVersions: c.Bool("all-provider-versions"),
 		Subs:                 convertSubsToMap(c.StringSlice("D")),
 	})
 
@@ -74,7 +77,7 @@ func runAction(ac *ActionConfig) error {
 		err     error
 	)
 
-	if ac.ShowProviderVersions{
+	if ac.ShowProviderVersions {
 		output, err := printProviderVersions(prov.DefaultPath)
 		if err != nil {
 			return err
@@ -224,9 +227,9 @@ func returnStatusOfError(err error) (int, error) {
 }
 
 // printProviderVersions returns a string of all provider versions
-func printProviderVersions(providerPath string)(string, error){
+func printProviderVersions(providerPath string) (string, error) {
 	var providerVersions bytes.Buffer
-	
+
 	providers, err := prov.GetAllProviders(providerPath)
 	if err != nil {
 		return "", err
@@ -239,7 +242,7 @@ func printProviderVersions(providerPath string)(string, error){
 			continue
 		}
 
-		versionString := fmt.Sprintf("%s",version)
+		versionString := fmt.Sprintf("%s", version)
 		versionString = strings.TrimSpace(versionString)
 
 		providerVersions.WriteString(fmt.Sprintf("%s version %s\n", provider, versionString))

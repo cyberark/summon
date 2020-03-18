@@ -6,14 +6,17 @@ import (
 	"strings"
 )
 
+// DEVSHM is the default *nix shared-memory directory path
 const DEVSHM = "/dev/shm"
 
+// TempFactory handels transient files that require cleaning up
+// after the child process exits.
 type TempFactory struct {
 	path  string
 	files []string
 }
 
-// Create a new temporary file factory.
+// NewTempFactory creates a new temporary file factory.
 // defer Cleanup() if you want the files removed.
 func NewTempFactory(path string) TempFactory {
 	if path == "" {
@@ -22,9 +25,7 @@ func NewTempFactory(path string) TempFactory {
 	return TempFactory{path: path}
 }
 
-// Default temporary file path
-// Returns /dev/shm if it is a directory, otherwise home dir of current user
-// Else returns the system default
+// DefaultTempPath returns the best possible temp folder path for temp files
 func DefaultTempPath() string {
 	fi, err := os.Stat(DEVSHM)
 	if err == nil && fi.Mode().IsDir() {
@@ -38,7 +39,7 @@ func DefaultTempPath() string {
 	return os.TempDir()
 }
 
-// Create a temp file with given value. Returns the path.
+// Push creates a temp file with given value. Returns the path.
 func (tf *TempFactory) Push(value string) string {
 	f, _ := ioutil.TempFile(tf.path, ".summon")
 	defer f.Close()

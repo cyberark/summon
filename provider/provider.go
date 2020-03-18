@@ -11,6 +11,7 @@ import (
 	"strings"
 )
 
+// DefaultPath returns the default path where providers are located
 var DefaultPath = getDefaultPath()
 
 // Resolve resolves a filepath to a provider
@@ -84,27 +85,27 @@ func getDefaultPath() string {
 	if runtime.GOOS == "windows" {
 		// Try to get the appropriate "Program Files" directory but if one doesn't
 		// exist, use a hardcoded value we think should be right.
-		program_files_dir := os.Getenv("ProgramW6432")
-		if program_files_dir == "" {
-			program_files_dir = path.Join("C:", "Program Files")
+		programFilesDir := os.Getenv("ProgramW6432")
+		if programFilesDir == "" {
+			programFilesDir = path.Join("C:", "Program Files")
 		}
 
-		return path.Join(program_files_dir, "Cyberark Conjur", "Summon", "Providers")
-	} else {
-		return "/usr/local/lib/summon"
+		return path.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
 	}
+
+	return "/usr/local/lib/summon"
 }
 
 // GetAllProviders creates slice of all file names in the default path
-func GetAllProviders(providerDir string) ([]string, error){
+func GetAllProviders(providerDir string) ([]string, error) {
 	files, err := ioutil.ReadDir(providerDir)
-	if err != nil{
+	if err != nil {
 		return make([]string, 0), err
 	}
 
 	names := make([]string, len(files))
 	for i, file := range files {
-        names[i] = file.Name()
+		names[i] = file.Name()
 	}
 	return names, nil
 }
