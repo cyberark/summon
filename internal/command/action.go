@@ -197,6 +197,9 @@ func joinEnv(env []string) string {
 // walkFn recursively searches for file starting at path and in the directories above path until it
 // is found or the root of the file system is reached. If found, returns the path to the file.
 func walkFn(file string, path string) (string, error) {
+	if filepath.IsAbs(file) {
+		return "", fmt.Errorf("file specified (%s) is an absolute path: will not recurse up", file)
+	}
 	for {
 		joinedPath := filepath.Join(path, file)
 		if _, err := os.Stat(joinedPath); err == nil {
@@ -212,7 +215,7 @@ func walkFn(file string, path string) (string, error) {
 			path = upOne
 		} else {
 			// Any other error
-			return "", fmt.Errorf("unable to locate file specified: %s", err)
+			return "", fmt.Errorf("unable to locate file specified (%s): %s", file, err)
 		}
 	}
 }

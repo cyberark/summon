@@ -274,12 +274,21 @@ func TestLocateFileRecurseUp(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	Convey("returns a friendly error", t, func() {
+	Convey("returns a friendly error if file not found", t, func() {
 		badFileName := "foo.bar"
 		wantErrMsg := "unable to locate file specified (foo.bar): reached root of file system"
 
 		_, err := walkFn(badFileName, currentDir)
 
-		So(wantErrMsg, ShouldEqual, err.Error())
+		So(err.Error(), ShouldEqual, wantErrMsg)
+	})
+
+	Convey("returns a friendly error if file is an absolute path", t, func() {
+		badFileName := "/foo/bar/baz"
+		wantErrMsg := "file specified (/foo/bar/baz) is an absolute path: will not recurse up"
+
+		_, err := walkFn(badFileName, currentDir)
+
+		So(err.Error(), ShouldEqual, wantErrMsg)
 	})
 }
