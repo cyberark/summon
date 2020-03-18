@@ -92,7 +92,7 @@ func runAction(ac *ActionConfig) error {
 
 	if ac.RecurseUp {
 		currentDir, err := os.Getwd()
-		err = walkFn(&ac.Filepath, currentDir)
+		ac.Filepath, err = walkFn(ac.Filepath, currentDir)
 		if err != nil {
 			return err
 		}
@@ -194,18 +194,19 @@ func joinEnv(env []string) string {
 	return strings.Join(env, "\n") + "\n"
 }
 
-func walkFn(file *string, path string) error {
+// walkFn recursively searches for file starting at path and in the directories above path until it
+// is found or the root of the file system is reached. If found, returns the path to the file.
+func walkFn(file string, path string) (string, error) {
 	for {
-		joinedPath := filepath.Join(path, *file)
+		joinedPath := filepath.Join(path, file)
 		if _, err := os.Stat(joinedPath); err == nil {
-			// File found - store the current filepath
-			*file = joinedPath
-			return nil
+			// File found -- return the current filepath
+			return joinedPath, nil
 		} else if os.IsNotExist(err) {
 			// Move up to parent dir
 			path = filepath.Dir(path)
 		} else {
-			return fmt.Errorf("unable to locate file specified")
+			return "", fmt.Errorf("unable to locate file specified")
 		}
 	}
 }

@@ -245,36 +245,42 @@ testprovider-trailingnewline version 3.2.1
 func TestLocateFileRecurseUp(t *testing.T) {
 	filename := "test.txt"
 	currentDir, _ := os.Getwd()
+	var err error
 
 	Convey("Finds file in current working directory", t, func() {
-		fileNameLocalCopy := filename
 		localFilePath := filepath.Join(currentDir, filename)
-		_, _ = os.Create(localFilePath)
+		_, err = os.Create(localFilePath)
+		So(err, ShouldBeNil)
 
-		_ = walkFn(&fileNameLocalCopy, currentDir)
+		gotPath, err := walkFn(filename, currentDir)
+		So(err, ShouldBeNil)
 
-		So(fileNameLocalCopy, ShouldEqual, localFilePath)
+		So(gotPath, ShouldEqual, localFilePath)
 
-		_ = os.Remove(localFilePath)
+		err = os.Remove(localFilePath)
+		So(err, ShouldBeNil)
 	})
 
 	Convey("Finds file in a higher working directory", t, func() {
-		fileNameHigherCopy := filename
 		higherFilePath := filepath.Join(filepath.Dir(filepath.Dir(currentDir)), filename)
-		_, _ = os.Create(higherFilePath)
+		_, err = os.Create(higherFilePath)
+		So(err, ShouldBeNil)
 
-		_ = walkFn(&fileNameHigherCopy, currentDir)
+		gotPath, err := walkFn(filename, currentDir)
+		So(err, ShouldBeNil)
 
-		So(fileNameHigherCopy, ShouldEqual, higherFilePath)
-		_ = os.Remove(higherFilePath)
+		So(gotPath, ShouldEqual, higherFilePath)
+
+		err = os.Remove(higherFilePath)
+		So(err, ShouldBeNil)
 	})
 
 	Convey("returns a friendly error", t, func() {
 		badFileName := "foo.bar"
-		testErr := fmt.Errorf("unable to locate file specified")
+		wantErr := fmt.Errorf("unable to locate file specified")
 
-		err := walkFn(&badFileName, currentDir)
+		_, err := walkFn(badFileName, currentDir)
 
-		So(testErr, ShouldEqual, err)
+		So(wantErr, ShouldEqual, err)
 	})
 }
