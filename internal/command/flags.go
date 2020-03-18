@@ -19,6 +19,10 @@ var Flags = []cli.Flag{
 		Value: "secrets.yml",
 		Usage: "Path to secrets.yml",
 	},
+	cli.BoolFlag{
+		Name:  "u, up",
+		Usage: "Go up in the directory hierarchy until the secrets file is found",
+	},
 	cli.StringSliceFlag{
 		Name:  "D",
 		Value: &cli.StringSlice{},

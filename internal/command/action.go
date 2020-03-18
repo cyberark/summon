@@ -58,7 +58,7 @@ var Action = func(c *cli.Context) {
 		YamlInline:           c.String("yaml"),
 		Ignores:              c.StringSlice("ignore"),
 		IgnoreAll:            c.Bool("ignore-all"),
-		RecurseUp:            c.Bool("-u"),
+		RecurseUp:            c.Bool("up"),
 		ShowProviderVersions: c.Bool("all-provider-versions"),
 		Subs:                 convertSubsToMap(c.StringSlice("D")),
 	})
