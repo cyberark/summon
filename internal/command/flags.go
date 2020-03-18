@@ -4,6 +4,7 @@ import (
 	"github.com/codegangsta/cli"
 )
 
+// Flags define all the available CLI switches and aargs that a user can provide
 var Flags = []cli.Flag{
 	cli.StringFlag{
 		Name:  "p, provider",

@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"testing"
-	"path"
 
 	"github.com/cyberark/summon/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
@@ -49,8 +49,8 @@ func TestFormatForEnvString(t *testing.T) {
 			So(envvar, ShouldEqual, "dbpass=mysecretvalue")
 		})
 		Convey("For files, VALUE should be the path to a tempfile containing the secret", func() {
-			temp_factory := NewTempFactory("")
-			defer temp_factory.Cleanup()
+			tempFactory := NewTempFactory("")
+			defer tempFactory.Cleanup()
 
 			spec := secretsyml.SecretSpec{
 				Path: "certs/webtier1/private-cert",
@@ -60,7 +60,7 @@ func TestFormatForEnvString(t *testing.T) {
 				"SSL_CERT",
 				"mysecretvalue",
 				spec,
-				&temp_factory,
+				&tempFactory,
 			)
 
 			s := strings.Split(envvar, "=")
@@ -113,7 +113,7 @@ func TestPrintProviderVersions(t *testing.T) {
 	}
 
 	Convey("printProviderVersions should return a string of all of the providers in the DefaultPath", t, func() {
-		pathTo,err := os.Getwd()
+		pathTo, err := os.Getwd()
 		So(err, ShouldBeNil)
 		pathToTest := path.Join(pathTo, "testversions")
 

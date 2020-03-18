@@ -11,12 +11,13 @@ import (
 )
 
 var (
-	CLIArgs   []string  = os.Args
+	// CLIArgs holds the arguments passed on from the CLI flags
+	CLIArgs = os.Args
+	// CLIWriter is the pointer to the output sink of Summon
 	CLIWriter io.Writer = os.Stdout
 )
 
-/* RunCLI starts defines and runs summon's command line interface
-*/
+// RunCLI starts defines and runs summon's command line interface
 func RunCLI() error {
 	app := cli.NewApp()
 	app.Name = "summon"
