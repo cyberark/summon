@@ -4,6 +4,7 @@ import (
 	"github.com/codegangsta/cli"
 )
 
+// Flags define all the available CLI switches and aargs that a user can provide
 var Flags = []cli.Flag{
 	cli.StringFlag{
 		Name:  "p, provider",
@@ -35,5 +36,9 @@ var Flags = []cli.Flag{
 	cli.BoolFlag{
 		Name:  "ignore-all, I",
 		Usage: "Ignore inaccessible or missing keys",
+	},
+	cli.BoolFlag{
+		Name:  "all-provider-versions, V",
+		Usage: "List of all of the providers in the default path and their versions(if they have the --version tag)",
 	},
 }

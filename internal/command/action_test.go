@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,8 +50,8 @@ func TestFormatForEnvString(t *testing.T) {
 			So(envvar, ShouldEqual, "dbpass=mysecretvalue")
 		})
 		Convey("For files, VALUE should be the path to a tempfile containing the secret", func() {
-			temp_factory := NewTempFactory("")
-			defer temp_factory.Cleanup()
+			tempFactory := NewTempFactory("")
+			defer tempFactory.Cleanup()
 
 			spec := secretsyml.SecretSpec{
 				Path: "certs/webtier1/private-cert",
@@ -60,7 +61,7 @@ func TestFormatForEnvString(t *testing.T) {
 				"SSL_CERT",
 				"mysecretvalue",
 				spec,
-				&temp_factory,
+				&tempFactory,
 			)
 
 			s := strings.Split(envvar, "=")
@@ -212,5 +213,30 @@ func TestReturnStatusOfError(t *testing.T) {
 		expected := errors.New("test")
 		_, err := returnStatusOfError(expected)
 		So(err, ShouldEqual, expected)
+	})
+}
+
+func TestPrintProviderVersions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping long-running test.")
+	}
+
+	Convey("printProviderVersions should return a string of all of the providers in the DefaultPath", t, func() {
+		pathTo, err := os.Getwd()
+		So(err, ShouldBeNil)
+		pathToTest := path.Join(pathTo, "testversions")
+
+		//test1 - regular formating and appending of version # to string
+		//test2 - chopping off of trailing newline
+		//test3 - failed `--version` call
+		output, err := printProviderVersions(pathToTest)
+		So(err, ShouldBeNil)
+
+		expected := `testprovider version 1.2.3
+testprovider-noversionsupport: unknown version
+testprovider-trailingnewline version 3.2.1
+`
+
+		So(output, ShouldEqual, expected)
 	})
 }

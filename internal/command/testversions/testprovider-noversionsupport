@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [ $1 == "--version" ]; then
+    exit 1
+fi
+#exit 0, because `--version` is simming a tag that doesn't exist. If it's not `--version`, it would be "okay"
+exit 0

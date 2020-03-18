@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+if [ $1 == "--version" ]; then
+    printf "3.2.1\n"
+    exit 0
+fi
+
+exit 1
