@@ -203,10 +203,16 @@ func walkFn(file string, path string) (string, error) {
 			// File found -- return the current filepath
 			return joinedPath, nil
 		} else if os.IsNotExist(err) {
+			upOne := filepath.Dir(path)
+			if upOne == path {
+				return "", fmt.Errorf(
+					"unable to locate file specified (%s): reached root of file system", file)
+			}
 			// Move up to parent dir
-			path = filepath.Dir(path)
+			path = upOne
 		} else {
-			return "", fmt.Errorf("unable to locate file specified")
+			// Any other error
+			return "", fmt.Errorf("unable to locate file specified: %s", err)
 		}
 	}
 }

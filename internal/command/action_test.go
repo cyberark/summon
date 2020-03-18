@@ -2,7 +2,6 @@ package command
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -277,10 +276,10 @@ func TestLocateFileRecurseUp(t *testing.T) {
 
 	Convey("returns a friendly error", t, func() {
 		badFileName := "foo.bar"
-		wantErr := fmt.Errorf("unable to locate file specified")
+		wantErrMsg := "unable to locate file specified (foo.bar): reached root of file system"
 
 		_, err := walkFn(badFileName, currentDir)
 
-		So(wantErr, ShouldEqual, err)
+		So(wantErrMsg, ShouldEqual, err.Error())
 	})
 }
