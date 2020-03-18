@@ -23,13 +23,13 @@ Run tests with `go test -v ./...` or `./test` (for CI).
 
 ### Building and packaging
 
-To build versions for Linux, OSX and Windows:
+To build versions for Linux, macOS and Windows:
 
 ```
 ./build
 ```
 
-Binaries will be placed in `output/`.
+Binaries will be placed in `dist/`.
 
 ### Releasing
 
