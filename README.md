@@ -136,17 +136,19 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 
 `summon` supports a number of flags.
 
-* `-p, --provider` specify the path to the [provider](provider/README.md) summon should use
+* `-p, --provider` specify the path to the [provider](provider/README.md) summon should use.
 
     If the provider is in the default path, `/usr/local/lib/summon/` you can just
     provide the name of the executable. If not, use a full path.
 
 * `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
 
-* `-u, up` searches for secrets.yml going up, starting from the current working directory
+* `-u, --up` searches for secrets.yml going up, starting from the current
+  working directory.
 
-    Stops at the first file found or when the root of the current file system is reached.
-    This allows to be at any directory depth in a project and simply do `summon -u <command>`.
+    Stops at the first file found or when the root of the current file system is
+    reached. This allows to be at any directory depth in a project and simply do
+    `summon -u <command>`.
 
 * `-D 'var=value'` causes substitution of `value` to `$var`.
 
@@ -159,15 +161,15 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
     summon -D ENV=production --yaml 'SQL_PASSWORD: !var env/$ENV/db-password' deploy.sh
     ```
 
-* `-i, --ignore` A secret path for which to ignore provider errors
+* `-i, --ignore` A secret path for which to ignore provider errors.
 
     This flag can be useful for when you have secrets that you don't need access to for development. For example API keys for monitoring tools. This flag can be used multiple times.
 
-* `-I, --ignore-all` A boolean to ignore any missing secret paths
+* `-I, --ignore-all` A boolean to ignore any missing secret paths.
 
     This flag can be useful when the underlying system that's going to be using the values implements defaults. For example, when using summon as a bridge to [confd](https://github.com/kelseyhightower/confd).
 
-* `-e, --environment` Specify section (environment) to parse from secret YAML
+* `-e, --environment` Specify section (environment) to parse from secret YAML.
 
     This flag specifies which specific environment/section to parse from the secrets YAML file (or string). In addition, it will also enable the usage of a `common` (or `default`) section which will be inherited by other sections/environments. In other words, if your `secrets.yaml` looks something like this:
 

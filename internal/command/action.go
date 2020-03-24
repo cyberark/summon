@@ -92,7 +92,7 @@ func runAction(ac *ActionConfig) error {
 
 	if ac.RecurseUp {
 		currentDir, err := os.Getwd()
-		ac.Filepath, err = walkFn(ac.Filepath, currentDir)
+		ac.Filepath, err = findInParentTree(ac.Filepath, currentDir)
 		if err != nil {
 			return err
 		}
@@ -194,28 +194,30 @@ func joinEnv(env []string) string {
 	return strings.Join(env, "\n") + "\n"
 }
 
-// walkFn recursively searches for file starting at path and in the directories above path until it
-// is found or the root of the file system is reached. If found, returns the path to the file.
-func walkFn(file string, path string) (string, error) {
-	if filepath.IsAbs(file) {
-		return "", fmt.Errorf("file specified (%s) is an absolute path: will not recurse up", file)
+// findInParentTree recursively searches for secretsFile starting at leafDir and in the
+// directories above leafDir until it is found or the root of the file system is reached.
+// If found, returns the absolute path to the file.
+func findInParentTree(secretsFile string, leafDir string) (string, error) {
+	if filepath.IsAbs(secretsFile) {
+		return "", fmt.Errorf("file specified (%s) is an absolute path: will not recurse up", secretsFile)
 	}
+
 	for {
-		joinedPath := filepath.Join(path, file)
+		joinedPath := filepath.Join(leafDir, secretsFile)
 		if _, err := os.Stat(joinedPath); err == nil {
 			// File found -- return the current filepath
 			return joinedPath, nil
 		} else if os.IsNotExist(err) {
-			upOne := filepath.Dir(path)
-			if upOne == path {
+			upOne := filepath.Dir(leafDir)
+			if upOne == leafDir {
 				return "", fmt.Errorf(
-					"unable to locate file specified (%s): reached root of file system", file)
+					"unable to locate file specified (%s): reached root of file system", secretsFile)
 			}
 			// Move up to parent dir
-			path = upOne
+			leafDir = upOne
 		} else {
 			// Any other error
-			return "", fmt.Errorf("unable to locate file specified (%s): %s", file, err)
+			return "", fmt.Errorf("unable to locate file specified (%s): %s", secretsFile, err)
 		}
 	}
 }
