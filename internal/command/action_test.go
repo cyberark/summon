@@ -302,10 +302,22 @@ func TestLocateFileRecurseUp(t *testing.T) {
 		So(err, ShouldBeNil)
 		defer os.RemoveAll(topDir)
 
-		badFileName := "/foo/bar/baz"
+		absFileName := "/foo/bar/baz"
 		wantErrMsg := "file specified (/foo/bar/baz) is an absolute path: will not recurse up"
 
-		_, err = findInParentTree(badFileName, topDir)
+		_, err = findInParentTree(absFileName, topDir)
 		So(err.Error(), ShouldEqual, wantErrMsg)
+	})
+
+	Convey("returns a friendly error in unexpected circumstances (100% coverage)", t, func() {
+		topDir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(topDir)
+
+		fileNameWithNulByte := "pizza\x00margherita"
+		wantErrMsg := "unable to locate file specified (pizza\x00margherita): stat"
+
+		_, err = findInParentTree(fileNameWithNulByte, topDir)
+		So(err.Error(), ShouldStartWith, wantErrMsg)
 	})
 }

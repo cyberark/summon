@@ -199,26 +199,35 @@ func joinEnv(env []string) string {
 // If found, returns the absolute path to the file.
 func findInParentTree(secretsFile string, leafDir string) (string, error) {
 	if filepath.IsAbs(secretsFile) {
-		return "", fmt.Errorf("file specified (%s) is an absolute path: will not recurse up", secretsFile)
+		return "", fmt.Errorf(
+			"file specified (%s) is an absolute path: will not recurse up", secretsFile)
 	}
 
 	for {
 		joinedPath := filepath.Join(leafDir, secretsFile)
-		if _, err := os.Stat(joinedPath); err == nil {
-			// File found -- return the current filepath
-			return joinedPath, nil
-		} else if os.IsNotExist(err) {
-			upOne := filepath.Dir(leafDir)
-			if upOne == leafDir {
-				return "", fmt.Errorf(
-					"unable to locate file specified (%s): reached root of file system", secretsFile)
+
+		_, err := os.Stat(joinedPath)
+
+		if err != nil {
+			// If the file is not present, we just move up one level and run the next loop
+			// iteration
+			if os.IsNotExist(err) {
+				upOne := filepath.Dir(leafDir)
+				if upOne == leafDir {
+					return "", fmt.Errorf(
+						"unable to locate file specified (%s): reached root of file system", secretsFile)
+				}
+
+				leafDir = upOne
+				continue
 			}
-			// Move up to parent dir
-			leafDir = upOne
-		} else {
-			// Any other error
+
+			// If we have an unexpected error, we fail-fast
 			return "", fmt.Errorf("unable to locate file specified (%s): %s", secretsFile, err)
 		}
+
+		// If there's no error, we found the file so we return it
+		return joinedPath, nil
 	}
 }
 
