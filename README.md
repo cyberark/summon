@@ -143,8 +143,8 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 
 * `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
 
-* `-u, --up` searches for secrets.yml going up, starting from the current
-  working directory.
+* `--up` searches for secrets.yml going up, starting from the current working
+  directory.
 
     Stops at the first file found or when the root of the current file system is
     reached. This allows to be at any directory depth in a project and simply do
