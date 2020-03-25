@@ -8,6 +8,7 @@ test.rb
 test.out
 junit.xml
 *.sublime-*
+.vscode/
 main
 keychain
 secrets.yml

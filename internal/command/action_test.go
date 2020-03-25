@@ -2,13 +2,16 @@ package command
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cyberark/summon/secretsyml"
 	. "github.com/smartystreets/goconvey/convey"
@@ -238,5 +241,83 @@ testprovider-trailingnewline version 3.2.1
 `
 
 		So(output, ShouldEqual, expected)
+	})
+}
+
+func TestLocateFileRecurseUp(t *testing.T) {
+	filename := "test.txt"
+
+	Convey("Finds file in current working directory", t, func() {
+		topDir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(topDir)
+
+		localFilePath := filepath.Join(topDir, filename)
+		_, err = os.Create(localFilePath)
+		So(err, ShouldBeNil)
+
+		gotPath, err := findInParentTree(filename, topDir)
+		So(err, ShouldBeNil)
+
+		So(gotPath, ShouldEqual, localFilePath)
+	})
+
+	Convey("Finds file in a higher working directory", t, func() {
+		topDir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(topDir)
+
+		higherFilePath := filepath.Join(topDir, filename)
+		_, err = os.Create(higherFilePath)
+		So(err, ShouldBeNil)
+
+		// Create a downwards directory hierarchy, starting from topDir
+		downDir := filepath.Join(topDir, "dir1", "dir2", "dir3")
+		err = os.MkdirAll(downDir, 0700)
+		So(err, ShouldBeNil)
+
+		gotPath, err := findInParentTree(filename, downDir)
+		So(err, ShouldBeNil)
+
+		So(gotPath, ShouldEqual, higherFilePath)
+	})
+
+	Convey("returns a friendly error if file not found", t, func() {
+		topDir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(topDir)
+
+		// A unlikely to exist file name
+		nonExistingFileName := strconv.FormatInt(time.Now().Unix(), 10)
+		wantErrMsg := fmt.Sprintf(
+			"unable to locate file specified (%s): reached root of file system",
+			nonExistingFileName)
+
+		_, err = findInParentTree(nonExistingFileName, topDir)
+		So(err.Error(), ShouldEqual, wantErrMsg)
+	})
+
+	Convey("returns a friendly error if file is an absolute path", t, func() {
+		topDir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(topDir)
+
+		absFileName := "/foo/bar/baz"
+		wantErrMsg := "file specified (/foo/bar/baz) is an absolute path: will not recurse up"
+
+		_, err = findInParentTree(absFileName, topDir)
+		So(err.Error(), ShouldEqual, wantErrMsg)
+	})
+
+	Convey("returns a friendly error in unexpected circumstances (100% coverage)", t, func() {
+		topDir, err := ioutil.TempDir("", "summon")
+		So(err, ShouldBeNil)
+		defer os.RemoveAll(topDir)
+
+		fileNameWithNulByte := "pizza\x00margherita"
+		wantErrMsg := "unable to locate file specified (pizza\x00margherita): stat"
+
+		_, err = findInParentTree(fileNameWithNulByte, topDir)
+		So(err.Error(), ShouldStartWith, wantErrMsg)
 	})
 }

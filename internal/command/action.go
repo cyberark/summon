@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,6 +27,7 @@ type ActionConfig struct {
 	Ignores              []string
 	IgnoreAll            bool
 	Environment          string
+	RecurseUp            bool
 	ShowProviderVersions bool
 }
 
@@ -56,6 +58,7 @@ var Action = func(c *cli.Context) {
 		YamlInline:           c.String("yaml"),
 		Ignores:              c.StringSlice("ignore"),
 		IgnoreAll:            c.Bool("ignore-all"),
+		RecurseUp:            c.Bool("up"),
 		ShowProviderVersions: c.Bool("all-provider-versions"),
 		Subs:                 convertSubsToMap(c.StringSlice("D")),
 	})
@@ -85,6 +88,14 @@ func runAction(ac *ActionConfig) error {
 
 		fmt.Print(output)
 		return nil
+	}
+
+	if ac.RecurseUp {
+		currentDir, err := os.Getwd()
+		ac.Filepath, err = findInParentTree(ac.Filepath, currentDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	switch ac.YamlInline {
@@ -181,6 +192,43 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 
 func joinEnv(env []string) string {
 	return strings.Join(env, "\n") + "\n"
+}
+
+// findInParentTree recursively searches for secretsFile starting at leafDir and in the
+// directories above leafDir until it is found or the root of the file system is reached.
+// If found, returns the absolute path to the file.
+func findInParentTree(secretsFile string, leafDir string) (string, error) {
+	if filepath.IsAbs(secretsFile) {
+		return "", fmt.Errorf(
+			"file specified (%s) is an absolute path: will not recurse up", secretsFile)
+	}
+
+	for {
+		joinedPath := filepath.Join(leafDir, secretsFile)
+
+		_, err := os.Stat(joinedPath)
+
+		if err != nil {
+			// If the file is not present, we just move up one level and run the next loop
+			// iteration
+			if os.IsNotExist(err) {
+				upOne := filepath.Dir(leafDir)
+				if upOne == leafDir {
+					return "", fmt.Errorf(
+						"unable to locate file specified (%s): reached root of file system", secretsFile)
+				}
+
+				leafDir = upOne
+				continue
+			}
+
+			// If we have an unexpected error, we fail-fast
+			return "", fmt.Errorf("unable to locate file specified (%s): %s", secretsFile, err)
+		}
+
+		// If there's no error, we found the file so we return it
+		return joinedPath, nil
+	}
 }
 
 // scans arguments for the magic string; if found,

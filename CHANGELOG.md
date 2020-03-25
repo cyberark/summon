@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Added
+- Added ability to search for secrets.yml going up, starting from the current working directory
+  [#122](https://github.com/cyberark/summon/issues/122)
+
 ## [0.8.1] - 2020-03-02
 ### Changed
 - Added ability to support empty variables [#124](https://github.com/cyberark/summon/issues/124)
