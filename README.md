@@ -40,8 +40,8 @@ brew install summon
 ### Linux (Debian and Red Hat flavors)
 
 `deb` and `rpm` files are attached to new releases.
-These can be installed with `dpkg -i summon.deb` and
-`rpm -ivh summon.rpm`, respectively.
+These can be installed with `dpkg -i summon_v*.deb` and
+`rpm -ivh summon_v*.rpm`, respectively.
 
 ### Auto Install
 
