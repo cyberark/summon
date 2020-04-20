@@ -49,8 +49,8 @@ of the merged commit with the name `v<version>` and push it to the repository.
   - [ ] Attach `dist/summon-darwin-amd64.tar.gz` to release.
   - [ ] Attach `dist/summon-linux-amd64.tar.gz` to release.
   - [ ] Attach `dist/summon-windows-amd64.tar.gz` to release.
-  - [ ] Attach `dist/summon.rpm` to release.
-  - [ ] Attach `dist/summon.deb` to release.
+  - [ ] Attach `dist/summon_v*.rpm` to release.
+  - [ ] Attach `dist/summon_v*.deb` to release.
   - [ ] Attach `dist/CHANGELOG.md` to release.
   - [ ] Edit `dist/SHA256SUMS.txt` to include only the attached files above.
   - [ ] Attach `dist/SHA256SUMS.txt` to the release.

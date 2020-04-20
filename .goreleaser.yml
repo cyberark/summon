@@ -61,7 +61,7 @@ brews:
     skip_upload: true
 
 nfpms:
-  - name_template: "{{.ProjectName}}"
+  - file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
     vendor: CyberArk
     homepage: https://github.com/cyberark/summon
     maintainer: Dustin Collins <dustin.collins@cyberark.com>
