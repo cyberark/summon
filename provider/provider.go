@@ -96,7 +96,7 @@ func getDefaultPath() string {
 		// enable portable installation with Providers dir next to executable
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			exec, _ := os.Executable()
-			execDir = filepath.Dir(exec)
+            execDir := filepath.Dir(exec)
 			dir = path.Join(execDir, "Providers")
 		}
 
