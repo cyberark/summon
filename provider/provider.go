@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -90,7 +91,16 @@ func getDefaultPath() string {
 			programFilesDir = path.Join("C:", "Program Files")
 		}
 
-		return path.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
+		dir := path.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
+
+		// enable portable installation with Providers dir next to executable
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			exec, _ := os.Executable()
+			execDir = filepath.Dir(exec)
+			dir = path.Join(execDir, "Providers")
+		}
+
+		return dir
 	}
 
 	return "/usr/local/lib/summon"
