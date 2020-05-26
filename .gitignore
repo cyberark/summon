@@ -11,7 +11,6 @@ junit.xml
 .vscode/
 main
 keychain
-secrets.yml
 .godeps
 vendor/
 Godeps/
