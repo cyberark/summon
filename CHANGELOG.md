@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.8.2] - 2020-06-23
 ### Added
-- Added `--version-providers` tag to display versions of providers
-- Added ability to search for secrets.yml going up, starting from the current working directory
+- Summon now supports a `--version-providers` flag to display the versions of installed providers.
+  [cyberark/summon#138](https://github.com/cyberark/summon/issues/138)
+- Summon supports a `--up` flag that searches for secrets.yml going up, starting from the
+  current working directory. This allows the secrets.yml file to be at any directory depth in a
+  project, and it is no longer required to be in the current working directory if not specified
+  with the `-f` flag.
   [#122](https://github.com/cyberark/summon/issues/122)
 
 ## [0.8.1] - 2020-03-02

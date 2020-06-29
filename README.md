@@ -209,3 +209,9 @@ you can use `@SUMMONENVFILE` just the same.
 ## Contributing
 
 For more info on contributing, please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Troubleshooting
+
+For assistance with some issues encountered when first using Summon, please refer to the
+[troubleshooting guide](CONTRIBUTING.md#Troubleshooting) in 
+[CONTRIBUTING.md](CONTRIBUTING.md).
