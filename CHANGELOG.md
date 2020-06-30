@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Addded portable mode for provider directory search on WINOS. If now global provider directory is
+  found it is search next the the `summon` executable
 
 ## [0.8.2] - 2020-06-23
 ### Added
