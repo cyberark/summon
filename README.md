@@ -30,7 +30,7 @@ a [provider of your choice](http://cyberark.github.io/summon/#providers) before 
 Pre-built binaries and packages are available from GitHub releases
 [here](https://github.com/cyberark/summon/releases).
 
-### Using secretless-broker with Conjur OSS 
+### Using Summon with Conjur OSS 
 
 Are you using this project with [Conjur OSS](https://github.com/cyberark/conjur)? Then we 
 **strongly** recommend choosing the version of this project to use from the latest [Conjur OSS 
