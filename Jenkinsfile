@@ -34,10 +34,13 @@ pipeline {
     stage('Run unit tests') {
       steps {
         sh './test_unit'
+        sh 'mv output/c.out .'
+        ccCoverage("gocov", "--prefix github.com/cyberark/summon")
       }
       post {
         always {
           junit 'output/junit.xml'
+          cobertura autoUpdateHealth: true, autoUpdateStability: true, coberturaReportFile: 'output/coverage.xml', conditionalCoverageTargets: '30, 0, 0', failUnhealthy: true, failUnstable: false, lineCoverageTargets: '30, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '30, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
         }
       }
     }
