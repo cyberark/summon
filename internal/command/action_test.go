@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -227,7 +226,7 @@ func TestPrintProviderVersions(t *testing.T) {
 	Convey("printProviderVersions should return a string of all of the providers in the DefaultPath", t, func() {
 		pathTo, err := os.Getwd()
 		So(err, ShouldBeNil)
-		pathToTest := path.Join(pathTo, "testversions")
+		pathToTest := filepath.Join(pathTo, "testversions")
 
 		//test1 - regular formating and appending of version # to string
 		//test2 - chopping off of trailing newline

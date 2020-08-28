@@ -1,123 +1,215 @@
 package provider
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestResolve(t *testing.T) {
-	Convey("Passing no provider should return an error", t, func() {
-		// Point to a tempdir to avoid pollution from dev env
-		tempDir, _ := ioutil.TempDir("", "summontest")
-		defer os.RemoveAll(tempDir)
-		DefaultPath = tempDir
+func TestNoProviderReturnsError(t *testing.T) {
+	// Point to a tempdir to avoid pollution from dev env
+	tempDir, _ := ioutil.TempDir("", "summontest")
+	defer os.RemoveAll(tempDir)
+	DefaultPath = tempDir
 
-		_, err := Resolve("")
-
-		So(err, ShouldNotBeNil)
-	})
-
-	Convey("Passing the provider via CLI should return it without error", t, func() {
-		expected := "/bin/bash"
-		provider, err := Resolve(expected)
-
-		So(err, ShouldBeNil)
-		So(provider, ShouldEqual, expected)
-
-	})
-
-	Convey("Setting the provider via environment variable works", t, func() {
-		expected := "/bin/bash"
-		os.Setenv("SUMMON_PROVIDER", expected)
-		provider, err := Resolve("")
-		os.Unsetenv("SUMMON_PROVIDER")
-
-		So(err, ShouldBeNil)
-		So(provider, ShouldEqual, expected)
-
-	})
-
-	Convey("Given a provider path", t, func() {
-		tempDir, _ := ioutil.TempDir("", "summontest")
-		defer os.RemoveAll(tempDir)
-		DefaultPath = tempDir
-
-		Convey("If there is 1 executable, return it as the provider", func() {
-			f, err := ioutil.TempFile(DefaultPath, "")
-			f.Chmod(755)
-			provider, err := Resolve("")
-
-			So(err, ShouldBeNil)
-			So(provider, ShouldEqual, f.Name())
-
-		})
-
-		Convey("If there are > 1 executables, return an error to user", func() {
-			// Create 2 exes in provider path
-			ioutil.TempFile(DefaultPath, "")
-			ioutil.TempFile(DefaultPath, "")
-			_, err := Resolve("")
-
-			So(err, ShouldNotBeNil)
-		})
-	})
+	_, err := Resolve("")
+	assert.NotNil(t, err)
 }
 
-func TestCall(t *testing.T) {
-	Convey("When I call a provider", t, func() {
-		Convey("If it returns exit code 0, return stdout", func() {
-			arg := "provider.go"
-			out, err := Call("ls", arg)
+func TestProviderResolutionOfAbsPath(t *testing.T) {
+	expected := "/bin/bash"
+	provider, err := Resolve(expected)
 
-			So(out, ShouldEqual, arg)
-			So(err, ShouldBeNil)
-		})
-		Convey("If it returns exit code > 0, return stderr", func() {
-			err := os.Setenv("LC_ALL", "C")
-			So(err, ShouldBeNil)
-			out, err := Call("ls", "README.notafile")
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
 
-			So(out, ShouldBeBlank)
-			So(err.Error(), ShouldContainSubstring, "No such file or directory")
-		})
-		Convey("If it can't be executed, returns a descriptive error", func() {
-			err := os.Setenv("LC_ALL", "C")
-			So(err, ShouldBeNil)
-			out, err := Call("/etc/passwd", "foo")
+	assert.EqualValues(t, provider, expected)
+}
 
-			So(out, ShouldBeBlank)
-			So(err.Error(), ShouldContainSubstring, "permission denied")
-		})
-	})
+func TestProviderResolutionOfRelPath(t *testing.T) {
+	f, err := ioutil.TempFile("", "")
+	defer os.RemoveAll(f.Name())
+	f.Chmod(755)
+
+	currentDir, err := os.Getwd()
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	relativePath, err := filepath.Rel(currentDir, f.Name())
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	provider, err := Resolve(relativePath)
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	assert.EqualValues(t, provider, f.Name())
+}
+
+func TestProviderResolutionViaEnvVarOfAbsPath(t *testing.T) {
+	expected := "/bin/bash"
+	os.Setenv("SUMMON_PROVIDER", expected)
+	defer os.Unsetenv("SUMMON_PROVIDER")
+
+	provider, err := Resolve("")
+
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	assert.EqualValues(t, provider, expected)
+}
+
+func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
+	f, err := ioutil.TempFile("", "")
+	defer os.RemoveAll(f.Name())
+	f.Chmod(755)
+
+	currentDir, err := os.Getwd()
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	relativePath, err := filepath.Rel(currentDir, f.Name())
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	os.Setenv("SUMMON_PROVIDER", relativePath)
+	defer os.Unsetenv("SUMMON_PROVIDER")
+
+	provider, err := Resolve("")
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	assert.EqualValues(t, provider, f.Name())
+}
+
+func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
+	tempDir, _ := ioutil.TempDir("", "summontest")
+	defer os.RemoveAll(tempDir)
+	DefaultPath = tempDir
+
+	f, err := ioutil.TempFile(DefaultPath, "")
+	defer os.RemoveAll(f.Name())
+	f.Chmod(755)
+	provider, err := Resolve("")
+
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	assert.EqualValues(t, provider, f.Name())
+}
+
+func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
+	tempDir, _ := ioutil.TempDir("", "summontest")
+	defer os.RemoveAll(tempDir)
+	DefaultPath = tempDir
+
+	// Create 2 exes in provider path
+	f1, _ := ioutil.TempFile(DefaultPath, "")
+	f2, _ := ioutil.TempFile(DefaultPath, "")
+	defer os.RemoveAll(f1.Name())
+	defer os.RemoveAll(f2.Name())
+
+	_, err := Resolve("")
+
+	assert.NotNil(t, err)
+}
+
+func TestProviderCall(t *testing.T) {
+	arg := "provider.go"
+	out, err := Call("ls", arg)
+
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	assert.Equal(t, out, arg)
+}
+
+func TestProviderCallWithExecutionError(t *testing.T) {
+	err := os.Setenv("LC_ALL", "C")
+	assert.Nil(t, err)
+
+	out, err := Call("ls", "README.notafile")
+
+	assert.Empty(t, out)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "No such file or directory")
+}
+
+func TestProviderCallWithBadPath(t *testing.T) {
+	err := os.Setenv("LC_ALL", "C")
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	out, err := Call("/etc/passwd", "foo")
+
+	assert.Empty(t, out)
+	assert.Contains(t, err.Error(), "permission denied")
 }
 
 func TestGetAllProviders(t *testing.T) {
-	Convey("GetAllProviders should return a []string of all the names of files in the provideded dir", t, func() {
-		pathTo,err := os.Getwd()
-		So(err, ShouldBeNil)
-		choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
-		So(choppedPathTo,ShouldEqual,pathTo[0:len(pathTo)-9])
+	pathTo, err := os.Getwd()
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
 
-		pathToTest := path.Join(choppedPathTo, "internal/command/testversions")
+	choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
+	assert.Equal(t, choppedPathTo, pathTo[0:len(pathTo)-9])
 
-		Convey("If path doesn't exist return error", func() {
-			_, err := GetAllProviders(path.Join(pathToTest, "makebelievedir"))
-			So(err, ShouldNotBeNil)
-		})
-		Convey("Test for expected output in dir .../internal/command/testversions", func() {
-			output, err := GetAllProviders(pathToTest)
-			So(err, ShouldBeNil)
+	pathToTest := filepath.Join(choppedPathTo, "internal", "command", "testversions")
 
-			expected := make([]string, 3)
-			expected[0] = "testprovider"
-			expected[1] = "testprovider-noversionsupport"
-			expected[2] = "testprovider-trailingnewline"
+	output, err := GetAllProviders(pathToTest)
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
 
-			So(output, ShouldResemble, expected)
-		})
-	})
+	expected := make([]string, 3)
+	expected[0] = "testprovider"
+	expected[1] = "testprovider-noversionsupport"
+	expected[2] = "testprovider-trailingnewline"
+
+	assert.EqualValues(t, output, expected)
+}
+
+func TestGetAllProvidersWithBadPath(t *testing.T) {
+	pathTo, err := os.Getwd()
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
+	assert.Equal(t, choppedPathTo, pathTo[0:len(pathTo)-9])
+
+	pathToTest := filepath.Join(choppedPathTo, "internal", "command", "testversions")
+
+	_, err = GetAllProviders(filepath.Join(pathToTest, "makebelievedir"))
+	assert.NotNil(t, err)
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -284,7 +283,7 @@ func printProviderVersions(providerPath string) (string, error) {
 	}
 
 	for _, provider := range providers {
-		version, err := exec.Command(path.Join(providerPath, provider), "--version").Output()
+		version, err := exec.Command(filepath.Join(providerPath, provider), "--version").Output()
 		if err != nil {
 			providerVersions.WriteString(fmt.Sprintf("%s: unknown version\n", provider))
 			continue

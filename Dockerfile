@@ -8,6 +8,7 @@ ENV GOARCH=amd64
 COPY go.mod go.sum ./
 
 RUN apk add --no-cache bash \
+                       build-base \
                        git && \
     go mod download && \
     go get -u github.com/jstemmer/go-junit-report && \
