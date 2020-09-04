@@ -4,14 +4,14 @@ set -e
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
+    --ubuntu-20.04)
+    ubuntu_20_04=true
+    ;;
     --ubuntu-18.04)
     ubuntu_18_04=true
     ;;
     --ubuntu-16.04)
     ubuntu_16_04=true
-    ;;
-    --ubuntu-14.04)
-    ubuntu_14_04=true
     ;;
     *)
     echo "Unknown parameter! Exiting!"
@@ -34,14 +34,14 @@ run_test() {
   '
 }
 
+if [[ $ubuntu_20_04 = true ]]; then
+  run_test "20.04"
+fi
+
 if [[ $ubuntu_18_04 = true ]]; then
   run_test "18.04"
 fi
 
 if [[ $ubuntu_16_04 = true ]]; then
   run_test "16.04"
-fi
-
-if [[ $ubuntu_14_04 = true ]]; then
-  run_test "14.04"
 fi

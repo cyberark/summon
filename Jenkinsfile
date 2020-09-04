@@ -58,6 +58,11 @@ pipeline {
 
     stage('Validate installation script') {
       parallel {
+        stage('Validate installation on Ubuntu 20:04') {
+          steps {
+            sh 'bin/installer-test --ubuntu-20.04'
+          }
+        }
         stage('Validate installation on Ubuntu 18:04') {
           steps {
             sh 'bin/installer-test --ubuntu-18.04'
@@ -66,11 +71,6 @@ pipeline {
         stage('Validate installation on Ubuntu 16:04') {
           steps {
             sh 'bin/installer-test --ubuntu-16.04'
-          }
-        }
-        stage('Validate installation on Ubuntu 14:04') {
-          steps {
-            sh 'bin/installer-test --ubuntu-14.04'
           }
         }
       }
