@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -32,14 +32,16 @@ func Resolve(providerArg string) (string, error) {
 		}
 	}
 
-	provider = expandPath(provider)
-
 	if provider == "" {
 		return "", fmt.Errorf("Could not resolve a provider!")
 	}
 
-	_, err := os.Stat(provider)
+	provider, err := expandPath(provider)
 	if err != nil {
+		return "", err
+	}
+
+	if _, err = os.Stat(provider); err != nil {
 		return "", err
 	}
 
@@ -70,15 +72,17 @@ func Call(provider, specPath string) (string, error) {
 	return strings.TrimSpace(stdOut.String()), nil
 }
 
-// Given a naked filename, returns a path to executable prefixed with DefaultPath
-// This is so that "./provider" will work as expected.
-func expandPath(provider string) string {
+// Given a provider name, it returns a path to executable prefixed with DefaultPath. If
+// the provider has any other pattern (eg. `./provider-name`, `/foo/provider-name`), the
+// parameter is assumed to be a path to the provider and not just a name.
+func expandPath(provider string) (string, error) {
 	// Base returns just the last path segment.
 	// If it's different, that means it's a (rel or abs) path
-	if path.Base(provider) != provider {
-		return provider
+	if filepath.Base(provider) != provider {
+		return filepath.Abs(provider)
 	}
-	return path.Join(DefaultPath, provider)
+
+	return filepath.Join(DefaultPath, provider), nil
 }
 
 func getDefaultPath() string {
@@ -87,10 +91,10 @@ func getDefaultPath() string {
 		// exist, use a hardcoded value we think should be right.
 		programFilesDir := os.Getenv("ProgramW6432")
 		if programFilesDir == "" {
-			programFilesDir = path.Join("C:", "Program Files")
+			programFilesDir = filepath.Join("C:", "Program Files")
 		}
 
-		return path.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
+		return filepath.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
 	}
 
 	return "/usr/local/lib/summon"

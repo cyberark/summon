@@ -149,7 +149,8 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 
 * `-p, --provider` specify the path to the [provider](provider/README.md) summon should use.
 
-    If the provider is in the default path, `/usr/local/lib/summon/` you can just
+    If the provider is in the default path, `/usr/local/lib/summon/` (or
+    `%ProgramW6432%\Cyberark Conjur\Summon\Providers` on Windows) you can just
     provide the name of the executable. If not, use a full path.
 
 * `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
