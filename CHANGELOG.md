@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Use of a path for a provider via `--provider` CLI flag or `SUMMON_PROVIDER` env
   variable on Windows with `\` as path separators now correctly works.
   [cyberark/summon#167](https://github.com/cyberark/summon/issues/167)
+- Fixed handling of errors in the install script.
+  [cyberark/summon#171](https://github.com/cyberark/summon/issues/171)
 
 ## [0.8.2] - 2020-06-23
 ### Added
