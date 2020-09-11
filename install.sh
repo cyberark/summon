@@ -62,7 +62,7 @@ get_latest_version() {
 
 LATEST_VERSION=$(get_latest_version)
 
-echo "Using version number: v$LATEST_VERSION"
+echo "Using version number: $LATEST_VERSION"
 
 BASEURL="https://github.com/cyberark/summon/releases/download/"
 URL=${BASEURL}"${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
@@ -70,7 +70,7 @@ URL=${BASEURL}"${LATEST_VERSION}/summon-${DISTRO}-amd64.tar.gz"
 ZIP_PATH="${tmp_dir}/summon.tar.gz"
 do_download ${URL} ${ZIP_PATH}
 
-echo "Installing summon v${LATEST_VERSION} into /usr/local/bin"
+echo "Installing summon ${LATEST_VERSION} into /usr/local/bin"
 
 if sudo -h >/dev/null 2>&1; then
   sudo tar -C /usr/local/bin -o -zxvf ${ZIP_PATH} >/dev/null
