@@ -21,11 +21,11 @@ if [ "${DISTRO}" != "linux" ] && [ "${DISTRO}" != "darwin"  ]; then
   error "This installer only supports Linux and OSX"
 fi
 
+tmp="/tmp"
 if [ ! -z "$TMPDIR" ]; then
-  tmp="/tmp"
-else
   tmp=$TMPDIR
 fi
+
 # secure-ish temp dir creation without having mktemp available (DDoS-able but not exploitable)
 tmp_dir="$tmp/install.sh.$$"
 (umask 077 && mkdir $tmp_dir) || exit 1
