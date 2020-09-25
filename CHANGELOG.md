@@ -6,7 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
-## [0.8.3] - 2020-08-28
+## [0.8.3] - 2020-09-25
+
+### Added
+- Added preliminary support for building Solaris binaries.
+  [cyberark/summon#173](https://github.com/cyberark/summon/issues/173)
+
 ### Fixed
 - Use of a path for a provider via `--provider` CLI flag or `SUMMON_PROVIDER` env
   variable on Windows with `\` as path separators now correctly works.
