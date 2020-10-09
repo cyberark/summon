@@ -226,3 +226,12 @@ For more info on contributing, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 For assistance with some issues encountered when first using Summon, please refer to the
 [troubleshooting guide](CONTRIBUTING.md#Troubleshooting) in 
 [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Can't find your problem in the troubleshooting guide? [File an issue](https://github.com/cyberark/summon/issues/new/choose)
+or [ask us on Discourse](https://discuss.cyberarkcommons.org/c/summon/30).
+
+## License
+
+Copyright (c) 2020 CyberArk Software Ltd. All rights reserved.
+
+Summon is available under the [MIT License](LICENSE).
