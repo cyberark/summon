@@ -116,7 +116,9 @@ The following checklist should be followed when creating a release:
 The following issues, and their respective solutions, are occasionally encountered when
 using Summon for the first time. 
 
-Q:  When I run commands like this,
+### Q: Variable Expansion in the CLI command - Shell Interaction
+
+When I run commands like this,
 ```
 $ summon -p <provider> echo $FOO
 ```
@@ -132,7 +134,9 @@ $ summon -p <provider> /bin/bash -ec 'echo $FOO'
 bar
 ```
 
-Q:  When I run commands like this,
+### Q: Variable expansion in the CLI command - YAML
+
+When I run commands like this,
 ```
 summon -p <provider> --yaml "FOO: !var bar" /bin/bash -c 'echo $FOO'
 ```
