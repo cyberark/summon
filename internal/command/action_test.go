@@ -1,19 +1,27 @@
 package command
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/cyberark/summon/secretsyml"
+	"github.com/docker/docker/api/types/container"
 	. "github.com/smartystreets/goconvey/convey"
 	_ "golang.org/x/net/context"
+
+	"github.com/cyberark/summon/secretsyml"
 )
 
 func TestConvertSubsToMap(t *testing.T) {
@@ -120,6 +128,139 @@ func TestRunAction(t *testing.T) {
 
 		So(string(content), ShouldEqual, expectedValue)
 	})
+
+	Convey("@SUMMONVARNAMES and @SUMMONENVFILE", t, func() {
+		var stdBuf bytes.Buffer
+		// Run docker wrapped around summon and leveraging @SUMMONVARNAMES
+		err := runAction(&ActionConfig{
+			StdErr: &stdBuf,
+			StdOut: &stdBuf,
+			Provider: "/bin/echo", // Use /bin/echo provider for brevity
+			Args: []string{
+				"/bin/sh",
+				"-c",
+				`
+echo @SUMMONVARNAMES;
+cat @SUMMONENVFILE;
+`,
+			},
+			YamlInline: `
+A: A_value
+B: B_value
+C: C_value
+`,
+		})
+
+		// Make assertions
+		code, err := returnStatusOfError(err)
+		So(err, ShouldBeNil)
+		So(code, ShouldEqual, 0)
+		So(stdBuf.String(), ShouldEqual, "A B C\nA=A_value\nB=B_value\nC=C_value\n")
+	})
+
+	Convey("SUMMONVARNAMES used to generate --env for docker", t, func() {
+		RunDockerArgsTestCase(t, func (dockerDaemonSocket string) []string {
+			return []string{
+				"sh",
+				"-c",
+				"docker -H "+dockerDaemonSocket+" run --rm -d $(echo '@SUMMONVARNAMES' | xargs printf -- '--env %s ' | xargs) alpine",
+			}
+		})
+	})
+}
+
+func RunDockerArgsTestCase(
+	t *testing.T,
+	dockerCommandGen func(dockerDaemonSocket string,
+) []string) {
+	// This is a test case that exercises Docker CLI pointed to a mock
+	// server. It asserts on the request payload received on the container creation
+	// endpoint, the volume mounts and environment variables injected by summon are
+	// expected to be present.
+
+	expected := map[string]string{
+		"A": "A's multiple line\nvalue",
+		"B": "B_value",
+		"C": "C_value",
+		"D": "D_value",
+	}
+	const inlineSecretsYml = `
+A: |-
+ A's multiple line
+ value
+B: !var B_value
+C: !file C_value
+D: !var:file D_value
+`
+
+	envvars := map[string]string{}
+	fileContents := map[string]string{}
+
+	// Mock server for handling API calls by `docker run`
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			*container.Config
+			HostConfig       *container.HostConfig
+		}
+
+		if !regexp.MustCompile("/.*/containers/create").MatchString(r.URL.Path) {
+			// Mock response to all the other endpoints called as part of `docker run`
+			w.WriteHeader(200)
+			fmt.Fprintln(w,  "{}")
+			return
+		}
+		payloadBytes, err := ioutil.ReadAll(r.Body)
+
+		if err != nil {
+			t.Errorf("failure reading payload from docker cli: %s", err)
+			return
+		}
+		err = json.Unmarshal(payloadBytes, &payload)
+		if err != nil {
+			t.Errorf("payload from docker cli could not be parsed: %s", err)
+			return
+		}
+
+		for _, env := range payload.Env {
+			nameAndValue := strings.SplitN(env, "=", 2)
+			name := nameAndValue[0]
+			value := nameAndValue[1]
+
+			envvars[name] = value
+
+			// Populate fileContents. If it's not a file it won't resolve and
+			//we ignore the error
+			contents, _ := ioutil.ReadFile(value)
+			fileContents[name] = string(contents)
+		}
+
+		w.WriteHeader(201)
+
+		// Mock response to container create endpoint
+		fmt.Fprintln(w,  `{"Id": "e90e34656806", "Warnings": []}`)
+	}))
+	defer ts.Close()
+
+	var stdBuf bytes.Buffer
+	// Run docker wrapped around summon
+	err := runAction(&ActionConfig{
+		//StdErr: &stdBuf,
+		StdOut: &stdBuf,
+		Provider: "/bin/echo", // Use /bin/echo provider for brevity
+		Args: dockerCommandGen(strings.Replace(ts.URL, "http://", "tcp://", 1)),
+		YamlInline: inlineSecretsYml,
+	})
+
+	// Make assertions
+	code, err := returnStatusOfError(err)
+	So(err, ShouldBeNil)
+	So(code, ShouldEqual, 0)
+
+	// Ensure envvars passed to Docker match expectations
+	So(envvars["A"], ShouldEqual, expected["A"])
+	So(envvars["B"], ShouldEqual, expected["B"])
+	So(fileContents["C"], ShouldEqual, expected["C"])
+	So(fileContents["D"], ShouldEqual, expected["D"])
 }
 
 func TestDefaultVariableResolution(t *testing.T) {

@@ -3,6 +3,7 @@ package command
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/codegangsta/cli"
+
 	prov "github.com/cyberark/summon/provider"
 	"github.com/cyberark/summon/secretsyml"
 )
@@ -19,9 +21,13 @@ import (
 // ActionConfig is an object that holds all the info needed to run
 // a Summon instance
 type ActionConfig struct {
+	StdIn                io.Reader
+	StdOut               io.Writer
+	StdErr               io.Writer
 	Args                 []string
 	Provider             string
 	Filepath             string
+	TmpPath              string
 	YamlInline           string
 	Subs                 map[string]string
 	Ignores              []string
@@ -31,8 +37,9 @@ type ActionConfig struct {
 	ShowProviderVersions bool
 }
 
-const ENV_FILE_MAGIC = "@SUMMONENVFILE"
-const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
+const EnvFileMagic = "@SUMMONENVFILE"
+const VarNamesMagic = "@SUMMONVARNAMES"
+const SummonEnvKeyName = "SUMMON_ENV"
 
 // Action is the runner for the main program logic
 var Action = func(c *cli.Context) {
@@ -110,7 +117,7 @@ func runAction(ac *ActionConfig) error {
 	}
 
 	env := make(map[string]string)
-	tempFactory := NewTempFactory("")
+	tempFactory := NewTempFactory(ac.TmpPath)
 	defer tempFactory.Cleanup()
 
 	type Result struct {
@@ -145,6 +152,7 @@ func runAction(ac *ActionConfig) error {
 			}
 
 			k, v := formatForEnv(key, value, spec, &tempFactory)
+
 			results <- Result{k, v, nil}
 			wg.Done()
 		}(key, spec)
@@ -172,17 +180,42 @@ EnvLoop:
 
 	// Append environment variable if one is specified
 	if ac.Environment != "" {
-		env[SUMMON_ENV_KEY_NAME] = ac.Environment
+		env[SummonEnvKeyName] = ac.Environment
 	}
 
 	setupEnvFile(ac.Args, env, &tempFactory)
+	setupVarNames(ac.Args, secrets)
 
 	var e []string
 	for k, v := range env {
 		e = append(e, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	return runSubcommand(ac.Args, append(os.Environ(), e...))
+	return runSubcommand(
+		ac.Args,
+		append(os.Environ(), e...),
+		ac.StdIn,
+		ac.StdOut,
+		ac.StdErr,
+	)
+}
+
+func setupVarNames(args []string, secrets secretsyml.SecretsMap) {
+	var varNames []string
+	for varName := range secrets {
+		varNames = append(varNames, varName)
+	}
+	sort.Strings(varNames)
+
+	// Inject @SUMMONVARNAMES
+	for idx, arg := range args {
+		// Replace argument substring
+		if strings.Contains(arg, VarNamesMagic) {
+			// Replace substring in argument with slice of docker options
+			args[idx] = strings.Replace(arg, VarNamesMagic, strings.Join(varNames, " "), -1)
+			continue
+		}
+	}
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
@@ -201,7 +234,7 @@ func joinEnv(env map[string]string) string {
 	for k, v := range env {
 		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
 	}
-	
+
 	// Sort to ensure predictable results
 	sort.Strings(envs)
 
@@ -245,7 +278,7 @@ func findInParentTree(secretsFile string, leafDir string) (string, error) {
 	}
 }
 
-// scans arguments for the magic string; if found,
+// scans arguments for the envfile magic string; if found,
 // creates a tempfile to which all the environment mappings are dumped
 // and replaces the magic string with its path.
 // Returns the path if so, returns an empty string otherwise.
@@ -253,12 +286,12 @@ func setupEnvFile(args []string, env map[string]string, tempFactory *TempFactory
 	var envFile = ""
 
 	for i, arg := range args {
-		idx := strings.Index(arg, ENV_FILE_MAGIC)
+		idx := strings.Index(arg, EnvFileMagic)
 		if idx >= 0 {
 			if envFile == "" {
 				envFile = tempFactory.Push(joinEnv(env))
 			}
-			args[i] = strings.Replace(arg, ENV_FILE_MAGIC, envFile, -1)
+			args[i] = strings.Replace(arg, EnvFileMagic, envFile, -1)
 		}
 	}
 
