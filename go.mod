@@ -2,6 +2,9 @@ module github.com/cyberark/summon
 
 require (
 	github.com/codegangsta/cli v1.20.0
+	github.com/docker/docker v20.10.2+incompatible
+	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/go-units v0.4.0 // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/kr/pretty v0.1.0 // indirect

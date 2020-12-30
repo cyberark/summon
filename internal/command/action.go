@@ -3,14 +3,17 @@ package command
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
 
 	"github.com/codegangsta/cli"
+
 	prov "github.com/cyberark/summon/provider"
 	"github.com/cyberark/summon/secretsyml"
 )
@@ -18,6 +21,9 @@ import (
 // ActionConfig is an object that holds all the info needed to run
 // a Summon instance
 type ActionConfig struct {
+	StdIn                io.Reader
+	StdOut               io.Writer
+	StdErr               io.Writer
 	Args                 []string
 	Provider             string
 	Filepath             string
@@ -31,6 +37,7 @@ type ActionConfig struct {
 }
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
+const DOCKER_ARGS_MAGIC = "@SUMMONDOCKERARGS"
 const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
 
 // Action is the runner for the main program logic
@@ -122,6 +129,9 @@ func runAction(ac *ActionConfig) error {
 	results := make(chan Result, len(secrets))
 	var wg sync.WaitGroup
 
+	var dockerArgs []string
+	var dockerArgsMutex sync.Mutex
+
 	for key, spec := range secrets {
 		wg.Add(1)
 		go func(key string, spec secretsyml.SecretSpec) {
@@ -144,6 +154,15 @@ func runAction(ac *ActionConfig) error {
 			}
 
 			k, v := formatForEnv(key, value, spec, &tempFactory)
+
+			// Generate @SUMMONDOCKERARGS
+			dockerArgsMutex.Lock()
+			defer dockerArgsMutex.Unlock()
+			if spec.IsFile() {
+				dockerArgs = append(dockerArgs, "--volume", v+":"+v)
+			}
+			dockerArgs = append(dockerArgs, "--env", k)
+
 			results <- Result{k, v, nil}
 			wg.Done()
 		}(key, spec)
@@ -176,12 +195,52 @@ EnvLoop:
 
 	setupEnvFile(ac.Args, env, &tempFactory)
 
+	// Setup Docker args
+	var argsWithDockerArgs []string
+	for _, arg := range ac.Args {
+		if arg == DOCKER_ARGS_MAGIC {
+			// Replace argument with slice of docker options
+			argsWithDockerArgs = append(argsWithDockerArgs, dockerArgs...)
+			continue
+		}
+
+		// TODO: we need to decide which of these if we want to support (2)
+		// 1. summon [...] docker run @SUMMONDOCKERARGS [...], replace only entire top-level arg. The
+		// top-level arg is replaced by is replaced by N>0 args equating to @SUMMONDOCKERARGS.
+		// 2. summon ... sh -c "docker run @SUMMONDOCKERARGS [...]", also replace substrings
+		// inside args but the replacement is as a single string.
+		//
+		// The code below should support (2). There'll be some ambiguity though...
+		// e.g. summon ... echo "@SUMMONDOCKERARGS" will fall under both (1) and (2), though (1)
+		// takes precedence. I'm not sure if the behaviors of (1) and (2) are equivalent
+		// when there's such ambiguity.
+		//
+		//idx := strings.Index(arg, DOCKER_ARGS_MAGIC)
+		//if idx >= 0 {
+		//	// Replace argument with slice of docker options
+		//	argsWithDockerArgs = append(
+		//		argsWithDockerArgs,
+		//		strings.Replace(arg, DOCKER_ARGS_MAGIC, strings.Join(dockerArgs, " "), -1),
+		//	)
+		//	continue
+		//}
+
+		argsWithDockerArgs = append(argsWithDockerArgs, arg)
+	}
+	ac.Args = argsWithDockerArgs
+
 	var e []string
 	for k, v := range env {
 		e = append(e, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	return runSubcommand(ac.Args, append(os.Environ(), e...))
+	return runSubcommand(
+		ac.Args,
+		append(os.Environ(), e...),
+		ac.StdIn,
+		ac.StdOut,
+		ac.StdErr,
+	)
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
@@ -200,6 +259,10 @@ func joinEnv(env map[string]string) string {
 	for k, v := range env {
 		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
 	}
+
+	// Sort to ensure predictable results
+	sort.Strings(envs)
+
 	return strings.Join(envs, "\n") + "\n"
 }
 
@@ -240,7 +303,7 @@ func findInParentTree(secretsFile string, leafDir string) (string, error) {
 	}
 }
 
-// scans arguments for the magic string; if found,
+// scans arguments for the envfile magic string; if found,
 // creates a tempfile to which all the environment mappings are dumped
 // and replaces the magic string with its path.
 // Returns the path if so, returns an empty string otherwise.

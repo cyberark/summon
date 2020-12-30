@@ -16,8 +16,66 @@ Since Summon has pluggable providers, you aren't locked into any one solution fo
 managing your secrets.
 
 Summon makes it easy to inject secrets as environment variables into your Docker
-containers by taking advantage of Docker's `--env-file` argument. This is done
-on-demand by using the variable `@SUMMONENVFILE` in the arguments of the process
+containers by taking advantage of Docker's CLI arguments (`--env-file` or, `--env` and `--volume`. There are two options available. It's possible to mix and match as you see fit.
+
+## --env and --volume arguments
+This is done on-demand by using the variable `@SUMMONDOCKERARGS` in the arguments of the process
+you are running with Summon. This variable is replaced by combinations of the Docker arguments `--env` and `--volume` such that the secrets injected by summon are passed into the Docker container. The `--volume` arguments allow memory-mapped temporary files from variables with the `!file` tag to be resolvable inside the container.
+
+**NOTE:** Using the `!file` tag with `@SUMMONDOCKERARGS` assumes that the Docker CLI is being run on the host that is used to create volume mounts to the container. For when this is not the case simply avoid using the `!file` tag, but be mindful that in that case you lose the benefits of memory-mapped temporary files.
+
+```bash
+$ summon -p keyring.py -D env=dev docker run @SUMMONDOCKERARGS deployer
+Checking credentials
+Deploying application
+```
+
+### Example
+The example below demonstrates the use @SUMMONDOCKERARGS. For the sake of brevity
+we use an inline `secrets.yml` and the `/bin/echo` provider. Some points to note:
+1. `summon` is
+invoking docker as the child process.
+2. `@SUMMONDOCKERARGS` is replaced with a combination of `--env` and `--volume`
+arguments.
+3. Variable `D` uses the `!file` tag and therefore is the only one that
+results in a `--volume` argument. The path to this variable inside the container
+is as it is on the host.
+
+```bash
+secretsyml='
+A: |-
+  A_value with
+  multiple lines
+B: B_value
+C: !var C_value
+D: !var:file D_value
+'
+
+# The substitution of @SUMMONDOCKERARGS the docker run command below results in
+# something of the form:
+#
+# docker run --rm \
+#  --env A --env B --env C --env D \
+#  --volume /path/to/D:/path/to/D
+#  alpine ...
+#
+# The output from the command is shown below the command.
+
+summon --provider /bin/echo --yaml "${secretsyml}" \
+ docker run --rm @SUMMONDOCKERARGS alpine sh -c '
+printenv A;
+printenv B;
+printenv C;
+cat $(printenv D);
+'
+# A_value with
+# multiple lines
+# B_value
+# C_value
+# D_value
+```
+## --env-file argument
+This is done on-demand by using the variable `@SUMMONENVFILE` in the arguments of the process
 you are running with Summon. This variable points to a memory-mapped file containing
 the variables and values from secrets.yml in VAR=VAL format.
 
@@ -27,7 +85,7 @@ Checking credentials
 Deploying application
 ```
 
-## Example
+### Example
 
 Let's say we have a deploy script that needs to access our application servers on
 AWS and pull the latest version of our code. It should record the outcome of the

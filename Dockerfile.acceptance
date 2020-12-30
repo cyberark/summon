@@ -5,7 +5,8 @@ RUN apk add --no-cache bash \
                        git \
                        libffi-dev \
                        ruby-bundler \
-                       ruby-dev
+                       ruby-dev \
+                       docker-cli
 
 # Install summon prerequisites
 WORKDIR /summon
