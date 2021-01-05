@@ -56,7 +56,7 @@ brews:
     test: |
       system "#{bin}/summon", "-v"
 
-    github:
+    tap:
       owner: cyberark
       name: homebrew-tools
     skip_upload: true
