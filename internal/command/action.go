@@ -108,12 +108,13 @@ func runAction(ac *ActionConfig) error {
 		return err
 	}
 
-	var env []string
+	env := make(map[string]string)
 	tempFactory := NewTempFactory("")
 	defer tempFactory.Cleanup()
 
 	type Result struct {
-		string
+		key   string
+		value string
 		error
 	}
 
@@ -128,7 +129,7 @@ func runAction(ac *ActionConfig) error {
 			if spec.IsVar() {
 				value, err = prov.Call(ac.Provider, spec.Path)
 				if err != nil {
-					results <- Result{key, err}
+					results <- Result{key, "", err}
 					wg.Done()
 					return
 				}
@@ -142,8 +143,8 @@ func runAction(ac *ActionConfig) error {
 				value = spec.DefaultValue
 			}
 
-			envvar := formatForEnv(key, value, spec, &tempFactory)
-			results <- Result{envvar, nil}
+			k, v := formatForEnv(key, value, spec, &tempFactory)
+			results <- Result{k, v, nil}
 			wg.Done()
 		}(key, spec)
 	}
@@ -153,44 +154,53 @@ func runAction(ac *ActionConfig) error {
 EnvLoop:
 	for envvar := range results {
 		if envvar.error == nil {
-			env = append(env, envvar.string)
+			env[envvar.key] = envvar.value
 		} else {
 			if ac.IgnoreAll {
 				continue EnvLoop
 			}
 
 			for i := range ac.Ignores {
-				if ac.Ignores[i] == envvar.string {
+				if ac.Ignores[i] == fmt.Sprintf("%s=%s", envvar.key, envvar.value) {
 					continue EnvLoop
 				}
 			}
-			return fmt.Errorf("Error fetching variable %v: %v", envvar.string, envvar.error.Error())
+			return fmt.Errorf("Error fetching variable %v: %v", envvar.key, envvar.error.Error())
 		}
 	}
 
 	// Append environment variable if one is specified
 	if ac.Environment != "" {
-		env = append(env, fmt.Sprintf("%s=%s", SUMMON_ENV_KEY_NAME, ac.Environment))
+		env[SUMMON_ENV_KEY_NAME] = ac.Environment
 	}
 
 	setupEnvFile(ac.Args, env, &tempFactory)
 
-	return runSubcommand(ac.Args, append(os.Environ(), env...))
+	var e []string
+	for k, v := range env {
+		e = append(e, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	return runSubcommand(ac.Args, append(os.Environ(), e...))
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
-func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) string {
+func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) (string, string) {
 	if spec.IsFile() {
 		fname := tempFactory.Push(value)
 		value = fname
 	}
 
-	return fmt.Sprintf("%s=%s", key, value)
+	return key, value
 }
 
-func joinEnv(env []string) string {
-	return strings.Join(env, "\n") + "\n"
+func joinEnv(env map[string]string) string {
+	var envs []string
+	for k, v := range env {
+		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
+	}
+	return strings.Join(envs, "\n") + "\n"
 }
 
 // findInParentTree recursively searches for secretsFile starting at leafDir and in the
@@ -234,7 +244,7 @@ func findInParentTree(secretsFile string, leafDir string) (string, error) {
 // creates a tempfile to which all the environment mappings are dumped
 // and replaces the magic string with its path.
 // Returns the path if so, returns an empty string otherwise.
-func setupEnvFile(args []string, env []string, tempFactory *TempFactory) string {
+func setupEnvFile(args []string, env map[string]string, tempFactory *TempFactory) string {
 	var envFile = ""
 
 	for i, arg := range args {
