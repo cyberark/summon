@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -199,9 +200,14 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 func joinEnv(env map[string]string) string {
 	var envs []string
 	for k, v := range env {
-		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
+		if strings.Contains(v, "\n") {
+			keyEq := []byte(fmt.Sprintf("%s=", k))
+			envs = append(envs, string(strconv.AppendQuote(keyEq, v)))
+		} else {
+			envs = append(envs, fmt.Sprintf("%s=%s", k, v))
+		}
 	}
-	
+
 	// Sort to ensure predictable results
 	sort.Strings(envs)
 
