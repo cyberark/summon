@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -42,14 +41,15 @@ func TestFormatForEnvString(t *testing.T) {
 				Path: "mysql1/password",
 				Tags: []secretsyml.YamlTag{secretsyml.Var},
 			}
-			envvar := formatForEnv(
+			k, v := formatForEnv(
 				"dbpass",
 				"mysecretvalue",
 				spec,
 				nil,
 			)
 
-			So(envvar, ShouldEqual, "dbpass=mysecretvalue")
+			So(k, ShouldEqual, "dbpass")
+			So(v, ShouldEqual, "mysecretvalue")
 		})
 		Convey("For files, VALUE should be the path to a tempfile containing the secret", func() {
 			tempFactory := NewTempFactory("")
@@ -59,15 +59,12 @@ func TestFormatForEnvString(t *testing.T) {
 				Path: "certs/webtier1/private-cert",
 				Tags: []secretsyml.YamlTag{secretsyml.File},
 			}
-			envvar := formatForEnv(
+			key, path := formatForEnv(
 				"SSL_CERT",
 				"mysecretvalue",
 				spec,
 				&tempFactory,
 			)
-
-			s := strings.Split(envvar, "=")
-			key, path := s[0], s[1]
 
 			So(key, ShouldEqual, "SSL_CERT")
 
@@ -84,8 +81,8 @@ func TestFormatForEnvString(t *testing.T) {
 
 func TestJoinEnv(t *testing.T) {
 	Convey("adds a trailing newline", t, func() {
-		result := joinEnv([]string{"foo", "bar"})
-		So(result, ShouldEqual, "foo\nbar\n")
+		result := joinEnv(map[string]string{"foo": "bar", "baz": "qux"})
+		So(result, ShouldEqual, "foo=bar\nbaz=qux\n")
 	})
 }
 
