@@ -36,9 +36,9 @@ type ActionConfig struct {
 	ShowProviderVersions bool
 }
 
-const ENV_FILE_MAGIC = "@SUMMONENVFILE"
-const DOCKER_ARGS_MAGIC = "@SUMMONDOCKERARGS"
-const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
+const EnvFileMagic = "@SUMMONENVFILE"
+const DockerArgsMagic = "@SUMMONDOCKERARGS"
+const SummonEnvKeyName = "SUMMON_ENV"
 
 // Action is the runner for the main program logic
 var Action = func(c *cli.Context) {
@@ -190,7 +190,7 @@ EnvLoop:
 
 	// Append environment variable if one is specified
 	if ac.Environment != "" {
-		env[SUMMON_ENV_KEY_NAME] = ac.Environment
+		env[SummonEnvKeyName] = ac.Environment
 	}
 
 	setupEnvFile(ac.Args, env, &tempFactory)
@@ -198,32 +198,23 @@ EnvLoop:
 	// Setup Docker args
 	var argsWithDockerArgs []string
 	for _, arg := range ac.Args {
-		if arg == DOCKER_ARGS_MAGIC {
+		// Replace entire argument
+		if arg == DockerArgsMagic {
 			// Replace argument with slice of docker options
 			argsWithDockerArgs = append(argsWithDockerArgs, dockerArgs...)
 			continue
 		}
 
-		// TODO: we need to decide which of these if we want to support (2)
-		// 1. summon [...] docker run @SUMMONDOCKERARGS [...], replace only entire top-level arg. The
-		// top-level arg is replaced by is replaced by N>0 args equating to @SUMMONDOCKERARGS.
-		// 2. summon ... sh -c "docker run @SUMMONDOCKERARGS [...]", also replace substrings
-		// inside args but the replacement is as a single string.
-		//
-		// The code below should support (2). There'll be some ambiguity though...
-		// e.g. summon ... echo "@SUMMONDOCKERARGS" will fall under both (1) and (2), though (1)
-		// takes precedence. I'm not sure if the behaviors of (1) and (2) are equivalent
-		// when there's such ambiguity.
-		//
-		//idx := strings.Index(arg, DOCKER_ARGS_MAGIC)
-		//if idx >= 0 {
-		//	// Replace argument with slice of docker options
-		//	argsWithDockerArgs = append(
-		//		argsWithDockerArgs,
-		//		strings.Replace(arg, DOCKER_ARGS_MAGIC, strings.Join(dockerArgs, " "), -1),
-		//	)
-		//	continue
-		//}
+		// Replace argument substring
+		idx := strings.Index(arg, DockerArgsMagic)
+		if idx >= 0 {
+			// Replace substring in argument with slice of docker options
+			argsWithDockerArgs = append(
+				argsWithDockerArgs,
+				strings.Replace(arg, DockerArgsMagic, strings.Join(dockerArgs, " "), -1),
+			)
+			continue
+		}
 
 		argsWithDockerArgs = append(argsWithDockerArgs, arg)
 	}
@@ -311,12 +302,12 @@ func setupEnvFile(args []string, env map[string]string, tempFactory *TempFactory
 	var envFile = ""
 
 	for i, arg := range args {
-		idx := strings.Index(arg, ENV_FILE_MAGIC)
+		idx := strings.Index(arg, EnvFileMagic)
 		if idx >= 0 {
 			if envFile == "" {
 				envFile = tempFactory.Push(joinEnv(env))
 			}
-			args[i] = strings.Replace(arg, ENV_FILE_MAGIC, envFile, -1)
+			args[i] = strings.Replace(arg, EnvFileMagic, envFile, -1)
 		}
 	}
 

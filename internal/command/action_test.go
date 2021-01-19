@@ -1,6 +1,7 @@
 package command
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -128,19 +129,45 @@ func TestRunAction(t *testing.T) {
 		So(string(content), ShouldEqual, expectedValue)
 	})
 
-	Convey("Docker options correctly injected", t, func() {
-		// This is a test case for @SUMMONDOCKERARGS. It exercises Docker CLI pointed to a mock
-		// server. It asserts on the request payload received on the container creation
-		// endpoint, the volume mounts and environment variables injected by summon are
-		// expected to be present.
+	Convey("Docker options correctly injected for top-level command", t, func() {
+		RunDockerArgsTestCase(t, func (dockerDaemonSocket string) []string {
+			return []string{
+				"docker",
+				"-H", dockerDaemonSocket,
+				"run",
+				"--rm", "-d", "@SUMMONDOCKERARGS",
+				"alpine",
+			}
+		})
+	})
 
-		expected := map[string]string{
-			"A": "A's multiple line\nvalue",
-			"B": "B_value",
-			"C": "C_value",
-			"D": "D_value",
-		}
-		const inlineSecretsYml = `
+	Convey("Docker options correctly injected for nested command", t, func() {
+		RunDockerArgsTestCase(t, func (dockerDaemonSocket string) []string {
+			return []string{
+				"sh",
+				"-c",
+				"docker -H "+dockerDaemonSocket+" run --rm -d @SUMMONDOCKERARGS alpine",
+			}
+		})
+	})
+}
+
+func RunDockerArgsTestCase(
+	t *testing.T,
+	dockerCommandGen func(dockerDaemonSocket string,
+) []string) {
+	// This is a test case for @SUMMONDOCKERARGS. It exercises Docker CLI pointed to a mock
+	// server. It asserts on the request payload received on the container creation
+	// endpoint, the volume mounts and environment variables injected by summon are
+	// expected to be present.
+
+	expected := map[string]string{
+		"A": "A's multiple line\nvalue",
+		"B": "B_value",
+		"C": "C_value",
+		"D": "D_value",
+	}
+	const inlineSecretsYml = `
 A: |-
  A's multiple line
  value
@@ -149,99 +176,93 @@ C: !file C_value
 D: !var:file D_value
 `
 
-		volumeBinds := map[string]struct{
-			ContainerPath string
-			FileContents string
-		}{}
-		envvars := map[string]string{}
+	volumeBinds := map[string]struct{
+		ContainerPath string
+		FileContents string
+	}{}
+	envvars := map[string]string{}
 
-		// Mock server for handling API calls by `docker run`
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var payload struct {
-				*container.Config
-				HostConfig       *container.HostConfig
-			}
-
-			if !regexp.MustCompile("/.*/containers/create").MatchString(r.URL.Path) {
-				// Mock response to all the other endpoints called as part of `docker run`
-				w.WriteHeader(200)
-				fmt.Fprintln(w,  "{}")
-				return
-			}
-			payloadBytes, err := ioutil.ReadAll(r.Body)
-
-			if err != nil {
-				t.Errorf("failure reading payload from docker cli: %s", err)
-				return
-			}
-			err = json.Unmarshal(payloadBytes, &payload)
-			if err != nil {
-				t.Errorf("payload from docker cli could not be parsed: %s", err)
-				return
-			}
-
-			for _, env := range payload.Env {
-				nameAndValue := strings.SplitN(env, "=", 2)
-				name := nameAndValue[0]
-				value := nameAndValue[1]
-
-				envvars[name] = value
-			}
-
-			for _, volumeBind := range payload.HostConfig.Binds {
-				fromAndTo := strings.SplitN(volumeBind, ":", 2)
-				from := fromAndTo[0]
-				to := fromAndTo[1]
-
-				fileContents, _ := ioutil.ReadFile(from)
-				volumeBinds[from] = struct {
-					ContainerPath string
-					FileContents  string
-				}{
-					ContainerPath: to,
-					FileContents: string(fileContents),
-				}
-			}
-
-			w.WriteHeader(201)
-
-			// Mock response to container create endpoint
-			fmt.Fprintln(w,  `{"Id": "e90e34656806", "Warnings": []}`)
-		}))
-		defer ts.Close()
-
-
-		// Run docker wrapped around summon and leveraging @SUMMONDOCKERARGS
-		var dockerCommand = []string{
-			"docker",
-			"-H", strings.Replace(ts.URL, "http://", "tcp://", 1),
-			"run",
-			"--rm", "-d", "@SUMMONDOCKERARGS",
-			"alpine",
-		}
-		err := runAction(&ActionConfig{
-			Provider: "/bin/echo", // Use /bin/echo provider for brevity
-			Args: dockerCommand,
-			YamlInline: inlineSecretsYml,
-		})
-
-		// Make assertions
-		code, err := returnStatusOfError(err)
-		So(err, ShouldBeNil)
-		So(code, ShouldEqual, 0)
-
-		// The volume mount binds are expected to take the form
-		// 'host_path:container_path', where host_path is equal to container_path
-		for from, volumeBind := range volumeBinds {
-			So(from, ShouldEqual, volumeBind.ContainerPath)
+	// Mock server for handling API calls by `docker run`
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			*container.Config
+			HostConfig       *container.HostConfig
 		}
 
-		// Ensure envvars and volumemounts passed to Docker match expectations
-		So(envvars["A"], ShouldEqual, expected["A"])
-		So(envvars["B"], ShouldEqual, expected["B"])
-		So(volumeBinds[envvars["C"]].FileContents, ShouldEqual, expected["C"])
-		So(volumeBinds[envvars["D"]].FileContents, ShouldEqual, expected["D"])
+		if !regexp.MustCompile("/.*/containers/create").MatchString(r.URL.Path) {
+			// Mock response to all the other endpoints called as part of `docker run`
+			w.WriteHeader(200)
+			fmt.Fprintln(w,  "{}")
+			return
+		}
+		payloadBytes, err := ioutil.ReadAll(r.Body)
+
+		if err != nil {
+			t.Errorf("failure reading payload from docker cli: %s", err)
+			return
+		}
+		err = json.Unmarshal(payloadBytes, &payload)
+		if err != nil {
+			t.Errorf("payload from docker cli could not be parsed: %s", err)
+			return
+		}
+
+		for _, env := range payload.Env {
+			nameAndValue := strings.SplitN(env, "=", 2)
+			name := nameAndValue[0]
+			value := nameAndValue[1]
+
+			envvars[name] = value
+		}
+
+		for _, volumeBind := range payload.HostConfig.Binds {
+			fromAndTo := strings.SplitN(volumeBind, ":", 2)
+			from := fromAndTo[0]
+			to := fromAndTo[1]
+
+			fileContents, _ := ioutil.ReadFile(from)
+			volumeBinds[from] = struct {
+				ContainerPath string
+				FileContents  string
+			}{
+				ContainerPath: to,
+				FileContents: string(fileContents),
+			}
+		}
+
+		w.WriteHeader(201)
+
+		// Mock response to container create endpoint
+		fmt.Fprintln(w,  `{"Id": "e90e34656806", "Warnings": []}`)
+	}))
+	defer ts.Close()
+
+	var stdBuf bytes.Buffer
+	// Run docker wrapped around summon and leveraging @SUMMONDOCKERARGS
+	err := runAction(&ActionConfig{
+		StdErr: &stdBuf,
+		StdOut: &stdBuf,
+		Provider: "/bin/echo", // Use /bin/echo provider for brevity
+		Args: dockerCommandGen(strings.Replace(ts.URL, "http://", "tcp://", 1)),
+		YamlInline: inlineSecretsYml,
 	})
+
+	// Make assertions
+	code, err := returnStatusOfError(err)
+	So(err, ShouldBeNil)
+	So(code, ShouldEqual, 0)
+
+	// The volume mount binds are expected to take the form
+	// 'host_path:container_path', where host_path is equal to container_path
+	for from, volumeBind := range volumeBinds {
+		So(from, ShouldEqual, volumeBind.ContainerPath)
+	}
+
+	// Ensure envvars and volumemounts passed to Docker match expectations
+	So(envvars["A"], ShouldEqual, expected["A"])
+	So(envvars["B"], ShouldEqual, expected["B"])
+	So(volumeBinds[envvars["C"]].FileContents, ShouldEqual, expected["C"])
+	So(volumeBinds[envvars["D"]].FileContents, ShouldEqual, expected["D"])
 }
 
 func TestDefaultVariableResolution(t *testing.T) {
