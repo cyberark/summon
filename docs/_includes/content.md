@@ -89,7 +89,7 @@ Here are some specific examples of how you can use summon with your current tool
 * [Chef encrypted data bags](https://github.com/conjurinc/summon-chefapi)
 * [keyring](https://github.com/conjurinc/summon-keyring)
 * [Keepass kdbx database file](https://github.com/mskarbek/summon-keepass)
-* [Gopass](https://github.com/gopasspw/gopass/blob/master/docs/summon-provider.md)
+* [Gopass](https://github.com/gopasspw/gopass-summon-provider)
 * [AWS Secrets Manager](https://github.com/cyberark/summon-aws-secrets)
 
 Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
