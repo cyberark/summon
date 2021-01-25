@@ -27,6 +27,7 @@ type ActionConfig struct {
 	Args                 []string
 	Provider             string
 	Filepath             string
+	TmpPath              string
 	YamlInline           string
 	Subs                 map[string]string
 	Ignores              []string
@@ -116,7 +117,7 @@ func runAction(ac *ActionConfig) error {
 	}
 
 	env := make(map[string]string)
-	tempFactory := NewTempFactory("")
+	tempFactory := NewTempFactory(ac.TmpPath)
 	defer tempFactory.Cleanup()
 
 	type Result struct {
@@ -128,9 +129,6 @@ func runAction(ac *ActionConfig) error {
 	// Run provider calls concurrently
 	results := make(chan Result, len(secrets))
 	var wg sync.WaitGroup
-
-	var dockerArgs []string
-	var dockerArgsMutex sync.Mutex
 
 	for key, spec := range secrets {
 		wg.Add(1)
@@ -154,14 +152,6 @@ func runAction(ac *ActionConfig) error {
 			}
 
 			k, v := formatForEnv(key, value, spec, &tempFactory)
-
-			// Generate @SUMMONDOCKERARGS
-			dockerArgsMutex.Lock()
-			defer dockerArgsMutex.Unlock()
-			if spec.IsFile() {
-				dockerArgs = append(dockerArgs, "--volume", v+":"+v)
-			}
-			dockerArgs = append(dockerArgs, "--env", k)
 
 			results <- Result{k, v, nil}
 			wg.Done()
@@ -194,6 +184,19 @@ EnvLoop:
 	}
 
 	setupEnvFile(ac.Args, env, &tempFactory)
+
+
+	var keys []string
+	for key := range secrets {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	var dockerArgs []string
+	// Generate @SUMMONDOCKERARGS
+	for _, key := range keys {
+		dockerArgs = append(dockerArgs, "--env", key)
+	}
 
 	// Setup Docker args
 	var argsWithDockerArgs []string

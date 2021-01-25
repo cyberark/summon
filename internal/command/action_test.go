@@ -129,7 +129,35 @@ func TestRunAction(t *testing.T) {
 		So(string(content), ShouldEqual, expectedValue)
 	})
 
-	Convey("Docker options correctly injected for top-level command", t, func() {
+	Convey("@SUMMONDOCKERARGS and @SUMMONENVFILE", t, func() {
+		var stdBuf bytes.Buffer
+		// Run docker wrapped around summon and leveraging @SUMMONDOCKERARGS
+		err := runAction(&ActionConfig{
+			StdErr: &stdBuf,
+			StdOut: &stdBuf,
+			Provider: "/bin/echo", // Use /bin/echo provider for brevity
+			Args: []string{
+				"/bin/sh",
+				"-c",
+				`
+echo @SUMMONDOCKERARGS;
+cat @SUMMONENVFILE;
+`,
+			},
+			YamlInline: `
+A: A_value
+B: B_value
+`,
+		})
+
+		// Make assertions
+		code, err := returnStatusOfError(err)
+		So(err, ShouldBeNil)
+		So(code, ShouldEqual, 0)
+		So(stdBuf.String(), ShouldEqual, "--env A --env B\nA=A_value\nB=B_value\n")
+	})
+
+	Convey("Docker args correctly injected for top-level command", t, func() {
 		RunDockerArgsTestCase(t, func (dockerDaemonSocket string) []string {
 			return []string{
 				"docker",
@@ -141,7 +169,7 @@ func TestRunAction(t *testing.T) {
 		})
 	})
 
-	Convey("Docker options correctly injected for nested command", t, func() {
+	Convey("Docker args correctly injected for nested command", t, func() {
 		RunDockerArgsTestCase(t, func (dockerDaemonSocket string) []string {
 			return []string{
 				"sh",
@@ -176,11 +204,8 @@ C: !file C_value
 D: !var:file D_value
 `
 
-	volumeBinds := map[string]struct{
-		ContainerPath string
-		FileContents string
-	}{}
 	envvars := map[string]string{}
+	fileContents := map[string]string{}
 
 	// Mock server for handling API calls by `docker run`
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -213,21 +238,11 @@ D: !var:file D_value
 			value := nameAndValue[1]
 
 			envvars[name] = value
-		}
 
-		for _, volumeBind := range payload.HostConfig.Binds {
-			fromAndTo := strings.SplitN(volumeBind, ":", 2)
-			from := fromAndTo[0]
-			to := fromAndTo[1]
-
-			fileContents, _ := ioutil.ReadFile(from)
-			volumeBinds[from] = struct {
-				ContainerPath string
-				FileContents  string
-			}{
-				ContainerPath: to,
-				FileContents: string(fileContents),
-			}
+			// Populate fileContents. If it's not a file it won't resolve and
+			//we ignore the error
+			contents, _ := ioutil.ReadFile(value)
+			fileContents[name] = string(contents)
 		}
 
 		w.WriteHeader(201)
@@ -252,17 +267,11 @@ D: !var:file D_value
 	So(err, ShouldBeNil)
 	So(code, ShouldEqual, 0)
 
-	// The volume mount binds are expected to take the form
-	// 'host_path:container_path', where host_path is equal to container_path
-	for from, volumeBind := range volumeBinds {
-		So(from, ShouldEqual, volumeBind.ContainerPath)
-	}
-
-	// Ensure envvars and volumemounts passed to Docker match expectations
+	// Ensure envvars passed to Docker match expectations
 	So(envvars["A"], ShouldEqual, expected["A"])
 	So(envvars["B"], ShouldEqual, expected["B"])
-	So(volumeBinds[envvars["C"]].FileContents, ShouldEqual, expected["C"])
-	So(volumeBinds[envvars["D"]].FileContents, ShouldEqual, expected["D"])
+	So(fileContents["C"], ShouldEqual, expected["C"])
+	So(fileContents["D"], ShouldEqual, expected["D"])
 }
 
 func TestDefaultVariableResolution(t *testing.T) {

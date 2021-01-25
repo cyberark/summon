@@ -2,11 +2,11 @@ FROM golang:1.13-alpine
 
 RUN apk add --no-cache bash \
                        build-base \
+                       docker-cli \
                        git \
                        libffi-dev \
                        ruby-bundler \
-                       ruby-dev \
-                       docker-cli
+                       ruby-dev
 
 # Install summon prerequisites
 WORKDIR /summon

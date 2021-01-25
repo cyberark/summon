@@ -9,7 +9,7 @@ import (
 // DEVSHM is the default *nix shared-memory directory path
 const DEVSHM = "/dev/shm"
 
-// TempFactory handels transient files that require cleaning up
+// TempFactory handles transient files that require cleaning up
 // after the child process exits.
 type TempFactory struct {
 	path  string
