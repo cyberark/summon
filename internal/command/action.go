@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -200,6 +201,10 @@ func joinEnv(env map[string]string) string {
 	for k, v := range env {
 		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
 	}
+	
+	// Sort to ensure predictable results
+	sort.Strings(envs)
+
 	return strings.Join(envs, "\n") + "\n"
 }
 
