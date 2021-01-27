@@ -82,7 +82,7 @@ func TestFormatForEnvString(t *testing.T) {
 func TestJoinEnv(t *testing.T) {
 	Convey("adds a trailing newline", t, func() {
 		result := joinEnv(map[string]string{"foo": "bar", "baz": "qux"})
-		So(result, ShouldEqual, "foo=bar\nbaz=qux\n")
+		So(result, ShouldEqual, "baz=qux\nfoo=bar\n")
 	})
 }
 
