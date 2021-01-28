@@ -55,7 +55,9 @@ These can be installed with `dpkg -i summon_v*.deb` and
 
 ### Auto Install
 
-**Note** Check the release notes and select an appropriate release to ensure support for your version of Conjur.
+**Note** Check the
+[release notes](https://github.com/cyberark/summon/releases) and select an
+appropriate release to ensure support for your version of Conjur.
 
 Use the auto-install script. This will install the latest version of summon.
 The script requires sudo to place summon in `/usr/local/bin`.
@@ -74,7 +76,7 @@ called from and export the secret values to the environment of the command it wr
 
 *Example*
 
-You want to run script that requires AWS keys to list your EC2 instances.
+You want to run a script that requires AWS keys to list your EC2 instances.
 
 Define your keys in a `secrets.yml` file
 

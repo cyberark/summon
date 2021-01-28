@@ -1,4 +1,4 @@
-FROM golang:1.13-alpine
+FROM golang:1.15
 
 WORKDIR /summon
 
@@ -7,9 +7,9 @@ ENV GOARCH=amd64
 
 COPY go.mod go.sum ./
 
-RUN apk add --no-cache bash \
-                       build-base \
-                       git && \
+RUN apt update -y && \
+    apt install -y bash \
+                   git && \
     go mod download && \
     go get -u github.com/jstemmer/go-junit-report && \
     go get -u github.com/axw/gocov/gocov && \
