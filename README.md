@@ -174,6 +174,11 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
     summon -D ENV=production --yaml 'SQL_PASSWORD: !var env/$ENV/db-password' deploy.sh
     ```
 
+* `--yaml` secrets.yml as a literal string.
+
+    This flag is used to pass `secrets.yml` to the provider as a literal string
+    (see example above).
+
 * `-i, --ignore` A secret path for which to ignore provider errors.
 
     This flag can be useful for when you have secrets that you don't need access to for development. For example API keys for monitoring tools. This flag can be used multiple times.
@@ -181,6 +186,10 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 * `-I, --ignore-all` A boolean to ignore any missing secret paths.
 
     This flag can be useful when the underlying system that's going to be using the values implements defaults. For example, when using summon as a bridge to [confd](https://github.com/kelseyhightower/confd).
+
+* `-V, --all-provider-versions` List of all of the providers in the default
+    path and their versions (if they have the --version tag).
+* `-v, --version` Print the Summon version.
 
 * `-e, --environment` Specify section (environment) to parse from secret YAML.
 
@@ -203,7 +212,7 @@ Doing something along the lines of: `summon -f secrets.yaml -e staging printenv 
 
 Note: `default` is an alias for `common` section. You can use either one.
 
-View help and all flags with `summon -h`.
+* `-h` View help and all flags.
 
 ### env-file
 
