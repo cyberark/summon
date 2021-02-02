@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+parse_symlink() {
+  while IFS=':' read -r a b; do
+    # Remove leading and trailing spaces from key and value.
+    # shellcheck disable=SC2001
+    a=$(echo "${a}" | sed 's/^[ \t]*//;s/[ \t]*$//')
+    b=$(echo "${b}" | sed 's/^[ \t]*//;s/[ \t]*$//')
+    if [ $# -ne 0 ]
+      then
+        ln -sf "$(printenv "${a}")" "$b"
+    else
+        rm "$b" 
+    fi
+  done < "${SUMMON_SYMLINKS:-./secrets-symlinks.yml}"
+}
+
+
+function cleanup() {
+  parse_symlink
+}
+
+parse_symlink init
+
+trap cleanup EXIT
+"$@"

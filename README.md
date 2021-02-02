@@ -148,7 +148,8 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 
 `summon` supports a number of flags.
 
-* `-p, --provider` specify the path to the [provider](provider/README.md) summon should use.
+* `-p, --provider <path-to-provider>` specify the path to the
+[provider](provider/README.md) summon should use.
 
     If the provider is in the default path, `/usr/local/lib/summon/` (or
     `%ProgramW6432%\Cyberark Conjur\Summon\Providers` on Windows) you can just
@@ -174,12 +175,13 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
     summon -D ENV=production --yaml 'SQL_PASSWORD: !var env/$ENV/db-password' deploy.sh
     ```
 
-* `--yaml` secrets.yml as a literal string.
+* `--yaml <YAML-string>` Passes secrets.yml as a literal string.
 
-    This flag is used to pass `secrets.yml` to the provider as a literal string
-    (see example above).
+    This flag is used to pass a literal YAML string to the provider in place
+    of the `secrets.yml` file (see example above).
 
-* `-i, --ignore` A secret path for which to ignore provider errors.
+* `-i, --ignore <path-to-provider>` A secret path for which to ignore provider
+errors.
 
     This flag can be useful for when you have secrets that you don't need access to for development. For example API keys for monitoring tools. This flag can be used multiple times.
 
@@ -227,6 +229,13 @@ summon docker run --env-file @SUMMONENVFILE myorg/myimage
 This file is created on demand - only when `@SUMMONENVFILE` appears in the
 arguments of the command summon is wrapping. This feature is not Docker-specific; if you have another tools that reads variables in `VAR=VAL` format
 you can use `@SUMMONENVFILE` just the same.
+
+## Fixed tempfile name
+
+There are times when you would like to have certain secrets values available at
+fixed locations, e.g. `/etc/ssl/cert.pem` for an SSL certificate. This can be
+accomplished by using symbolic links as described in the
+[symbolic link example](examples/symlinks/README.md).
 
 ## Contributing
 
