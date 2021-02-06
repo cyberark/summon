@@ -26,7 +26,7 @@ pipeline {
 
     stage('Build Go package') {
       steps {
-        sh './build'
+        sh './build --skip-validate'
         archiveArtifacts artifacts: "dist/*.tar.gz,dist/*.zip,dist/*.rb,dist/*.deb,dist/*.rpm,dist/*.txt", fingerprint: true
       }
     }
