@@ -9,4 +9,4 @@ docker pull "$GORELEASER_IMAGE"
 docker run --rm \
            -v "$PWD:/summon" \
            -w /summon \
-           "$GORELEASER_IMAGE" release --rm-dist --skip-validate
+           "$GORELEASER_IMAGE" release --rm-dist "$@"
