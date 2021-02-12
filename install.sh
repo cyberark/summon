@@ -72,7 +72,7 @@ do_download ${URL} ${ZIP_PATH}
 
 echo "Installing summon ${LATEST_VERSION} into /usr/local/bin"
 
-if sudo -h >/dev/null 2>&1; then
+if sudo -h >/dev/null 2>&1 && [ "$EUID" -ne 0 ]; then
   sudo tar -C /usr/local/bin -o -zxvf ${ZIP_PATH} >/dev/null
 else
   tar -C /usr/local/bin -o -zxvf ${ZIP_PATH} >/dev/null
