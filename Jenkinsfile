@@ -24,13 +24,6 @@ pipeline {
       steps { sh './bin/parse-changelog' }
     }
 
-    stage('Build Go package') {
-      steps {
-        sh './build --skip-validate'
-        archiveArtifacts artifacts: "dist/*.tar.gz,dist/*.zip,dist/*.rb,dist/*.deb,dist/*.rpm,dist/*.txt", fingerprint: true
-      }
-    }
-
     stage('Run unit tests') {
       steps {
         sh './test_unit'
@@ -41,6 +34,35 @@ pipeline {
         always {
           junit 'output/junit.xml'
           cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'output/coverage.xml', conditionalCoverageTargets: '100, 0, 0', failUnhealthy: true, failUnstable: false, lineCoverageTargets: '74, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '92, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+        }
+      }
+    }
+
+    stage('Build Release Artifacts') {
+      when {
+        not {
+          tag "v*"
+        }
+      }
+
+      steps {
+        sh './build --snapshot'
+        archiveArtifacts 'dist/goreleaser/'
+      }
+    }
+
+    stage('Build Release Artifacts and Create Pre Release') {
+      // Only run this stage when triggered by a tag
+      when { tag "v*" }
+
+      steps {
+        dir('./pristine-checkout') {
+          // Go releaser requires a pristine checkout
+          checkout scm
+
+          // Create draft release
+          sh "summon --yaml 'GITHUB_TOKEN: !var github/users/conjur-jenkins/api-token' ./build"
+          archiveArtifacts 'dist/goreleaser/'
         }
       }
     }

@@ -1,12 +1,20 @@
 #!/bin/bash -e
 
+CURRENT_DIR=$(pwd)
+
+echo "Current dir: $CURRENT_DIR"
+
+MOUNT_DIR="/summon"
+
+GORELEASER_IMAGE="goreleaser/goreleaser:latest"
+
 git fetch --tags  # jenkins does not do this automatically yet
 
-GORELEASER_IMAGE="goreleaser/goreleaser:latest-cgo"
+docker pull "${GORELEASER_IMAGE}"
+docker run --rm -t \
+  --env GITHUB_TOKEN \
+  -v "$CURRENT_DIR:$MOUNT_DIR" \
+  -w "$MOUNT_DIR" \
+  "${GORELEASER_IMAGE}" --rm-dist "$@"
 
-docker pull "$GORELEASER_IMAGE"
-
-docker run --rm \
-           -v "$PWD:/summon" \
-           -w /summon \
-           "$GORELEASER_IMAGE" release --rm-dist "$@"
+echo "Releases built. Archives can be found in dist/goreleaser"

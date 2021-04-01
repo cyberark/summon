@@ -9,8 +9,8 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-      - name: Build Go package (release)
-        run: ./build
+      - name: Build Go package (release snapshot)
+        run: ./build --snapsot
         if:  ${{ startsWith(github.ref, 'refs/tags/v') }}
       - name: Build Go package (snapshot)
         run: ./build --snapshot
