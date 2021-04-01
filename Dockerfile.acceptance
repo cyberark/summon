@@ -20,7 +20,7 @@ RUN bundle install
 # Build summon
 WORKDIR /summon
 COPY . .
-RUN go build -o /bin/summon cmd/main.go
+COPY ./dist/goreleaser/summon-linux_linux_amd64/summon /bin/summon
 
 # Run tests
 WORKDIR /summon/acceptance

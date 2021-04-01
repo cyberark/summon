@@ -65,7 +65,7 @@ nfpms:
   - file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
     vendor: CyberArk
     homepage: https://github.com/cyberark/summon
-    maintainer: Dustin Collins <dustin.collins@cyberark.com>
+    maintainer: Conjur Maintainers <conj_maintainers@cyberark.com>
 
     description: CLI that provides on-demand secrets access for common DevOps tools.
     recommends:
@@ -74,8 +74,14 @@ nfpms:
     formats:
     - deb
     - rpm
+    - apk
     bindir: /usr/local/bin
 
+dist: ./dist/goreleaser
+
 release:
-  disable: true
-  prerelease: auto
+  disable: false
+  draft: true
+  extra_files:
+    - glob: LICENSE
+    - glob: CHANGELOG.md

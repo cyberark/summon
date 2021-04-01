@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Added
+- Adds apk package to the release artefacts.
+  [cyberark/summon#209](https://github.com/cyberark/summon/issues/209)
+
 ## [0.8.3] - 2020-09-25
 
 ### Added
