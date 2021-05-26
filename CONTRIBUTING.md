@@ -4,7 +4,7 @@ Thanks for your interest in Summon!
 
 
 For general contribution and community guidelines, please see the [community repo](https://github.com/cyberark/community).
-In particular, before contributing please review our [contributor licensing guide](https://github.com/cyberark/community/blob/master/CONTRIBUTING.md#when-the-repo-does-not-include-the-cla)
+In particular, before contributing please review our [contributor licensing guide](https://github.com/cyberark/community/blob/main/CONTRIBUTING.md#when-the-repo-does-not-include-the-cla)
 to ensure your contribution is compliant with our contributor license agreements.
 
 ## Development
@@ -72,7 +72,7 @@ itself, as needed.
 
 The following checklist should be followed when creating a release:
 
-- [ ] Open a PR with the following changes for `master` branch and wait for it to be merged:
+- [ ] Open a PR with the following changes for `main` branch and wait for it to be merged:
   - [ ] Bump release version in [`pkg/summon/version.go`](pkg/summon/version.go).
   - [ ] Bump version in [`CHANGELOG.md`](CHANGELOG.md).
   
@@ -102,7 +102,7 @@ The following checklist should be followed when creating a release:
   
 - [ ] Update homebrew tools
   - [ ] In [`cyberark/homebrew-tools`](https://github.com/cyberark/homebrew-tools) repo, update
-        the [`summon.rb` formula](https://github.com/cyberark/homebrew-tools/blob/master/summon.rb#L4-L6) with a PR
+        the [`summon.rb` formula](https://github.com/cyberark/homebrew-tools/blob/main/summon.rb#L4-L6) with a PR
         using the file `dist/goreleaser/summon.rb`.
         
 - [ ] Publish the release as a regular release.

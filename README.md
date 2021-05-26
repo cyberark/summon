@@ -9,7 +9,7 @@
 
 [![GitHub release](https://img.shields.io/github/release/cyberark/summon.svg)](https://github.com/cyberark/summon/releases/latest)
 
-[![Github commits (since latest release)](https://img.shields.io/github/commits-since/cyberark/summon/latest.svg)](https://github.com/cyberark/summon/commits/master)
+[![Github commits (since latest release)](https://img.shields.io/github/commits-since/cyberark/summon/latest.svg)](https://github.com/cyberark/summon/commits/main)
 
 ---
 
@@ -63,7 +63,7 @@ Use the auto-install script. This will install the latest version of summon.
 The script requires sudo to place summon in `/usr/local/bin`.
 
 ```
-curl -sSL https://raw.githubusercontent.com/cyberark/summon/master/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/cyberark/summon/main/install.sh | bash
 ```
 
 ### Manual Install

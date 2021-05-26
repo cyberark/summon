@@ -79,7 +79,7 @@ else
 fi
 
 if [ -d "/etc/bash_completion.d" ]; then
-  do_download "https://raw.githubusercontent.com/cyberark/summon/master/script/complete_summon" "/etc/bash_completion.d/complete_summon"
+  do_download "https://raw.githubusercontent.com/cyberark/summon/main/script/complete_summon" "/etc/bash_completion.d/complete_summon"
 fi
 
 echo "Success!"
