@@ -86,6 +86,12 @@ func expandPath(provider string) (string, error) {
 }
 
 func getDefaultPath() string {
+	pathOverride := os.Getenv("SUMMON_PROVIDER_PATH")
+
+	if pathOverride != "" {
+		return pathOverride
+	}
+
 	if runtime.GOOS == "windows" {
 		// Try to get the appropriate "Program Files" directory but if one doesn't
 		// exist, use a hardcoded value we think should be right.

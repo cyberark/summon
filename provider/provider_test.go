@@ -120,10 +120,48 @@ func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
 	assert.EqualValues(t, provider, f.Name())
 }
 
+func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
+	tempDir, _ := ioutil.TempDir("", "summontest")
+	defer os.RemoveAll(tempDir)
+	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
+	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
+	DefaultPath = getDefaultPath()
+
+	f, err := ioutil.TempFile(DefaultPath, "")
+	defer os.RemoveAll(f.Name())
+	f.Chmod(755)
+	provider, err := Resolve("")
+
+	assert.Nil(t, err)
+	if err != nil {
+		return
+	}
+
+	assert.EqualValues(t, provider, f.Name())
+}
+
 func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
 	tempDir, _ := ioutil.TempDir("", "summontest")
 	defer os.RemoveAll(tempDir)
 	DefaultPath = tempDir
+
+	// Create 2 exes in provider path
+	f1, _ := ioutil.TempFile(DefaultPath, "")
+	f2, _ := ioutil.TempFile(DefaultPath, "")
+	defer os.RemoveAll(f1.Name())
+	defer os.RemoveAll(f2.Name())
+
+	_, err := Resolve("")
+
+	assert.NotNil(t, err)
+}
+
+func TestProviderResolutionViaOverrideDefaultPathWithMultipleProviders(t *testing.T) {
+	tempDir, _ := ioutil.TempDir("", "summontest")
+	defer os.RemoveAll(tempDir)
+	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
+	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
+	DefaultPath = getDefaultPath()
 
 	// Create 2 exes in provider path
 	f1, _ := ioutil.TempFile(DefaultPath, "")

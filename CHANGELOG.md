@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Fixed
+- Default provider path can be overridden via the `SUMMON_PROVIDER_PATH` environment variable,
+  resolving an issue where providers cannot be found when installed via homebrew in a non-default location.
+  [cyberark/summon#213](https://github.com/cyberark/summon/issues/213)
+
 ## [0.8.4] - 2021-05-04
 
 ### Added
