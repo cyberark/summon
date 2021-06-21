@@ -20,6 +20,19 @@ builds:
   - amd64
   main: ./cmd/main.go
 
+# Apple silicon support
+- id: summon-arm
+  binary: summon
+  env:
+  - CGO_ENABLED=0
+  flags:
+  - -tags=netgo
+  goos:
+  - darwin  # MacOS
+  goarch:
+  - arm64
+  main: ./cmd/main.go
+
 # Make a static build for Linux
 - id: summon-linux
   binary: summon
