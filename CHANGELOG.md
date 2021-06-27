@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Build for Apple M1 silicon.
   [cyberark/summon#216](https://github.com/cyberark/summon/issues/216)
 
+### Added
+- Addded portable mode for provider directory search. If now global provider directory is
+  found providers are searched next to the `summon` executable in `<path_to_exe>/Providers/`
+  [cyberark/summon#164](https://github.com/cyberark/summon/issues/164)
+
 ### Fixed
 - Default provider path can be overridden via the `SUMMON_PROVIDER_PATH` environment variable,
   resolving an issue where providers cannot be found when installed via homebrew in a non-default location.
