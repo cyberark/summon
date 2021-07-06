@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## Unreleased
 
+### Added
+- Build for Apple M1 silicon.
+  [cyberark/summon#216](https://github.com/cyberark/summon/issues/216)
+
 ### Fixed
 - Default provider path can be overridden via the `SUMMON_PROVIDER_PATH` environment variable,
   resolving an issue where providers cannot be found when installed via homebrew in a non-default location.
