@@ -81,6 +81,7 @@ The following checklist should be followed when creating a release:
    - [ ] Binaries for smoke testing are found in the following directories
         - Linux:   `dist/goreleaser/summon-linux_linux_amd64`
         - MacOS:   `dist/goreleaser/summon_darwin_amd64`
+                   `dist/goreleaser/summon-darwin-arm64`
         - Windows: `dist/goreleaser/summon_windows_amd64`
 
 - [ ] Create a draft release:
@@ -91,7 +92,7 @@ The following checklist should be followed when creating a release:
   - [ ] Name the release the same as the tag.
   - [ ] Include in the release notes all changes from CHANGELOG that are being released.
     - [ ] Attach the relevant assets to the release, generated previously by `./build`:
-      - [ ] Attach `dist/goreleaser/summon-darwin-amd64.tar.gz` to release.
+      - [ ] Attach `dist/goreleaser/summon-darwin-a*64.tar.gz` to release.
       - [ ] Attach `dist/goreleaser/summon-linux-amd64.tar.gz` to release.
       - [ ] Attach `dist/goreleaser/summon-windows-amd64.tar.gz` to release.
       - [ ] Attach `dist/goreleaser/summon_v*.rpm` to release.
