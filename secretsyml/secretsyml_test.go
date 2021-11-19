@@ -2,14 +2,24 @@ package secretsyml
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+type testCase struct {
+	name         string
+	defaultValue string
+	path         string
+	isVar        bool
+	isFile       bool
+	isLiteral    bool
+}
+
 func TestParseFromString(t *testing.T) {
+	testEnv := ""
 	t.Run("Given a string in secrets.yml format", func(t *testing.T) {
-		testEnv := ""
 		input := `
 SENTRY_API_KEY: !var $env/sentry/api_key
 PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
@@ -22,69 +32,103 @@ SOME_ESCAPING_VAR: FOO$$BAR
 FLOAT: 27.1111
 INT: 27
 BOOL: true`
+
+		testCases := []testCase{
+			{
+				name:      "SENTRY_API_KEY",
+				isVar:     true,
+				isFile:    false,
+				isLiteral: false,
+			},
+			{
+				name:      "PRIVATE_KEY_FILE",
+				isVar:     true,
+				isFile:    true,
+				isLiteral: false,
+			},
+			{
+				name:      "PRIVATE_KEY_FILE2",
+				isVar:     true,
+				isFile:    true,
+				isLiteral: false,
+			},
+			{
+				name:      "SOME_FILE",
+				isVar:     false,
+				isFile:    true,
+				isLiteral: false,
+			},
+			{
+				name:      "RAILS_ENV",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:      "SOME_ESCAPING_VAR",
+				path:      "FOO$BAR",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:         "DEFAULT_VAR",
+				path:         "prod/sentry/api_key",
+				defaultValue: "defaultvalue",
+				isVar:        true,
+				isFile:       true,
+				isLiteral:    false,
+			},
+			{
+				name:         "DEFAULT_VAR2",
+				path:         "foo",
+				defaultValue: "def",
+				isVar:        false,
+				isFile:       false,
+				isLiteral:    true,
+			},
+			{
+				name:      "FLOAT",
+				path:      "27.1111",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:      "INT",
+				path:      "27",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:      "BOOL",
+				path:      "true",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+		}
 		t.Run("It should correctly identify the types from tags", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
 			assert.NoError(t, err)
+			assert.NotNil(t, parsed)
 
-			spec := parsed["SENTRY_API_KEY"]
-			assert.True(t, spec.IsVar())
-			assert.False(t, spec.IsFile())
-			assert.False(t, spec.IsLiteral())
+			validateTestCases(t, testCases, parsed)
+		})
 
-			// order of tag declaration shouldn't matter
-			for _, key := range []string{"PRIVATE_KEY_FILE", "PRIVATE_KEY_FILE2"} {
-				spec = parsed[key]
-				assert.True(t, spec.IsVar())
-				assert.True(t, spec.IsFile())
-				assert.False(t, spec.IsLiteral())
-			}
+		t.Run("With environment in secrets.yml format", func(t *testing.T) {
+			testEnv = "TestEnvironment"
+			// Use the same input as before, except add the "TestEnvironment" header and indent all the other lines
+			input = "TestEnvironment:" + strings.ReplaceAll(input, "\n", "\n  ")
 
-			spec = parsed["SOME_FILE"]
-			assert.False(t, spec.IsVar())
-			assert.True(t, spec.IsFile())
-			assert.False(t, spec.IsLiteral())
+			t.Run("It should correctly identify the types from tags", func(t *testing.T) {
+				parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
+				assert.NoError(t, err)
+				assert.NotNil(t, parsed)
 
-			spec = parsed["RAILS_ENV"]
-			assert.False(t, spec.IsVar())
-			assert.False(t, spec.IsFile())
-			assert.True(t, spec.IsLiteral())
-
-			spec = parsed["SOME_ESCAPING_VAR"]
-			assert.False(t, spec.IsVar())
-			assert.False(t, spec.IsFile())
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "FOO$BAR", spec.Path)
-
-			spec = parsed["DEFAULT_VAR"]
-			assert.True(t, spec.IsFile())
-			assert.True(t, spec.IsVar())
-			assert.False(t, spec.IsLiteral())
-			assert.Equal(t, "prod/sentry/api_key", spec.Path)
-			assert.Equal(t, "defaultvalue", spec.DefaultValue)
-
-			spec = parsed["DEFAULT_VAR2"]
-			assert.False(t, spec.IsFile())
-			assert.False(t, spec.IsVar())
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "foo", spec.Path)
-			assert.Equal(t, "def", spec.DefaultValue)
-
-			spec, found := parsed["FLOAT"]
-			assert.True(t, found)
-			assert.False(t, spec.IsFile())
-			assert.False(t, spec.IsVar())
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "27.1111", spec.Path)
-
-			spec, found = parsed["INT"]
-			assert.True(t, found)
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "27", spec.Path)
-
-			spec, found = parsed["BOOL"]
-			assert.True(t, found)
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "true", spec.Path)
+				validateTestCases(t, testCases, parsed)
+			})
 		})
 	})
 
@@ -104,69 +148,6 @@ BOOL: true`
 			assert.False(t, spec.IsFile())
 			assert.True(t, spec.IsLiteral())
 			assert.Equal(t, "", spec.Path)
-		})
-	})
-
-	t.Run("Given a string with environment in secrets.yml format", func(t *testing.T) {
-		testEnv := "TestEnvironment"
-		input := `TestEnvironment:
-  SENTRY_API_KEY: !var $env/sentry/api_key
-  PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
-  PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
-  SOME_FILE: !file my content
-  DEFAULT_VAR: !default='def' $env/value
-  RAILS_ENV: $env
-  FLOAT: 27.1111
-  INT: 27
-  BOOL: true`
-
-		t.Run("It should correctly identify the types from tags", func(t *testing.T) {
-			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			assert.NoError(t, err)
-
-			spec := parsed["SENTRY_API_KEY"]
-			assert.True(t, spec.IsVar())
-			assert.False(t, spec.IsFile())
-			assert.False(t, spec.IsLiteral())
-
-			// order of tag declaration shouldn't matter
-			for _, key := range []string{"PRIVATE_KEY_FILE", "PRIVATE_KEY_FILE2"} {
-				spec = parsed[key]
-				assert.True(t, spec.IsVar())
-				assert.True(t, spec.IsFile())
-				assert.False(t, spec.IsLiteral())
-			}
-
-			spec = parsed["SOME_FILE"]
-			assert.False(t, spec.IsVar())
-			assert.True(t, spec.IsFile())
-			assert.False(t, spec.IsLiteral())
-
-			spec = parsed["DEFAULT_VAR"]
-			assert.False(t, spec.IsVar())
-			assert.False(t, spec.IsFile())
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "prod/value", spec.Path)
-
-			spec = parsed["RAILS_ENV"]
-			assert.False(t, spec.IsVar())
-			assert.False(t, spec.IsFile())
-			assert.True(t, spec.IsLiteral())
-
-			spec, found := parsed["FLOAT"]
-			assert.True(t, found)
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "27.1111", spec.Path)
-
-			spec, found = parsed["INT"]
-			assert.True(t, found)
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "27", spec.Path)
-
-			spec, found = parsed["BOOL"]
-			assert.True(t, found)
-			assert.True(t, spec.IsLiteral())
-			assert.Equal(t, "true", spec.Path)
 		})
 	})
 
@@ -235,4 +216,22 @@ TestEnvironment:
 			assert.Equal(t, "prod", spec.Path)
 		})
 	})
+}
+
+func validateTestCases(t *testing.T, testCases []testCase, parsed SecretsMap) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec, found := parsed[tc.name]
+			assert.True(t, found)
+			if tc.path != "" {
+				assert.Equal(t, tc.path, spec.Path)
+			}
+			if tc.defaultValue != "" {
+				assert.Equal(t, tc.defaultValue, spec.DefaultValue)
+			}
+			assert.Equal(t, tc.isVar, spec.IsVar())
+			assert.Equal(t, tc.isFile, spec.IsFile())
+			assert.Equal(t, tc.isLiteral, spec.IsLiteral())
+		})
+	}
 }
