@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseFromString(t *testing.T) {
-	Convey("Given a string in secrets.yml format", t, func() {
+	t.Run("Given a string in secrets.yml format", func(t *testing.T) {
 		testEnv := ""
 		input := `
 SENTRY_API_KEY: !var $env/sentry/api_key
@@ -22,92 +22,92 @@ SOME_ESCAPING_VAR: FOO$$BAR
 FLOAT: 27.1111
 INT: 27
 BOOL: true`
-		Convey("It should correctly identify the types from tags", func() {
+		t.Run("It should correctly identify the types from tags", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["SENTRY_API_KEY"]
-			So(spec.IsVar(), ShouldBeTrue)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeFalse)
+			assert.True(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.False(t, spec.IsLiteral())
 
 			// order of tag declaration shouldn't matter
 			for _, key := range []string{"PRIVATE_KEY_FILE", "PRIVATE_KEY_FILE2"} {
 				spec = parsed[key]
-				So(spec.IsVar(), ShouldBeTrue)
-				So(spec.IsFile(), ShouldBeTrue)
-				So(spec.IsLiteral(), ShouldBeFalse)
+				assert.True(t, spec.IsVar())
+				assert.True(t, spec.IsFile())
+				assert.False(t, spec.IsLiteral())
 			}
 
 			spec = parsed["SOME_FILE"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeFalse)
+			assert.False(t, spec.IsVar())
+			assert.True(t, spec.IsFile())
+			assert.False(t, spec.IsLiteral())
 
 			spec = parsed["RAILS_ENV"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
+			assert.False(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.True(t, spec.IsLiteral())
 
 			spec = parsed["SOME_ESCAPING_VAR"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "FOO$BAR")
+			assert.False(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "FOO$BAR", spec.Path)
 
 			spec = parsed["DEFAULT_VAR"]
-			So(spec.IsFile(), ShouldBeTrue)
-			So(spec.IsVar(), ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeFalse)
-			So(spec.Path, ShouldEqual, "prod/sentry/api_key")
-			So(spec.DefaultValue, ShouldEqual, "defaultvalue")
+			assert.True(t, spec.IsFile())
+			assert.True(t, spec.IsVar())
+			assert.False(t, spec.IsLiteral())
+			assert.Equal(t, "prod/sentry/api_key", spec.Path)
+			assert.Equal(t, "defaultvalue", spec.DefaultValue)
 
 			spec = parsed["DEFAULT_VAR2"]
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "foo")
-			So(spec.DefaultValue, ShouldEqual, "def")
+			assert.False(t, spec.IsFile())
+			assert.False(t, spec.IsVar())
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "foo", spec.Path)
+			assert.Equal(t, "def", spec.DefaultValue)
 
 			spec, found := parsed["FLOAT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27.1111")
+			assert.True(t, found)
+			assert.False(t, spec.IsFile())
+			assert.False(t, spec.IsVar())
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "27.1111", spec.Path)
 
 			spec, found = parsed["INT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27")
+			assert.True(t, found)
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "27", spec.Path)
 
 			spec, found = parsed["BOOL"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "true")
+			assert.True(t, found)
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "true", spec.Path)
 		})
 	})
 
-	Convey("Given an empty variable in secrets.yml", t, func() {
+	t.Run("Given an empty variable in secrets.yml", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `TestEnvironment:
   SOME_VAR1: !var $env/sentry/api_key
   EMPTY_VAR:
   SOME_VAR2: !var:file $env/aws/ec2/private_key`
 
-		Convey("It should correctly parse the file", func() {
+		t.Run("It should correctly parse the file", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["EMPTY_VAR"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "")
+			assert.False(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "", spec.Path)
 		})
 	})
 
-	Convey("Given a string with environment in secrets.yml format", t, func() {
+	t.Run("Given a string with environment in secrets.yml format", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `TestEnvironment:
   SENTRY_API_KEY: !var $env/sentry/api_key
@@ -120,57 +120,57 @@ BOOL: true`
   INT: 27
   BOOL: true`
 
-		Convey("It should correctly identify the types from tags", func() {
+		t.Run("It should correctly identify the types from tags", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["SENTRY_API_KEY"]
-			So(spec.IsVar(), ShouldBeTrue)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeFalse)
+			assert.True(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.False(t, spec.IsLiteral())
 
 			// order of tag declaration shouldn't matter
 			for _, key := range []string{"PRIVATE_KEY_FILE", "PRIVATE_KEY_FILE2"} {
 				spec = parsed[key]
-				So(spec.IsVar(), ShouldBeTrue)
-				So(spec.IsFile(), ShouldBeTrue)
-				So(spec.IsLiteral(), ShouldBeFalse)
+				assert.True(t, spec.IsVar())
+				assert.True(t, spec.IsFile())
+				assert.False(t, spec.IsLiteral())
 			}
 
 			spec = parsed["SOME_FILE"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeFalse)
+			assert.False(t, spec.IsVar())
+			assert.True(t, spec.IsFile())
+			assert.False(t, spec.IsLiteral())
 
 			spec = parsed["DEFAULT_VAR"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "prod/value")
+			assert.False(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "prod/value", spec.Path)
 
 			spec = parsed["RAILS_ENV"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
+			assert.False(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.True(t, spec.IsLiteral())
 
 			spec, found := parsed["FLOAT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27.1111")
+			assert.True(t, found)
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "27.1111", spec.Path)
 
 			spec, found = parsed["INT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27")
+			assert.True(t, found)
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "27", spec.Path)
 
 			spec, found = parsed["BOOL"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "true")
+			assert.True(t, found)
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "true", spec.Path)
 		})
 	})
 
-	Convey("Given an incorrect/unavailable environment", t, func() {
+	t.Run("Given an incorrect/unavailable environment", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `common:
   SOMETHING_COMMON: should-be-available
@@ -178,16 +178,16 @@ BOOL: true`
 
 MissingEnvironment:
   RAILS_ENV: $env`
-		Convey("It should error", func() {
+		t.Run("It should error", func(t *testing.T) {
 			_, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldNotBeNil)
+			assert.Error(t, err)
 
 			errMessage := fmt.Sprintf("No such environment '%v' found in secrets file", testEnv)
-			So(err.Error(), ShouldEqual, errMessage)
+			assert.EqualError(t, err, errMessage)
 		})
 	})
 
-	Convey("Given a common section and environment ", t, func() {
+	t.Run("Given a common section and environment ", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `common:
   SOMETHING_COMMON: should-be-available
@@ -196,23 +196,23 @@ MissingEnvironment:
 TestEnvironment:
   RAILS_ENV: $env`
 
-		Convey("It should merge the environment section with common section", func() {
+		t.Run("It should merge the environment section with common section", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["SOMETHING_COMMON"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "should-be-available")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "should-be-available", spec.Path)
 
 			// RAILS_ENV should be overridden (specific section takes precedence)
 			spec = parsed["RAILS_ENV"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "prod")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "prod", spec.Path)
 		})
 	})
 
 	// Verify that 'default' works in addition to 'common'
-	Convey("Given a default section and environment ", t, func() {
+	t.Run("Given a default section and environment ", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `default:
   SOMETHING_COMMON: should-be-available
@@ -221,18 +221,18 @@ TestEnvironment:
 TestEnvironment:
   RAILS_ENV: $env`
 
-		Convey("It should merge the environment section with default section", func() {
+		t.Run("It should merge the environment section with default section", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["SOMETHING_COMMON"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "should-be-available")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "should-be-available", spec.Path)
 
 			// RAILS_ENV should be overridden (specific section takes precedence)
 			spec = parsed["RAILS_ENV"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "prod")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "prod", spec.Path)
 		})
 	})
 }

@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/cyberark/summon/secretsyml"
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 	_ "golang.org/x/net/context"
 )
 
 func TestConvertSubsToMap(t *testing.T) {
-	Convey("Substitutions are returned as a map used later for interpolation", t, func() {
+	t.Run("Substitutions are returned as a map used later for interpolation", func(t *testing.T) {
 		input := []string{
 			"policy=accounts-database",
 			"environment=production",
@@ -30,13 +30,13 @@ func TestConvertSubsToMap(t *testing.T) {
 
 		output := convertSubsToMap(input)
 
-		So(output, ShouldResemble, expected)
+		assert.EqualValues(t, expected, output)
 	})
 }
 
 func TestFormatForEnvString(t *testing.T) {
-	Convey("formatForEnv should return a KEY=VALUE string that can be appended to an environment", t, func() {
-		Convey("For variables, VALUE should be the value of the secret", func() {
+	t.Run("formatForEnv should return a KEY=VALUE string that can be appended to an environment", func(t *testing.T) {
+		t.Run("For variables, VALUE should be the value of the secret", func(t *testing.T) {
 			spec := secretsyml.SecretSpec{
 				Path: "mysql1/password",
 				Tags: []secretsyml.YamlTag{secretsyml.Var},
@@ -48,10 +48,10 @@ func TestFormatForEnvString(t *testing.T) {
 				nil,
 			)
 
-			So(k, ShouldEqual, "dbpass")
-			So(v, ShouldEqual, "mysecretvalue")
+			assert.Equal(t, "dbpass", k)
+			assert.Equal(t, "mysecretvalue", v)
 		})
-		Convey("For files, VALUE should be the path to a tempfile containing the secret", func() {
+		t.Run("For files, VALUE should be the path to a tempfile containing the secret", func(t *testing.T) {
 			tempFactory := NewTempFactory("")
 			defer tempFactory.Cleanup()
 
@@ -66,32 +66,32 @@ func TestFormatForEnvString(t *testing.T) {
 				&tempFactory,
 			)
 
-			So(key, ShouldEqual, "SSL_CERT")
+			assert.Equal(t, "SSL_CERT", key)
 
 			// Temp path should exist
 			_, err := os.Stat(path)
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			contents, _ := ioutil.ReadFile(path)
 
-			So(string(contents), ShouldContainSubstring, "mysecretvalue")
+			assert.Contains(t, string(contents), "mysecretvalue")
 		})
 	})
 }
 
 func TestJoinEnv(t *testing.T) {
-	Convey("adds a trailing newline", t, func() {
+	t.Run("adds a trailing newline", func(t *testing.T) {
 		result := joinEnv(map[string]string{"foo": "bar", "baz": "qux"})
-		So(result, ShouldEqual, "baz=qux\nfoo=bar\n")
+		assert.Equal(t, "baz=qux\nfoo=bar\n", result)
 	})
 }
 
 func TestRunAction(t *testing.T) {
-	Convey("Variable resolution correctly resolves variables", t, func() {
+	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
 		expectedValue := "valueOfVariable"
 
 		dir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		if err != nil {
 			return
 		}
@@ -105,29 +105,29 @@ func TestRunAction(t *testing.T) {
 		})
 
 		code, err := returnStatusOfError(err)
-		So(err, ShouldBeNil)
-		So(code, ShouldEqual, 0)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, code)
 
 		if err != nil || code != 0 {
 			return
 		}
 
 		content, err := ioutil.ReadFile(tempFile)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		if err != nil {
 			return
 		}
 
-		So(string(content), ShouldEqual, expectedValue)
+		assert.Equal(t, expectedValue, string(content))
 	})
 }
 
 func TestDefaultVariableResolution(t *testing.T) {
-	Convey("Variable resolution correctly resolves variables", t, func() {
+	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
 		expectedDefaultValue := "defaultValueOfVariable"
 
 		dir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		if err != nil {
 			return
 		}
@@ -141,29 +141,29 @@ func TestDefaultVariableResolution(t *testing.T) {
 		})
 
 		code, err := returnStatusOfError(err)
-		So(err, ShouldBeNil)
-		So(code, ShouldEqual, 0)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, code)
 
 		if err != nil || code != 0 {
 			return
 		}
 
 		content, err := ioutil.ReadFile(tempFile)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		if err != nil {
 			return
 		}
 
-		So(string(content), ShouldEqual, expectedDefaultValue)
+		assert.Equal(t, expectedDefaultValue, string(content))
 	})
 }
 
 func TestDefaultVariableResolutionWithValue(t *testing.T) {
-	Convey("Variable resolution correctly resolves variables", t, func() {
+	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
 		expectedValue := "valueOfVariable"
 
 		dir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		if err != nil {
 			return
 		}
@@ -177,41 +177,41 @@ func TestDefaultVariableResolutionWithValue(t *testing.T) {
 		})
 
 		code, err := returnStatusOfError(err)
-		So(err, ShouldBeNil)
-		So(code, ShouldEqual, 0)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, code)
 
 		if err != nil || code != 0 {
 			return
 		}
 
 		content, err := ioutil.ReadFile(tempFile)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		if err != nil {
 			return
 		}
 
-		So(string(content), ShouldEqual, expectedValue)
+		assert.Equal(t, expectedValue, string(content))
 	})
 }
 
 func TestReturnStatusOfError(t *testing.T) {
-	Convey("returns no error as 0", t, func() {
+	t.Run("returns no error as 0", func(t *testing.T) {
 		res, err := returnStatusOfError(nil)
-		So(res, ShouldEqual, 0)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, res)
 	})
 
-	Convey("returns ExitError as the wrapped exit status", t, func() {
+	t.Run("returns ExitError as the wrapped exit status", func(t *testing.T) {
 		exit := exec.Command("false").Run()
 		res, err := returnStatusOfError(exit)
-		So(res, ShouldEqual, 1)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
+		assert.Equal(t, 1, res)
 	})
 
-	Convey("returns other errors unchanged", t, func() {
+	t.Run("returns other errors unchanged", func(t *testing.T) {
 		expected := errors.New("test")
 		_, err := returnStatusOfError(expected)
-		So(err, ShouldEqual, expected)
+		assert.Equal(t, expected, err)
 	})
 }
 
@@ -220,67 +220,67 @@ func TestPrintProviderVersions(t *testing.T) {
 		t.Skip("Skipping long-running test.")
 	}
 
-	Convey("printProviderVersions should return a string of all of the providers in the DefaultPath", t, func() {
+	t.Run("printProviderVersions should return a string of all of the providers in the DefaultPath", func(t *testing.T) {
 		pathTo, err := os.Getwd()
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		pathToTest := filepath.Join(pathTo, "testversions")
 
 		//test1 - regular formating and appending of version # to string
 		//test2 - chopping off of trailing newline
 		//test3 - failed `--version` call
 		output, err := printProviderVersions(pathToTest)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 
 		expected := `testprovider version 1.2.3
 testprovider-noversionsupport: unknown version
 testprovider-trailingnewline version 3.2.1
 `
 
-		So(output, ShouldEqual, expected)
+		assert.Equal(t, expected, output)
 	})
 }
 
 func TestLocateFileRecurseUp(t *testing.T) {
 	filename := "test.txt"
 
-	Convey("Finds file in current working directory", t, func() {
+	t.Run("Finds file in current working directory", func(t *testing.T) {
 		topDir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
 		localFilePath := filepath.Join(topDir, filename)
 		_, err = os.Create(localFilePath)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 
 		gotPath, err := findInParentTree(filename, topDir)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 
-		So(gotPath, ShouldEqual, localFilePath)
+		assert.Equal(t, localFilePath, gotPath)
 	})
 
-	Convey("Finds file in a higher working directory", t, func() {
+	t.Run("Finds file in a higher working directory", func(t *testing.T) {
 		topDir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
 		higherFilePath := filepath.Join(topDir, filename)
 		_, err = os.Create(higherFilePath)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 
 		// Create a downwards directory hierarchy, starting from topDir
 		downDir := filepath.Join(topDir, "dir1", "dir2", "dir3")
 		err = os.MkdirAll(downDir, 0700)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 
 		gotPath, err := findInParentTree(filename, downDir)
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 
-		So(gotPath, ShouldEqual, higherFilePath)
+		assert.Equal(t, higherFilePath, gotPath)
 	})
 
-	Convey("returns a friendly error if file not found", t, func() {
+	t.Run("returns a friendly error if file not found", func(t *testing.T) {
 		topDir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
 		// A unlikely to exist file name
@@ -290,30 +290,30 @@ func TestLocateFileRecurseUp(t *testing.T) {
 			nonExistingFileName)
 
 		_, err = findInParentTree(nonExistingFileName, topDir)
-		So(err.Error(), ShouldEqual, wantErrMsg)
+		assert.EqualError(t, err, wantErrMsg)
 	})
 
-	Convey("returns a friendly error if file is an absolute path", t, func() {
+	t.Run("returns a friendly error if file is an absolute path", func(t *testing.T) {
 		topDir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
 		absFileName := "/foo/bar/baz"
 		wantErrMsg := "file specified (/foo/bar/baz) is an absolute path: will not recurse up"
 
 		_, err = findInParentTree(absFileName, topDir)
-		So(err.Error(), ShouldEqual, wantErrMsg)
+		assert.EqualError(t, err, wantErrMsg)
 	})
 
-	Convey("returns a friendly error in unexpected circumstances (100% coverage)", t, func() {
+	t.Run("returns a friendly error in unexpected circumstances (100% coverage)", func(t *testing.T) {
 		topDir, err := ioutil.TempDir("", "summon")
-		So(err, ShouldBeNil)
+		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
 		fileNameWithNulByte := "pizza\x00margherita"
 		wantErrMsg := "unable to locate file specified (pizza\x00margherita): stat"
 
 		_, err = findInParentTree(fileNameWithNulByte, topDir)
-		So(err.Error(), ShouldStartWith, wantErrMsg)
+		assert.Contains(t, err.Error(), wantErrMsg)
 	})
 }
