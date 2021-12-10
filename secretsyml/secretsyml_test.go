@@ -2,14 +2,24 @@ package secretsyml
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 )
 
+type testCase struct {
+	name         string
+	defaultValue string
+	path         string
+	isVar        bool
+	isFile       bool
+	isLiteral    bool
+}
+
 func TestParseFromString(t *testing.T) {
-	Convey("Given a string in secrets.yml format", t, func() {
-		testEnv := ""
+	testEnv := ""
+	t.Run("Given a string in secrets.yml format", func(t *testing.T) {
 		input := `
 SENTRY_API_KEY: !var $env/sentry/api_key
 PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
@@ -22,155 +32,126 @@ SOME_ESCAPING_VAR: FOO$$BAR
 FLOAT: 27.1111
 INT: 27
 BOOL: true`
-		Convey("It should correctly identify the types from tags", func() {
+
+		testCases := []testCase{
+			{
+				name:      "SENTRY_API_KEY",
+				isVar:     true,
+				isFile:    false,
+				isLiteral: false,
+			},
+			{
+				name:      "PRIVATE_KEY_FILE",
+				isVar:     true,
+				isFile:    true,
+				isLiteral: false,
+			},
+			{
+				name:      "PRIVATE_KEY_FILE2",
+				isVar:     true,
+				isFile:    true,
+				isLiteral: false,
+			},
+			{
+				name:      "SOME_FILE",
+				isVar:     false,
+				isFile:    true,
+				isLiteral: false,
+			},
+			{
+				name:      "RAILS_ENV",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:      "SOME_ESCAPING_VAR",
+				path:      "FOO$BAR",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:         "DEFAULT_VAR",
+				path:         "prod/sentry/api_key",
+				defaultValue: "defaultvalue",
+				isVar:        true,
+				isFile:       true,
+				isLiteral:    false,
+			},
+			{
+				name:         "DEFAULT_VAR2",
+				path:         "foo",
+				defaultValue: "def",
+				isVar:        false,
+				isFile:       false,
+				isLiteral:    true,
+			},
+			{
+				name:      "FLOAT",
+				path:      "27.1111",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:      "INT",
+				path:      "27",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+			{
+				name:      "BOOL",
+				path:      "true",
+				isVar:     false,
+				isFile:    false,
+				isLiteral: true,
+			},
+		}
+		t.Run("It should correctly identify the types from tags", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
+			assert.NotNil(t, parsed)
 
-			spec := parsed["SENTRY_API_KEY"]
-			So(spec.IsVar(), ShouldBeTrue)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeFalse)
+			validateTestCases(t, testCases, parsed)
+		})
 
-			// order of tag declaration shouldn't matter
-			for _, key := range []string{"PRIVATE_KEY_FILE", "PRIVATE_KEY_FILE2"} {
-				spec = parsed[key]
-				So(spec.IsVar(), ShouldBeTrue)
-				So(spec.IsFile(), ShouldBeTrue)
-				So(spec.IsLiteral(), ShouldBeFalse)
-			}
+		t.Run("With environment in secrets.yml format", func(t *testing.T) {
+			testEnv = "TestEnvironment"
+			// Use the same input as before, except add the "TestEnvironment" header and indent all the other lines
+			input = "TestEnvironment:" + strings.ReplaceAll(input, "\n", "\n  ")
 
-			spec = parsed["SOME_FILE"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeFalse)
+			t.Run("It should correctly identify the types from tags", func(t *testing.T) {
+				parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
+				assert.NoError(t, err)
+				assert.NotNil(t, parsed)
 
-			spec = parsed["RAILS_ENV"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-
-			spec = parsed["SOME_ESCAPING_VAR"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "FOO$BAR")
-
-			spec = parsed["DEFAULT_VAR"]
-			So(spec.IsFile(), ShouldBeTrue)
-			So(spec.IsVar(), ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeFalse)
-			So(spec.Path, ShouldEqual, "prod/sentry/api_key")
-			So(spec.DefaultValue, ShouldEqual, "defaultvalue")
-
-			spec = parsed["DEFAULT_VAR2"]
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "foo")
-			So(spec.DefaultValue, ShouldEqual, "def")
-
-			spec, found := parsed["FLOAT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27.1111")
-
-			spec, found = parsed["INT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27")
-
-			spec, found = parsed["BOOL"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "true")
+				validateTestCases(t, testCases, parsed)
+			})
 		})
 	})
 
-	Convey("Given an empty variable in secrets.yml", t, func() {
+	t.Run("Given an empty variable in secrets.yml", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `TestEnvironment:
   SOME_VAR1: !var $env/sentry/api_key
   EMPTY_VAR:
   SOME_VAR2: !var:file $env/aws/ec2/private_key`
 
-		Convey("It should correctly parse the file", func() {
+		t.Run("It should correctly parse the file", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["EMPTY_VAR"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "")
+			assert.False(t, spec.IsVar())
+			assert.False(t, spec.IsFile())
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "", spec.Path)
 		})
 	})
 
-	Convey("Given a string with environment in secrets.yml format", t, func() {
-		testEnv := "TestEnvironment"
-		input := `TestEnvironment:
-  SENTRY_API_KEY: !var $env/sentry/api_key
-  PRIVATE_KEY_FILE: !file:var $env/aws/ec2/private_key
-  PRIVATE_KEY_FILE2: !var:file $env/aws/ec2/private_key
-  SOME_FILE: !file my content
-  DEFAULT_VAR: !default='def' $env/value
-  RAILS_ENV: $env
-  FLOAT: 27.1111
-  INT: 27
-  BOOL: true`
-
-		Convey("It should correctly identify the types from tags", func() {
-			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
-
-			spec := parsed["SENTRY_API_KEY"]
-			So(spec.IsVar(), ShouldBeTrue)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeFalse)
-
-			// order of tag declaration shouldn't matter
-			for _, key := range []string{"PRIVATE_KEY_FILE", "PRIVATE_KEY_FILE2"} {
-				spec = parsed[key]
-				So(spec.IsVar(), ShouldBeTrue)
-				So(spec.IsFile(), ShouldBeTrue)
-				So(spec.IsLiteral(), ShouldBeFalse)
-			}
-
-			spec = parsed["SOME_FILE"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeFalse)
-
-			spec = parsed["DEFAULT_VAR"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "prod/value")
-
-			spec = parsed["RAILS_ENV"]
-			So(spec.IsVar(), ShouldBeFalse)
-			So(spec.IsFile(), ShouldBeFalse)
-			So(spec.IsLiteral(), ShouldBeTrue)
-
-			spec, found := parsed["FLOAT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27.1111")
-
-			spec, found = parsed["INT"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "27")
-
-			spec, found = parsed["BOOL"]
-			So(found, ShouldBeTrue)
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "true")
-		})
-	})
-
-	Convey("Given an incorrect/unavailable environment", t, func() {
+	t.Run("Given an incorrect/unavailable environment", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `common:
   SOMETHING_COMMON: should-be-available
@@ -178,16 +159,16 @@ BOOL: true`
 
 MissingEnvironment:
   RAILS_ENV: $env`
-		Convey("It should error", func() {
+		t.Run("It should error", func(t *testing.T) {
 			_, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldNotBeNil)
+			assert.Error(t, err)
 
 			errMessage := fmt.Sprintf("No such environment '%v' found in secrets file", testEnv)
-			So(err.Error(), ShouldEqual, errMessage)
+			assert.EqualError(t, err, errMessage)
 		})
 	})
 
-	Convey("Given a common section and environment ", t, func() {
+	t.Run("Given a common section and environment ", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `common:
   SOMETHING_COMMON: should-be-available
@@ -196,23 +177,23 @@ MissingEnvironment:
 TestEnvironment:
   RAILS_ENV: $env`
 
-		Convey("It should merge the environment section with common section", func() {
+		t.Run("It should merge the environment section with common section", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["SOMETHING_COMMON"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "should-be-available")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "should-be-available", spec.Path)
 
 			// RAILS_ENV should be overridden (specific section takes precedence)
 			spec = parsed["RAILS_ENV"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "prod")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "prod", spec.Path)
 		})
 	})
 
 	// Verify that 'default' works in addition to 'common'
-	Convey("Given a default section and environment ", t, func() {
+	t.Run("Given a default section and environment ", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `default:
   SOMETHING_COMMON: should-be-available
@@ -221,18 +202,36 @@ TestEnvironment:
 TestEnvironment:
   RAILS_ENV: $env`
 
-		Convey("It should merge the environment section with default section", func() {
+		t.Run("It should merge the environment section with default section", func(t *testing.T) {
 			parsed, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
-			So(err, ShouldBeNil)
+			assert.NoError(t, err)
 
 			spec := parsed["SOMETHING_COMMON"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "should-be-available")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "should-be-available", spec.Path)
 
 			// RAILS_ENV should be overridden (specific section takes precedence)
 			spec = parsed["RAILS_ENV"]
-			So(spec.IsLiteral(), ShouldBeTrue)
-			So(spec.Path, ShouldEqual, "prod")
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "prod", spec.Path)
 		})
 	})
+}
+
+func validateTestCases(t *testing.T, testCases []testCase, parsed SecretsMap) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			spec, found := parsed[tc.name]
+			assert.True(t, found)
+			if tc.path != "" {
+				assert.Equal(t, tc.path, spec.Path)
+			}
+			if tc.defaultValue != "" {
+				assert.Equal(t, tc.defaultValue, spec.DefaultValue)
+			}
+			assert.Equal(t, tc.isVar, spec.IsVar())
+			assert.Equal(t, tc.isFile, spec.IsFile())
+			assert.Equal(t, tc.isLiteral, spec.IsLiteral())
+		})
+	}
 }

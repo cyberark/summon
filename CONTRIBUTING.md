@@ -29,7 +29,6 @@ go run cmd/main.go
 
 ### Unit Testing
 
-Tests are written using [GoConvey](http://goconvey.co/).
 Run tests with `go test -v ./...` or `./test` (for CI).
 
 ### Smoke Testing
