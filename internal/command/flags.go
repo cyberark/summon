@@ -1,7 +1,7 @@
 package command
 
 import (
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 )
 
 // Flags define all the available CLI switches and aargs that a user can provide

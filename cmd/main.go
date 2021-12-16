@@ -5,9 +5,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/codegangsta/cli"
 	"github.com/cyberark/summon/internal/command"
 	"github.com/cyberark/summon/pkg/summon"
+	"github.com/urfave/cli"
 )
 
 var (
