@@ -11,9 +11,9 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/codegangsta/cli"
 	prov "github.com/cyberark/summon/provider"
 	"github.com/cyberark/summon/secretsyml"
+	"github.com/urfave/cli"
 )
 
 // ActionConfig is an object that holds all the info needed to run
@@ -201,7 +201,7 @@ func joinEnv(env map[string]string) string {
 	for k, v := range env {
 		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
 	}
-	
+
 	// Sort to ensure predictable results
 	sort.Strings(envs)
 

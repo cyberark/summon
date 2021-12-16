@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Update go to 1.17 & switch to github.com/urfave/cli 
+  from github.com/codegangsta/cli
+  [cyberark/summon#226](https://github.com/cyberark/summon/pull/226)
 
 ## [0.9.0] - 2021-07-19
 
