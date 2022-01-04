@@ -10,6 +10,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestDefaultPortableProviderPath(t *testing.T) {
+	// CAVEAT: only works if no default installation within the test
+	// environment exists! getDefaultProvider falls back to portable
+	// only if no global install is found
+	DefaultPath = getDefaultPath()
+
+	exec, _ := os.Executable()
+	execDir := filepath.Dir(exec)
+	dir := filepath.Join(execDir, "Providers")
+	assert.EqualValues(t, dir, DefaultPath)
+}
+
 func TestNoProviderReturnsError(t *testing.T) {
 	// Point to a tempdir to avoid pollution from dev env
 	tempDir, _ := ioutil.TempDir("", "summontest")

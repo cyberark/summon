@@ -92,6 +92,8 @@ func getDefaultPath() string {
 		return pathOverride
 	}
 
+	dir := "/usr/local/lib/summon"
+
 	if runtime.GOOS == "windows" {
 		// Try to get the appropriate "Program Files" directory but if one doesn't
 		// exist, use a hardcoded value we think should be right.
@@ -100,10 +102,21 @@ func getDefaultPath() string {
 			programFilesDir = filepath.Join("C:", "Program Files")
 		}
 
-		return filepath.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
+		dir = filepath.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
 	}
 
-	return "/usr/local/lib/summon"
+	// found default installation directory
+	if _, err := os.Stat(dir); err == nil {
+		return dir
+	}
+
+	// finally: enable portable installation with Providers dir next to executable
+	// if the direcotries above were not found
+	exec, _ := os.Executable()
+	execDir := filepath.Dir(exec)
+	dir = filepath.Join(execDir, "Providers")
+
+	return dir
 }
 
 // GetAllProviders creates slice of all file names in the default path
