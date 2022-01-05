@@ -56,7 +56,8 @@ func Call(provider, specPath string) (string, error) {
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer
 	)
-	cmd := exec.Command(provider, specPath)
+	args := strings.Split(specPath, " ")
+	cmd := exec.Command(provider, args...)
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
 	err := cmd.Run()
