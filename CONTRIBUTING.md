@@ -14,7 +14,7 @@ to ensure your contribution is compliant with our contributor license agreements
 To build versions for Linux, macOS and Windows:
 
 ```
-./build
+./build --snapshot
 ```
 
 Binaries will be placed in `dist/goreleaser`.
