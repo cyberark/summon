@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Security
+- Update acceptance image Golang to 1.17 to fix CVE-2022-0778 and CVE-2022-1292.
+  [cyberark/summon#232](https://github.com/cyberark/summon/pull/232/)
+
 ## [0.9.1] - 2021-12-22
 ### Changed
 - Update go to 1.17 & switch to github.com/urfave/cli 
