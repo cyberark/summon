@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.9.2] - 2022-05-31
 ### Security
 - Update main and acceptance base images to Golang 1.17 to fix CVE-2022-0778 and CVE-2022-1292.
   [cyberark/summon#232](https://github.com/cyberark/summon/pull/232/)
@@ -208,7 +209,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/cyberark/summon/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/cyberark/summon/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/cyberark/summon/compare/v0.8.4...v0.9.0
 [0.8.4]: https://github.com/cyberark/summon/compare/v0.8.3...v0.8.4
