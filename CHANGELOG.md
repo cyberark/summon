@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.9.3] - 2022-06-08
+### Changed
+- Updated dependencies in go.mod (github.com/stretchr/testify -> 1.7.2, 
+  github.com/urfave/cli -> 1.22.9, golang.org/x/net -> v0.0.0-20220607020251-c690dde0001d,
+  gopkg.in/yaml.v3 -> v3.0.1)
+  [cyberark/summon#234](https://github.com/cyberark/summon/pull/234)
+
 ## [0.9.2] - 2022-05-31
 ### Security
 - Update main and acceptance base images to Golang 1.17 to fix CVE-2022-0778 and CVE-2022-1292.
