@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.9.3] - 2022-06-08
+## [0.9.3] - 2022-06-15
 ### Changed
 - Updated dependencies in go.mod (github.com/stretchr/testify -> 1.7.2, 
   github.com/urfave/cli -> 1.22.9, golang.org/x/net -> v0.0.0-20220607020251-c690dde0001d,
@@ -216,7 +216,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/cyberark/summon/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/cyberark/summon/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/cyberark/summon/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/cyberark/summon/compare/v0.8.4...v0.9.0
