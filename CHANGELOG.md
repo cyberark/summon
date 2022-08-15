@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Security
+- Replaced gopkg.in/yaml.v2 v2.2.2 with v2.2.8 to address 
+  SNYK-GOLANG-GOPKGINYAMLV2-1533594 and CVE-2019-11254
+  [cyberark/summon#236](https://github.com/cyberark/summon/pull/236)
+
 ## [0.9.3] - 2022-06-15
 ### Changed
 - Updated dependencies in go.mod (github.com/stretchr/testify -> 1.7.2, 
