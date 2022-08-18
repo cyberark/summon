@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.9.4] - 2022-08-18
 ### Security
 - Replaced gopkg.in/yaml.v2 v2.2.2 with v2.2.8 to address 
   SNYK-GOLANG-GOPKGINYAMLV2-1533594 and CVE-2019-11254
@@ -221,7 +222,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/cyberark/summon/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/cyberark/summon/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/cyberark/summon/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/cyberark/summon/compare/v0.9.0...v0.9.1
