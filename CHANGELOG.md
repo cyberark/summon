@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.9.5] - 2022-09-28
+### Security
+- Update aruba (0.6.2 -> 2.0.0), cucumber (2.0.0 -> 7.1.0) and other necessary
+  dependencies in acceptance/Gemfile.lock
+  [cyberark/summon#239](https://github.com/cyberark/summon/pull/239)
+
 ## [0.9.4] - 2022-08-18
 ### Security
 - Replaced gopkg.in/yaml.v2 v2.2.2 with v2.2.8 to address 
