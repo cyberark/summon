@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Update aruba (0.6.2 -> 2.0.0), cucumber (2.0.0 -> 7.1.0) and other necessary
   dependencies in acceptance/Gemfile.lock
   [cyberark/summon#239](https://github.com/cyberark/summon/pull/239)
+- Update golang.org/x/net to v0.0.0-20220923203811-8be639271d50
+  [cyberark/summon#240](https://github.com/cyberark/summon/pull/240)
 
 ## [0.9.4] - 2022-08-18
 ### Security
