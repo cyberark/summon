@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [0.9.5] - 2022-09-28
+### Changed
+- Upgrade Go to 1.19
+  [cyberark/summon#240](https://github.com/cyberark/summon/pull/240)
+
 ### Security
 - Update aruba (0.6.2 -> 2.0.0), cucumber (2.0.0 -> 7.1.0) and other necessary
   dependencies in acceptance/Gemfile.lock
