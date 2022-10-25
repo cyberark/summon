@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [0.9.5] - 2022-09-28
+### Changed
+- Upgrade Go to 1.19
+  [cyberark/summon#240](https://github.com/cyberark/summon/pull/240)
+
 ### Security
 - Update aruba (0.6.2 -> 2.0.0), cucumber (2.0.0 -> 7.1.0) and other necessary
   dependencies in acceptance/Gemfile.lock
   [cyberark/summon#239](https://github.com/cyberark/summon/pull/239)
+- Update golang.org/x/net to v0.0.0-20220923203811-8be639271d50
+  [cyberark/summon#240](https://github.com/cyberark/summon/pull/240)
 
 ## [0.9.4] - 2022-08-18
 ### Security
@@ -228,7 +234,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/cyberark/summon/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/cyberark/summon/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/cyberark/summon/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/cyberark/summon/compare/v0.9.1...v0.9.2

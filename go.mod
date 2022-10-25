@@ -3,7 +3,7 @@ module github.com/cyberark/summon
 require (
 	github.com/stretchr/testify v1.8.0
 	github.com/urfave/cli v1.22.9
-	golang.org/x/net v0.0.0-20220812174116-3211cb980234
+	golang.org/x/net v0.0.0-20220923203811-8be639271d50
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -16,7 +16,9 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
-go 1.17
+go 1.19
+
+replace golang.org/x/net v0.0.0-20220812174116-3211cb980234 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
 replace gopkg.in/yaml.v2 v2.2.2 => gopkg.in/yaml.v2 v2.2.8
 

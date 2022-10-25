@@ -1,4 +1,4 @@
-FROM golang:1.17
+FROM golang:1.19
 
 WORKDIR /summon
 
@@ -11,9 +11,9 @@ RUN apt update -y && \
     apt install -y bash \
                    git && \
     go mod download && \
-    go get -u github.com/jstemmer/go-junit-report && \
-    go get -u github.com/axw/gocov/gocov && \
-    go get -u github.com/AlekSi/gocov-xml && \
+    go install github.com/jstemmer/go-junit-report@latest && \
+    go install github.com/axw/gocov/gocov@latest && \
+    go install github.com/AlekSi/gocov-xml@latest && \
     mkdir -p /summon/output
 
 COPY . .
