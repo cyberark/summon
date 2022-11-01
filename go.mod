@@ -20,6 +20,8 @@ go 1.19
 
 replace golang.org/x/net v0.0.0-20220812174116-3211cb980234 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
+replace golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
+
 replace gopkg.in/yaml.v2 v2.2.2 => gopkg.in/yaml.v2 v2.2.8
 
 replace gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c => gopkg.in/yaml.v3 v3.0.1
