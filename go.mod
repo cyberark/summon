@@ -22,9 +22,13 @@ replace golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 => golang.org/x/c
 
 replace golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 => golang.org/x/crypto v0.0.0-20211202192323-5770296d904e
 
+replace golang.org/x/crypto v0.0.0-20211202192323-5770296d904e => golang.org/x/crypto v0.0.0-20211202192323-5770296d904e
+
 replace golang.org/x/net v0.0.0-20190620200207-3b0461eec859 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
 replace golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
+
+replace golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
 replace golang.org/x/net v0.0.0-20220722155237-a158d28d115b => golang.org/x/net v0.0.0-20220923203811-8be639271d50
 
@@ -33,6 +37,8 @@ replace golang.org/x/net v0.0.0-20220812174116-3211cb980234 => golang.org/x/net 
 replace golang.org/x/text v0.3.0 => golang.org/x/text v0.3.8
 
 replace golang.org/x/text v0.3.3 => golang.org/x/text v0.3.8
+
+replace golang.org/x/text v0.3.6 => golang.org/x/text v0.3.8
 
 replace golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
 
