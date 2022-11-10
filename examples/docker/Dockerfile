@@ -1,4 +1,4 @@
-FROM python:alpine3.10
+FROM python:3.11.0
 
 RUN mkdir /src
 WORKDIR /src

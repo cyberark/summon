@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.9.5] - 2022-09-28
 ### Changed
+- Upgraded example Dockerfile to use python:3.11
+  [cyberark/summon#243](https://github.com/cyberark/summon/pull/243)
 - Upgrade Go to 1.19
   [cyberark/summon#240](https://github.com/cyberark/summon/pull/240)
 
