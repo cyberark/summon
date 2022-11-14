@@ -48,6 +48,7 @@ pipeline {
       steps {
         sh './build --snapshot'
         archiveArtifacts 'dist/goreleaser/'
+        sh 'ls .'
       }
     }
 
@@ -63,6 +64,7 @@ pipeline {
           // Create draft release
           sh "summon --yaml 'GITHUB_TOKEN: !var github/users/conjur-jenkins/api-token' ./build"
           archiveArtifacts 'dist/goreleaser/'
+          sh "ls ."
         }
       }
     }
