@@ -62,7 +62,7 @@ pipeline {
           checkout scm
 
           // Create draft release
-          sh "summon --yaml 'GITHUB_TOKEN: !var github/users/conjur-jenkins/api-token' ./build"
+          sh "summon --yaml 'GITHUB_TOKEN: !var github/users/conjur-jenkins/api-token' ./build --snapshot"
           archiveArtifacts 'dist/goreleaser/'
           sh "ls ."
         }
