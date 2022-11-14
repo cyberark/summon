@@ -20,6 +20,9 @@ RUN bundle install
 # Build summon
 WORKDIR /summon
 COPY . .
+RUN ls
+RUN ls ./dist
+RUN ls ./dist/goreleaser
 COPY ./dist/goreleaser/summon-linux_linux_amd64_v1/summon /bin/summon
 
 # Run tests
