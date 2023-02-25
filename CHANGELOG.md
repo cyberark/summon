@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Security
+- Upgrade golang.org/x/net to v0.7.0 for CVE-2022-41721 and CVE-2022-41722 (not vulnerable)
+  [cyberark/summon#245](https://github.com/cyberark/summon/pull/245)
+
 ## [0.9.5] - 2022-09-28
 ### Changed
 - Upgraded example Dockerfile to use python:3.11
