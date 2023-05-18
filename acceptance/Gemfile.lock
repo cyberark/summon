@@ -43,4 +43,4 @@ DEPENDENCIES
   ffi (>= 1.9.24)
 
 BUNDLED WITH
-   2.0.2
+   2.4.12
