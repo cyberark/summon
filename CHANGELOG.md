@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Security
+- Upgrade golang.org/x/net to v0.10.0, golang.org/x/crypto to v0.9.0,
+  golang.org/x/sys to v0.8.0, and Go to 1.20
+  [cyberark/summon#247](https://github.com/cyberark/summon/pull/247)
 - Upgrade golang.org/x/net to v0.7.0 for CVE-2022-41721 and CVE-2022-41722 (not vulnerable)
   [cyberark/summon#245](https://github.com/cyberark/summon/pull/245)
 

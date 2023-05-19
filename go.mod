@@ -3,7 +3,7 @@ module github.com/cyberark/summon
 require (
 	github.com/stretchr/testify v1.8.0
 	github.com/urfave/cli v1.22.9
-	golang.org/x/net v0.7.0
+	golang.org/x/net v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
