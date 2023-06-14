@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.9.6] - 2023-06-14
+
 ### Security
 - Upgrade golang.org/x/net to v0.10.0, golang.org/x/crypto to v0.9.0,
   golang.org/x/sys to v0.8.0, and Go to 1.20
@@ -245,7 +247,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/cyberark/summon/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/cyberark/summon/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/cyberark/summon/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/cyberark/summon/compare/v0.9.2...v0.9.3
