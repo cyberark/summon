@@ -1,7 +1,8 @@
 #!/usr/bin/env groovy
+@Library("product-pipelines-shared-library") _
 
 pipeline {
-  agent { label 'executor-v2' }
+  agent { label 'conjur-enterprise-common-agent' }
 
   options {
     timestamps()
@@ -20,18 +21,32 @@ pipeline {
       }
     }
 
+    stage('Get InfraPool ExecutorV2 Agent') {
+      steps {
+        script {
+          // Request ExecutorV2 agents for 1 hour(s)
+          INFRAPOOL_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "ExecutorV2", quantity: 1, duration: 1)[0]
+        }
+      }
+    }
+
     stage('Validate Changelog') {
-      steps { sh './bin/parse-changelog' }
+      steps { script { INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './bin/parse-changelog' } }
     }
 
     stage('Run unit tests') {
       steps {
-        sh './test_unit'
-        sh 'mv output/c.out .'
-        ccCoverage("gocov", "--prefix github.com/cyberark/summon")
+        script {
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './test_unit'
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'mv output/c.out .'
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'output-xml', includes: 'output/*.xml'
+          unstash 'output-xml'
+          codacy action: 'reportCoverage', filePath: "output/coverage.xml"
+        }
       }
       post {
         always {
+          unstash 'output-xml'
           junit 'output/junit.xml'
           cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'output/coverage.xml', conditionalCoverageTargets: '100, 0, 0', failUnhealthy: true, failUnstable: false, lineCoverageTargets: '74, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '92, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
         }
@@ -40,39 +55,47 @@ pipeline {
 
     stage('Build Release Artifacts') {
       when {
-        not {
-          tag "v*"
-        }
+        not { buildingTag() }
       }
 
       steps {
-        sh './build --snapshot'
-        archiveArtifacts 'dist/goreleaser/'
+        script {
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './build --snapshot'
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentArchiveArtifacts artifacts: 'dist/goreleaser/'
+        }
       }
     }
 
     stage('Build Release Artifacts and Create Pre Release') {
       // Only run this stage when triggered by a tag
-      when { tag "v*" }
+      when { buildingTag() }
 
       steps {
-        dir('./pristine-checkout') {
-          // Go releaser requires a pristine checkout
-          checkout scm
+        script {
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentDir('./pristine-checkout') {
+            // Go releaser requires a pristine checkout
+            checkout scm
 
-          // Create draft release
-          sh "summon --yaml 'GITHUB_TOKEN: !var github/users/conjur-jenkins/api-token' ./build"
-          archiveArtifacts 'dist/goreleaser/'
+            // Copy the checkout content onto infrapool
+            INFRAPOOL_EXECUTORV2_AGENT_0.agentPut from: "./", to: "."
+
+            // Create draft release
+            INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'summon --yaml "GITHUB_TOKEN: !var github/users/conjur-jenkins/api-token" ./build'
+          }
         }
       }
     }
 
     stage('Run acceptance tests') {
       steps {
-        sh './test_acceptance'
+        script {
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentSh './test_acceptance'
+          INFRAPOOL_EXECUTORV2_AGENT_0.agentStash name: 'acceptance-output', includes: 'output/acceptance/*.xml'
+        }
       }
       post {
         always {
+          unstash 'acceptance-output'
           junit 'output/acceptance/*.xml'
         }
       }
@@ -82,17 +105,23 @@ pipeline {
       parallel {
         stage('Validate installation on Ubuntu 20:04') {
           steps {
-            sh 'bin/installer-test --ubuntu-20.04'
+            script {
+              INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'bin/installer-test --ubuntu-20.04'
+            }
           }
         }
         stage('Validate installation on Ubuntu 18:04') {
           steps {
-            sh 'bin/installer-test --ubuntu-18.04'
+            script {
+              INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'bin/installer-test --ubuntu-18.04'
+            }
           }
         }
         stage('Validate installation on Ubuntu 16:04') {
           steps {
-            sh 'bin/installer-test --ubuntu-16.04'
+            script {
+              INFRAPOOL_EXECUTORV2_AGENT_0.agentSh 'bin/installer-test --ubuntu-16.04'
+            }
           }
         }
       }
@@ -101,7 +130,9 @@ pipeline {
 
   post {
     always {
-      cleanupAndNotify(currentBuild.currentResult)
+      script {
+        releaseInfraPoolAgent(".infrapool/release_agents")
+      }
     }
   }
 }

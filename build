@@ -8,8 +8,6 @@ MOUNT_DIR="/summon"
 
 GORELEASER_IMAGE="goreleaser/goreleaser:latest"
 
-git fetch --tags  # jenkins does not do this automatically yet
-
 docker pull "${GORELEASER_IMAGE}"
 docker run --rm -t \
   --env GITHUB_TOKEN \
