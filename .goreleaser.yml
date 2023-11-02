@@ -20,7 +20,7 @@ builds:
   - amd64
   main: ./cmd/main.go
 
-# Apple silicon support
+# Arm support
 - id: summon-arm
   binary: summon
   env:
@@ -29,6 +29,7 @@ builds:
   - -tags=netgo
   goos:
   - darwin  # MacOS
+  - linux
   goarch:
   - arm64
   main: ./cmd/main.go
