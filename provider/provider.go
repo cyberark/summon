@@ -11,9 +11,6 @@ import (
 	"strings"
 )
 
-// DefaultPath returns the default path where providers are located
-var DefaultPath = getDefaultPath()
-
 // Resolve resolves a filepath to a provider
 // Checks the CLI arg, environment and then default path
 func Resolve(providerArg string) (string, error) {
@@ -24,11 +21,15 @@ func Resolve(providerArg string) (string, error) {
 	}
 
 	if provider == "" {
-		providers, _ := ioutil.ReadDir(DefaultPath)
+		defaultPath, err := GetDefaultPath()
+		if err != nil {
+			return "", err
+		}
+		providers, _ := ioutil.ReadDir(defaultPath)
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {
-			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", DefaultPath)
+			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", defaultPath)
 		}
 	}
 
@@ -82,14 +83,19 @@ func expandPath(provider string) (string, error) {
 		return filepath.Abs(provider)
 	}
 
-	return filepath.Join(DefaultPath, provider), nil
+	defaultPath, err := GetDefaultPath()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(defaultPath, provider), nil
 }
 
-func getDefaultPath() string {
+func GetDefaultPath() (string, error) {
 	pathOverride := os.Getenv("SUMMON_PROVIDER_PATH")
 
 	if pathOverride != "" {
-		return pathOverride
+		return pathOverride, nil
 	}
 
 	dir := "/usr/local/lib/summon"
@@ -107,16 +113,49 @@ func getDefaultPath() string {
 
 	// found default installation directory
 	if _, err := os.Stat(dir); err == nil {
-		return dir
+		return dir, nil
 	}
 
-	// finally: enable portable installation with Providers dir next to executable
+	// Enable portable installation with Providers dir next to executable
 	// if the direcotries above were not found
-	exec, _ := os.Executable()
-	execDir := filepath.Dir(exec)
-	dir = filepath.Join(execDir, "Providers")
 
-	return dir
+	// eg ~/brew/bin/summon
+	exec, _ := os.Executable()
+
+	// eg ~/brew/bin
+	execDir := filepath.Dir(exec)
+
+	// eg ~/brew/bin/Providers
+	providersDir := filepath.Join(execDir, "Providers")
+
+	if _, err := os.Stat(providersDir); err == nil {
+		return providersDir, nil
+	}
+
+	// Homebrew installs summon-conjur to ~/brew/lib/summon
+
+	// Dir removes the last element in a path, so can be used to go
+	// up the file tree, not just splitting file from path.
+
+	// eg ~/brew
+	baseDir := filepath.Dir(execDir)
+
+	// libDir = ~/brew/lib/summon
+	libDir := filepath.Join(baseDir, "lib", "summon")
+
+	if _, err := os.Stat(libDir); err == nil {
+		return libDir, nil
+	}
+
+	return "", fmt.Errorf("No provider directory found. Please set the " +
+		"environment variable SUMMON_PROVIDER_PATH to the directory " +
+		"containing providers.\n" +
+		"Provider paths searched: \n" +
+		"	/usr/local/lib/summon\n"+
+		"	${summon bin dir}/Providers,\n" +
+		"	${summon bin dir}/../lib/summon\n" +
+		"	Environment Variable: SUMMON_PROVIDER_PATH\n" +
+		"	C:\\Program Files\\Cyberark Conjur\\Summon\\Providers")
 }
 
 // GetAllProviders creates slice of all file names in the default path

@@ -220,7 +220,7 @@ func TestPrintProviderVersions(t *testing.T) {
 		t.Skip("Skipping long-running test.")
 	}
 
-	t.Run("printProviderVersions should return a string of all of the providers in the DefaultPath", func(t *testing.T) {
+	t.Run("printProviderVersions should return a string of all of the providers in the defaultPath", func(t *testing.T) {
 		pathTo, err := os.Getwd()
 		assert.NoError(t, err)
 		pathToTest := filepath.Join(pathTo, "testversions")
@@ -231,7 +231,8 @@ func TestPrintProviderVersions(t *testing.T) {
 		output, err := printProviderVersions(pathToTest)
 		assert.NoError(t, err)
 
-		expected := `testprovider version 1.2.3
+		expected := `Provider versions in /summon/internal/command/testversions:
+testprovider version 1.2.3
 testprovider-noversionsupport: unknown version
 testprovider-trailingnewline version 3.2.1
 `

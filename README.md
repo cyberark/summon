@@ -151,11 +151,12 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 * `-p, --provider <path-to-provider>` specify the path to the
 [provider](provider/README.md) summon should use.
 
-    If you do not provide Summon with the full path to the provider, Summon
-    will look for the named executable in the directory defined by the `SUMMON_PROVIDER_PATH`
-    environment variable.  If this environment variable is not set, Summon
-    will look by default at `/usr/local/lib/summon` on Linux / Mac or
-    `%ProgramW6432%\Cyberark Conjur\Summon\Providers` on Windows.
+    If you do not provide Summon with the full path to the provider, Summon will look for providers in the following order:
+    * Environment Variable: `SUMMON_PROVIDER_PATH`
+    * `/usr/local/lib/summon` on Linux / Mac
+    * `%ProgramW6432%\Cyberark Conjur\Summon\Providers` on Windows.
+    * `${summon binary dir}/Providers` For portable installation
+    * `${summon binary dir}/../lib/summon` For homebrew installations
 
 * `-f <path>` specify a location to a secrets.yml file, default 'secrets.yml' in current directory.
 

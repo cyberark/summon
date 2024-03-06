@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"fmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,19 +15,50 @@ func TestDefaultPortableProviderPath(t *testing.T) {
 	// CAVEAT: only works if no default installation within the test
 	// environment exists! getDefaultProvider falls back to portable
 	// only if no global install is found
-	DefaultPath = getDefaultPath()
+
+	// GetDefaultPath() now tests that the directory exists, so we have to
+	// create it for this test to pass.
 
 	exec, _ := os.Executable()
 	execDir := filepath.Dir(exec)
 	dir := filepath.Join(execDir, "Providers")
-	assert.EqualValues(t, dir, DefaultPath)
+
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		// Handle the error
+		fmt.Printf("TestDefaultPortableProviderPath: Error creating directory: %s\n", err.Error())
+		return
+	}
+	defer os.RemoveAll(dir)
+
+	defaultPath, err := GetDefaultPath()
+	assert.Nil(t, err)
+	assert.EqualValues(t, dir, defaultPath)
+}
+
+func TestDefaultPortableLibProviderPath(t *testing.T) {
+	// This is the case for homebrew installations
+	exec, _ := os.Executable()
+	execDir := filepath.Dir(exec)
+	baseDir := filepath.Dir(execDir)
+	dir := filepath.Join(baseDir, "lib", "summon")
+
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		// Handle the error
+		fmt.Printf("TestDefaultPortableLibProviderPath: Error creating directory: %s\n", err.Error())
+		return
+	}
+	defer os.RemoveAll(dir)
+	defaultPath, err := GetDefaultPath()
+	assert.Nil(t, err)
+	assert.EqualValues(t, dir, defaultPath)
 }
 
 func TestNoProviderReturnsError(t *testing.T) {
 	// Point to a tempdir to avoid pollution from dev env
 	tempDir, _ := ioutil.TempDir("", "summontest")
 	defer os.RemoveAll(tempDir)
-	DefaultPath = tempDir
 
 	_, err := Resolve("")
 	assert.NotNil(t, err)
@@ -38,6 +70,7 @@ func TestProviderResolutionOfAbsPath(t *testing.T) {
 
 	assert.Nil(t, err)
 	if err != nil {
+		fmt.Printf("Error: %s\n", err.Error())
 		return
 	}
 
@@ -115,13 +148,17 @@ func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
 }
 
 func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
+	// Create tmpdir with single executable file
 	tempDir, _ := ioutil.TempDir("", "summontest")
 	defer os.RemoveAll(tempDir)
-	DefaultPath = tempDir
-
-	f, err := ioutil.TempFile(DefaultPath, "")
+	f, err := ioutil.TempFile(tempDir, "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(755)
+
+	// DefaultPath is no longer a global, so use
+	// the env var instead.
+	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
+
 	provider, err := Resolve("")
 
 	assert.Nil(t, err)
@@ -137,9 +174,9 @@ func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
 	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
-	DefaultPath = getDefaultPath()
+	defaultPath, _ := GetDefaultPath()
 
-	f, err := ioutil.TempFile(DefaultPath, "")
+	f, err := ioutil.TempFile(defaultPath, "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(755)
 	provider, err := Resolve("")
@@ -155,11 +192,11 @@ func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
 func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
 	tempDir, _ := ioutil.TempDir("", "summontest")
 	defer os.RemoveAll(tempDir)
-	DefaultPath = tempDir
+	defaultPath := tempDir
 
 	// Create 2 exes in provider path
-	f1, _ := ioutil.TempFile(DefaultPath, "")
-	f2, _ := ioutil.TempFile(DefaultPath, "")
+	f1, _ := ioutil.TempFile(defaultPath, "")
+	f2, _ := ioutil.TempFile(defaultPath, "")
 	defer os.RemoveAll(f1.Name())
 	defer os.RemoveAll(f2.Name())
 
@@ -173,11 +210,11 @@ func TestProviderResolutionViaOverrideDefaultPathWithMultipleProviders(t *testin
 	defer os.RemoveAll(tempDir)
 	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
 	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
-	DefaultPath = getDefaultPath()
+	defaultPath, _ := GetDefaultPath()
 
 	// Create 2 exes in provider path
-	f1, _ := ioutil.TempFile(DefaultPath, "")
-	f2, _ := ioutil.TempFile(DefaultPath, "")
+	f1, _ := ioutil.TempFile(defaultPath, "")
+	f2, _ := ioutil.TempFile(defaultPath, "")
 	defer os.RemoveAll(f1.Name())
 	defer os.RemoveAll(f2.Name())
 
