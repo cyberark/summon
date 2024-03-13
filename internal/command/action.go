@@ -81,7 +81,11 @@ func runAction(ac *ActionConfig) error {
 	)
 
 	if ac.ShowProviderVersions {
-		output, err := printProviderVersions(prov.DefaultPath)
+		defaultPath, err := prov.GetDefaultPath()
+		if err != nil {
+			return err
+		}
+		output, err := printProviderVersions(defaultPath)
 		if err != nil {
 			return err
 		}
@@ -291,6 +295,8 @@ func returnStatusOfError(err error) (int, error) {
 // printProviderVersions returns a string of all provider versions
 func printProviderVersions(providerPath string) (string, error) {
 	var providerVersions bytes.Buffer
+
+	providerVersions.WriteString(fmt.Sprintf("Provider versions in %s:\n", providerPath))
 
 	providers, err := prov.GetAllProviders(providerPath)
 	if err != nil {
