@@ -1,5 +1,7 @@
 module github.com/cyberark/summon
 
+go 1.22.1
+
 require (
 	github.com/stretchr/testify v1.8.0
 	github.com/urfave/cli v1.22.9
@@ -15,8 +17,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
-
-go 1.19
 
 replace golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 => golang.org/x/crypto v0.0.0-20211202192323-5770296d904e
 
