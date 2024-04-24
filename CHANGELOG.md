@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.9.8] - 2024-04-25
+
+### Security
+- Upgrade golang.org/x/net to v0.24.0 (CONJSE-1862)
+
 ## [0.9.7] - 2024-03-21
 
 ### Security
