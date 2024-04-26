@@ -1,12 +1,12 @@
 package provider
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"fmt"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -269,7 +269,7 @@ func TestGetAllProviders(t *testing.T) {
 	choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
 	assert.Equal(t, choppedPathTo, pathTo[0:len(pathTo)-9])
 
-	pathToTest := filepath.Join(choppedPathTo, "internal", "command", "testversions")
+	pathToTest := filepath.Join(choppedPathTo, "command", "testversions")
 
 	output, err := GetAllProviders(pathToTest)
 	assert.Nil(t, err)
@@ -295,7 +295,7 @@ func TestGetAllProvidersWithBadPath(t *testing.T) {
 	choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
 	assert.Equal(t, choppedPathTo, pathTo[0:len(pathTo)-9])
 
-	pathToTest := filepath.Join(choppedPathTo, "internal", "command", "testversions")
+	pathToTest := filepath.Join(choppedPathTo, "command", "testversions")
 
 	_, err = GetAllProviders(filepath.Join(pathToTest, "makebelievedir"))
 	assert.NotNil(t, err)
