@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/cyberark/summon/internal/command"
+	"github.com/cyberark/summon/pkg/command"
 	"github.com/cyberark/summon/pkg/summon"
 	"github.com/urfave/cli"
 )

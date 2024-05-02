@@ -4,7 +4,6 @@ build.sh
 _site
 .vagrant
 Vagrantfile
-provider/provider
 summon
 vendor/
 Godeps/

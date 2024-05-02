@@ -1,7 +1,6 @@
-package command
+package summon
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,106 +10,49 @@ import (
 	"sync"
 	"syscall"
 
-	prov "github.com/cyberark/summon/provider"
-	"github.com/cyberark/summon/secretsyml"
-	"github.com/urfave/cli"
+	"github.com/cyberark/summon/pkg/secretsyml"
 )
 
-// ActionConfig is an object that holds all the info needed to run
+// SubprocessConfig is an object that holds all the info needed to run
 // a Summon instance
-type ActionConfig struct {
+type SubprocessConfig struct {
 	Args                 []string
 	Provider             string
 	Filepath             string
 	YamlInline           string
-	Subs                 map[string]string
+	Subs                 []string
 	Ignores              []string
 	IgnoreAll            bool
 	Environment          string
 	RecurseUp            bool
 	ShowProviderVersions bool
+	FetchSecret          SecretFetcher
 }
 
 const ENV_FILE_MAGIC = "@SUMMONENVFILE"
 const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
 
-// Action is the runner for the main program logic
-var Action = func(c *cli.Context) {
-	if !c.Args().Present() && !c.Bool("all-provider-versions") {
-		fmt.Println("Enter a subprocess to run!")
-		os.Exit(127)
-	}
+// SecretFetcher is function signature for fetching a secret
+type SecretFetcher func(string) ([]byte, error)
 
-	provider, err := prov.Resolve(c.String("provider"))
-	// It's okay to not throw this error here, because `Resolve()` throws an
-	// error if there are multiple unspecified providers. `all-provider-versions`
-	// doesn't care about this and just looks in the default provider dir
-	if err != nil && !c.Bool("all-provider-versions") {
-		fmt.Println(err.Error())
-		os.Exit(127)
-	}
-
-	err = runAction(&ActionConfig{
-		Args:                 c.Args(),
-		Provider:             provider,
-		Environment:          c.String("environment"),
-		Filepath:             c.String("f"),
-		YamlInline:           c.String("yaml"),
-		Ignores:              c.StringSlice("ignore"),
-		IgnoreAll:            c.Bool("ignore-all"),
-		RecurseUp:            c.Bool("up"),
-		ShowProviderVersions: c.Bool("all-provider-versions"),
-		Subs:                 convertSubsToMap(c.StringSlice("D")),
-	})
-
-	code, err := returnStatusOfError(err)
-
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(127)
-	}
-
-	os.Exit(code)
-}
-
-// runAction encapsulates the logic of Action without cli Context for easier testing
-func runAction(ac *ActionConfig) error {
+// RunSubprocess encapsulates the logic of fetching secrets, executing the subprocess with the secrets injected.
+func RunSubprocess(sc *SubprocessConfig) (int, error) {
 	var (
 		secrets secretsyml.SecretsMap
 		err     error
 	)
 
-	if ac.ShowProviderVersions {
-		defaultPath, err := prov.GetDefaultPath()
-		if err != nil {
-			return err
-		}
-		output, err := printProviderVersions(defaultPath)
-		if err != nil {
-			return err
-		}
+	subs := convertSubsToMap(sc.Subs)
 
-		fmt.Print(output)
-		return nil
-	}
-
-	if ac.RecurseUp {
-		currentDir, err := os.Getwd()
-		ac.Filepath, err = findInParentTree(ac.Filepath, currentDir)
-		if err != nil {
-			return err
-		}
-	}
-
-	switch ac.YamlInline {
+	switch sc.YamlInline {
 	case "":
-		secrets, err = secretsyml.ParseFromFile(ac.Filepath, ac.Environment, ac.Subs)
+		secrets, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
 	default:
-		secrets, err = secretsyml.ParseFromString(ac.YamlInline, ac.Environment, ac.Subs)
+		secrets, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
 	}
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	env := make(map[string]string)
@@ -132,12 +74,13 @@ func runAction(ac *ActionConfig) error {
 		go func(key string, spec secretsyml.SecretSpec) {
 			var value string
 			if spec.IsVar() {
-				value, err = prov.Call(ac.Provider, spec.Path)
+				valueBytes, err := sc.FetchSecret(spec.Path)
 				if err != nil {
 					results <- Result{key, "", err}
 					wg.Done()
 					return
 				}
+				value = string(valueBytes)
 			} else {
 				// If the spec isn't a variable, use its value as-is
 				value = spec.Path
@@ -161,32 +104,48 @@ EnvLoop:
 		if envvar.error == nil {
 			env[envvar.key] = envvar.value
 		} else {
-			if ac.IgnoreAll {
+			if sc.IgnoreAll {
 				continue EnvLoop
 			}
 
-			for i := range ac.Ignores {
-				if ac.Ignores[i] == fmt.Sprintf("%s=%s", envvar.key, envvar.value) {
+			for i := range sc.Ignores {
+				if sc.Ignores[i] == fmt.Sprintf("%s=%s", envvar.key, envvar.value) {
 					continue EnvLoop
 				}
 			}
-			return fmt.Errorf("Error fetching variable %v: %v", envvar.key, envvar.error.Error())
+			return 0, fmt.Errorf("Error fetching variable %v: %v", envvar.key, envvar.error.Error())
 		}
 	}
 
 	// Append environment variable if one is specified
-	if ac.Environment != "" {
-		env[SUMMON_ENV_KEY_NAME] = ac.Environment
+	if sc.Environment != "" {
+		env[SUMMON_ENV_KEY_NAME] = sc.Environment
 	}
 
-	setupEnvFile(ac.Args, env, &tempFactory)
+	setupEnvFile(sc.Args, env, &tempFactory)
 
 	var e []string
 	for k, v := range env {
 		e = append(e, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	return runSubcommand(ac.Args, append(os.Environ(), e...))
+	err = runSubcommand(sc.Args, append(os.Environ(), e...))
+	if err != nil {
+		return returnStatusOfError(err)
+	}
+
+	return 0, nil
+}
+
+func returnStatusOfError(err error) (int, error) {
+	if eerr, ok := err.(*exec.ExitError); ok {
+		if ws, ok := eerr.Sys().(syscall.WaitStatus); ok {
+			if ws.Exited() {
+				return ws.ExitStatus(), nil
+			}
+		}
+	}
+	return 0, err
 }
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
@@ -279,41 +238,4 @@ func convertSubsToMap(subs []string) map[string]string {
 		out[key] = val
 	}
 	return out
-}
-
-func returnStatusOfError(err error) (int, error) {
-	if eerr, ok := err.(*exec.ExitError); ok {
-		if ws, ok := eerr.Sys().(syscall.WaitStatus); ok {
-			if ws.Exited() {
-				return ws.ExitStatus(), nil
-			}
-		}
-	}
-	return 0, err
-}
-
-// printProviderVersions returns a string of all provider versions
-func printProviderVersions(providerPath string) (string, error) {
-	var providerVersions bytes.Buffer
-
-	providerVersions.WriteString(fmt.Sprintf("Provider versions in %s:\n", providerPath))
-
-	providers, err := prov.GetAllProviders(providerPath)
-	if err != nil {
-		return "", err
-	}
-
-	for _, provider := range providers {
-		version, err := exec.Command(filepath.Join(providerPath, provider), "--version").Output()
-		if err != nil {
-			providerVersions.WriteString(fmt.Sprintf("%s: unknown version\n", provider))
-			continue
-		}
-
-		versionString := fmt.Sprintf("%s", version)
-		versionString = strings.TrimSpace(versionString)
-
-		providerVersions.WriteString(fmt.Sprintf("%s version %s\n", provider, versionString))
-	}
-	return providerVersions.String(), nil
 }
