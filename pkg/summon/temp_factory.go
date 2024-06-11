@@ -1,7 +1,6 @@
 package summon
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -33,7 +32,7 @@ func DefaultTempPath() string {
 	}
 	home, err := os.UserHomeDir()
 	if err == nil {
-		dir, _ := ioutil.TempDir(home, ".tmp")
+		dir, _ := os.MkdirTemp(home, ".tmp")
 		return dir
 	}
 	return os.TempDir()
@@ -41,7 +40,7 @@ func DefaultTempPath() string {
 
 // Push creates a temp file with given value. Returns the path.
 func (tf *TempFactory) Push(value string) string {
-	f, _ := ioutil.TempFile(tf.path, ".summon")
+	f, _ := os.CreateTemp(tf.path, ".summon")
 	defer f.Close()
 
 	f.Write([]byte(value))

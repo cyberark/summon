@@ -4,7 +4,7 @@ package secretsyml
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -132,7 +132,7 @@ func ParseFromString(content, env string, subs map[string]string) (SecretsMap, e
 
 // ParseFromFile parses a file in secrets.yml format to a map.
 func ParseFromFile(filepath, env string, subs map[string]string) (SecretsMap, error) {
-	data, err := ioutil.ReadFile(filepath)
+	data, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}

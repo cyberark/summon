@@ -2,12 +2,13 @@ package provider
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/cyberark/summon/pkg/secretsyml"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -57,7 +58,7 @@ func TestDefaultPortableLibProviderPath(t *testing.T) {
 
 func TestNoProviderReturnsError(t *testing.T) {
 	// Point to a tempdir to avoid pollution from dev env
-	tempDir, _ := ioutil.TempDir("", "summontest")
+	tempDir, _ := os.MkdirTemp("", "summontest")
 	defer os.RemoveAll(tempDir)
 
 	_, err := Resolve("")
@@ -78,7 +79,7 @@ func TestProviderResolutionOfAbsPath(t *testing.T) {
 }
 
 func TestProviderResolutionOfRelPath(t *testing.T) {
-	f, err := ioutil.TempFile("", "")
+	f, err := os.CreateTemp("", "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(755)
 
@@ -119,7 +120,7 @@ func TestProviderResolutionViaEnvVarOfAbsPath(t *testing.T) {
 }
 
 func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
-	f, err := ioutil.TempFile("", "")
+	f, err := os.CreateTemp("", "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(755)
 
@@ -149,9 +150,9 @@ func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
 
 func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
 	// Create tmpdir with single executable file
-	tempDir, _ := ioutil.TempDir("", "summontest")
+	tempDir, _ := os.MkdirTemp("", "summontest")
 	defer os.RemoveAll(tempDir)
-	f, err := ioutil.TempFile(tempDir, "")
+	f, err := os.CreateTemp(tempDir, "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(755)
 
@@ -170,13 +171,13 @@ func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
 }
 
 func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
-	tempDir, _ := ioutil.TempDir("", "summontest")
+	tempDir, _ := os.MkdirTemp("", "summontest")
 	defer os.RemoveAll(tempDir)
 	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
 	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
 	defaultPath, _ := GetDefaultPath()
 
-	f, err := ioutil.TempFile(defaultPath, "")
+	f, err := os.CreateTemp(defaultPath, "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(755)
 	provider, err := Resolve("")
@@ -190,13 +191,13 @@ func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
 }
 
 func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
-	tempDir, _ := ioutil.TempDir("", "summontest")
+	tempDir, _ := os.MkdirTemp("", "summontest")
 	defer os.RemoveAll(tempDir)
 	defaultPath := tempDir
 
 	// Create 2 exes in provider path
-	f1, _ := ioutil.TempFile(defaultPath, "")
-	f2, _ := ioutil.TempFile(defaultPath, "")
+	f1, _ := os.CreateTemp(defaultPath, "")
+	f2, _ := os.CreateTemp(defaultPath, "")
 	defer os.RemoveAll(f1.Name())
 	defer os.RemoveAll(f2.Name())
 
@@ -206,15 +207,15 @@ func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
 }
 
 func TestProviderResolutionViaOverrideDefaultPathWithMultipleProviders(t *testing.T) {
-	tempDir, _ := ioutil.TempDir("", "summontest")
+	tempDir, _ := os.MkdirTemp("", "summontest")
 	defer os.RemoveAll(tempDir)
 	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
 	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
 	defaultPath, _ := GetDefaultPath()
 
 	// Create 2 exes in provider path
-	f1, _ := ioutil.TempFile(defaultPath, "")
-	f2, _ := ioutil.TempFile(defaultPath, "")
+	f1, _ := os.CreateTemp(defaultPath, "")
+	f2, _ := os.CreateTemp(defaultPath, "")
 	defer os.RemoveAll(f1.Name())
 	defer os.RemoveAll(f2.Name())
 
@@ -299,4 +300,108 @@ func TestGetAllProvidersWithBadPath(t *testing.T) {
 
 	_, err = GetAllProviders(filepath.Join(pathToTest, "makebelievedir"))
 	assert.NotNil(t, err)
+}
+
+func TestCallInteractiveMode(t *testing.T) {
+	t.Run("provider command fails to execute", func(t *testing.T) {
+		provider := "/non/existent/command"
+		secrets := secretsyml.SecretsMap{
+			"key1": secretsyml.SecretSpec{Path: "provider.go"},
+		}
+
+		_, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		defer cleanup()
+
+		select {
+		case err := <-errorsCh:
+			assert.Error(t, err)
+		case <-time.After(1 * time.Second):
+			assert.Fail(t, "Timeout waiting for error")
+		}
+	})
+
+	t.Run("provider command executes successfully", func(t *testing.T) {
+		provider, err := createMockProvider()
+		assert.NoError(t, err)
+		secrets := secretsyml.SecretsMap{
+			"key1": secretsyml.SecretSpec{Path: "provider.go"},
+		}
+
+		resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		defer cleanup()
+
+		select {
+		case result := <-resultsCh:
+			assert.NotNil(t, result)
+			assert.Nil(t, result.Error)
+			assert.Equal(t, "provider.go", result.Value)
+
+		case err := <-errorsCh:
+			assert.Fail(t, "Unexpected error: %v", err)
+		case <-time.After(1 * time.Second):
+			assert.Fail(t, "Timeout waiting for result")
+		}
+	})
+
+	t.Run("provider command executes successfully with multiple secrets", func(t *testing.T) {
+		provider, err := createMockProvider()
+		assert.NoError(t, err)
+		defer os.Remove(provider)
+		secrets := secretsyml.SecretsMap{
+			"key1": secretsyml.SecretSpec{Path: "provider.go"},
+			"key2": secretsyml.SecretSpec{Path: "provider2.go"},
+			"key3": secretsyml.SecretSpec{Path: "provider3.go"},
+		}
+		results := make(map[string]string)
+
+		resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		defer cleanup()
+
+		for i := 0; i < len(secrets); i++ {
+			select {
+			case result := <-resultsCh:
+				assert.NotNil(t, result)
+				assert.Nil(t, result.Error)
+				results[result.Key] = result.Value
+			case err := <-errorsCh:
+				assert.Fail(t, "Unexpected error: %v", err)
+			case <-time.After(1 * time.Second):
+				assert.Fail(t, "Timeout waiting for result")
+			}
+		}
+
+		assert.Equal(t, len(secrets), len(results))
+		assert.Equal(t, "provider.go", results["key1"])
+		assert.Equal(t, "provider2.go", results["key2"])
+		assert.Equal(t, "provider3.go", results["key3"])
+	})
+}
+
+// Mocks the behaviour of a summon provider. The provider reads a list of secrets from stdin
+// and outputs the base64 encoded values to the stdout
+func createMockProvider() (string, error) {
+	// Create a temporary file to act as the mock provider
+	tmpfile, err := os.CreateTemp("", "mockprovider")
+	if err != nil {
+		return "", err
+	}
+
+	// Write a script to the temporary file that outputs multiple base64 encoded strings
+	script := `#!/bin/bash
+    while read -r line; do
+        echo $(echo -n $line | base64)
+    done`
+	if _, err := tmpfile.Write([]byte(script)); err != nil {
+		return "", err
+	}
+	if err := tmpfile.Close(); err != nil {
+		return "", err
+	}
+
+	// Make the file executable
+	if err := os.Chmod(tmpfile.Name(), 0755); err != nil {
+		return "", err
+	}
+
+	return tmpfile.Name(), nil
 }

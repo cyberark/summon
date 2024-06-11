@@ -1,14 +1,20 @@
 package provider
 
 import (
+	"bufio"
 	"bytes"
+	"context"
+	"encoding/base64"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
+
+	"github.com/cyberark/summon/pkg/secretsyml"
 )
 
 // Resolve resolves a filepath to a provider
@@ -25,7 +31,7 @@ func Resolve(providerArg string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		providers, _ := ioutil.ReadDir(defaultPath)
+		providers, _ := os.ReadDir(defaultPath)
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {
@@ -71,6 +77,109 @@ func Call(provider, specPath string) (string, error) {
 	}
 
 	return strings.TrimSpace(stdOut.String()), nil
+}
+
+// Result represents secret key and its value taken from the provider
+type Result struct {
+	Key   string
+	Value string
+	Error error
+}
+
+// ErrInteractiveModeNotSupported is returned when a provider does not support interactive mode
+var ErrInteractiveModeNotSupported = errors.New("interactive mode not supported")
+
+// CallInteractiveMode calls a provider without passing any arguments. It then constantly fetches
+// secrets from its stdout. It returns a channel of results, a channel of errors and a cleanup function.
+func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func()) {
+	resultsCh := make(chan Result)
+	errorsCh := make(chan error, 1)
+	ctxTimeout, ctxCancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	cmd := exec.CommandContext(ctxTimeout, provider)
+
+	// Get a pipe to the command's stdinPipe
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		errorsCh <- err
+		return resultsCh, errorsCh, func() { ctxCancel() }
+	}
+	// Get a pipe to the command's stdoutPipe
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		errorsCh <- err
+		return resultsCh, errorsCh, func() {
+			stdinPipe.Close()
+			ctxCancel()
+		}
+	}
+	cleanup := func() {
+		stdinPipe.Close()
+		stdoutPipe.Close()
+		ctxCancel()
+	}
+
+	err = cmd.Start()
+
+	if err != nil {
+		errorsCh <- err
+		return resultsCh, errorsCh, cleanup
+	}
+
+	secretEnvVarCh := make(chan string, len(secrets))
+
+	// This goroutine sends the paths of the secrets to the stdin of a secrets provider
+	go func() {
+		for key, spec := range secrets {
+			_, err := fmt.Fprintln(stdinPipe, spec.Path)
+			if err != nil {
+				errorsCh <- ErrInteractiveModeNotSupported
+				break
+			}
+			secretEnvVarCh <- key
+		}
+	}()
+
+	// This goroutine reads from the stdoutPipe of a secrets provider and sends the results to the results channel.
+	// After all secrets are read, it closes the results channel
+	go func() {
+		defer close(resultsCh)
+		scanner := bufio.NewScanner(stdoutPipe)
+
+		index := 0
+
+		for scanner.Scan() {
+
+			line := scanner.Text()
+			if err != nil {
+				errorsCh <- ErrInteractiveModeNotSupported
+				break
+			}
+
+			decoded, err := base64.StdEncoding.DecodeString(line)
+
+			if err != nil {
+				errorsCh <- err
+				break
+			}
+			keyVal := <-secretEnvVarCh
+			resultsCh <- Result{
+				Key:   keyVal,
+				Value: string(decoded),
+				Error: nil,
+			}
+			index++
+			if index >= len(secrets) {
+				break
+			}
+
+		}
+		if index == 0 {
+			errorsCh <- ErrInteractiveModeNotSupported
+		}
+
+	}()
+	return resultsCh, errorsCh, cleanup
 }
 
 // Given a provider name, it returns a path to executable prefixed with DefaultPath. If
@@ -151,7 +260,7 @@ func GetDefaultPath() (string, error) {
 		"environment variable SUMMON_PROVIDER_PATH to the directory " +
 		"containing providers.\n" +
 		"Provider paths searched: \n" +
-		"	/usr/local/lib/summon\n"+
+		"	/usr/local/lib/summon\n" +
 		"	${summon bin dir}/Providers,\n" +
 		"	${summon bin dir}/../lib/summon\n" +
 		"	Environment Variable: SUMMON_PROVIDER_PATH\n" +
@@ -160,7 +269,7 @@ func GetDefaultPath() (string, error) {
 
 // GetAllProviders creates slice of all file names in the default path
 func GetAllProviders(providerDir string) ([]string, error) {
-	files, err := ioutil.ReadDir(providerDir)
+	files, err := os.ReadDir(providerDir)
 	if err != nil {
 		return make([]string, 0), err
 	}

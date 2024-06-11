@@ -46,6 +46,7 @@ var Action = func(c *cli.Context) {
 		IgnoreAll:   c.Bool("ignore-all"),
 		RecurseUp:   c.Bool("up"),
 		Subs:        c.StringSlice("D"),
+		Provider:    provider,
 		FetchSecret: func(secretId string) ([]byte, error) {
 			s, err := prov.Call(provider, secretId)
 			return []byte(s), err
