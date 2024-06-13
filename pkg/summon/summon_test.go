@@ -3,7 +3,6 @@ package summon
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 	"github.com/stretchr/testify/assert"
 )
@@ -19,7 +19,7 @@ func TestRunSubprocess(t *testing.T) {
 	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
 		expectedValue := "valueOfVariable"
 
-		dir, err := ioutil.TempDir("", "summon")
+		dir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		if err != nil {
 			return
@@ -40,7 +40,7 @@ func TestRunSubprocess(t *testing.T) {
 			return
 		}
 
-		content, err := ioutil.ReadFile(tempFile)
+		content, err := os.ReadFile(tempFile)
 		assert.NoError(t, err)
 		if err != nil {
 			return
@@ -50,11 +50,136 @@ func TestRunSubprocess(t *testing.T) {
 	})
 }
 
+func TestHandleResultsFromProvider(t *testing.T) {
+	t.Run("Returns results when provider returns results", func(t *testing.T) {
+		secretPath := "path/to/secret"
+		expectedValue := "secretvalue"
+		expectedKey := "SERVICE_KEY"
+		resultsCh := make(chan prov.Result)
+		errorsCh := make(chan error, 1)
+
+		tempFactory := NewTempFactory("")
+		defer tempFactory.Cleanup()
+
+		filteredSecrets := secretsyml.SecretsMap{
+			expectedKey: secretsyml.SecretSpec{
+				Path:         secretPath,
+				DefaultValue: "",
+				Tags:         []secretsyml.YamlTag{secretsyml.Var},
+			},
+		}
+
+		go func() {
+			resultsCh <- prov.Result{expectedKey, expectedValue, nil}
+			close(resultsCh)
+		}()
+
+		results, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(results))
+		assert.Equal(t, expectedKey, results[0].Key)
+		assert.Equal(t, expectedValue, results[0].Value)
+	})
+	t.Run("Returns default value when provider returns empty value", func(t *testing.T) {
+		secretPath := "path/to/secret"
+		expectedValue := "defaultVal"
+		expectedKey := "SERVICE_KEY"
+		resultsCh := make(chan prov.Result)
+		errorsCh := make(chan error, 1)
+
+		tempFactory := NewTempFactory("")
+		defer tempFactory.Cleanup()
+
+		filteredSecrets := secretsyml.SecretsMap{
+			expectedKey: secretsyml.SecretSpec{
+				Path:         secretPath,
+				DefaultValue: expectedValue,
+				Tags:         []secretsyml.YamlTag{secretsyml.Var},
+			},
+		}
+
+		go func() {
+			resultsCh <- prov.Result{expectedKey, "", nil}
+			close(resultsCh)
+		}()
+
+		results, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
+
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(results))
+		assert.Equal(t, expectedKey, results[0].Key)
+		assert.Equal(t, expectedValue, results[0].Value)
+	})
+
+	t.Run("Returns error when provider cannot handle interactive mode", func(t *testing.T) {
+		resultsCh := make(chan prov.Result, 1)
+		errorsCh := make(chan error, 1)
+
+		tempFactory := NewTempFactory("")
+		defer tempFactory.Cleanup()
+
+		filteredSecrets := secretsyml.SecretsMap{
+			"SERVICE_KEY": secretsyml.SecretSpec{
+				Path:         "path/to/secret",
+				DefaultValue: "",
+				Tags:         []secretsyml.YamlTag{secretsyml.Var}},
+		}
+
+		errorsCh <- prov.ErrInteractiveModeNotSupported
+
+		results, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
+
+		assert.Error(t, err)
+		assert.Equal(t, prov.ErrInteractiveModeNotSupported, err)
+		assert.Nil(t, results)
+	})
+}
+
+func TestFilterNonVariables(t *testing.T) {
+	t.Run("Returns expected results and filtered secrets", func(t *testing.T) {
+		varKey := "varKey"
+		varPath := "varPath"
+		nonVarKey := "nonVarKey"
+		nonVarPath := "nonVarPath"
+
+		tempFactory := NewTempFactory("")
+		defer tempFactory.Cleanup()
+
+		secrets := secretsyml.SecretsMap{
+			varKey: secretsyml.SecretSpec{
+				Path: varPath,
+				Tags: []secretsyml.YamlTag{secretsyml.Var},
+			},
+			nonVarKey: secretsyml.SecretSpec{
+				Path: nonVarPath,
+				Tags: []secretsyml.YamlTag{secretsyml.Literal},
+			},
+		}
+
+		expectedResults := []prov.Result{
+			{nonVarKey, nonVarPath, nil},
+		}
+
+		expectedFilteredSecrets := secretsyml.SecretsMap{
+			varKey: secretsyml.SecretSpec{
+				Path: varPath,
+				Tags: []secretsyml.YamlTag{secretsyml.Var},
+			},
+		}
+
+		results, filteredSecrets := filterNonVariables(secrets, &tempFactory)
+
+		assert.Equal(t, expectedResults, results)
+		assert.Equal(t, expectedFilteredSecrets, filteredSecrets)
+	})
+}
+
 func TestDefaultVariableResolution(t *testing.T) {
 	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
 		expectedDefaultValue := "defaultValueOfVariable"
 
-		dir, err := ioutil.TempDir("", "summon")
+		dir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		if err != nil {
 			return
@@ -75,7 +200,7 @@ func TestDefaultVariableResolution(t *testing.T) {
 			return
 		}
 
-		content, err := ioutil.ReadFile(tempFile)
+		content, err := os.ReadFile(tempFile)
 		assert.NoError(t, err)
 		if err != nil {
 			return
@@ -89,7 +214,7 @@ func TestDefaultVariableResolutionWithValue(t *testing.T) {
 	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
 		expectedValue := "valueOfVariable"
 
-		dir, err := ioutil.TempDir("", "summon")
+		dir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		if err != nil {
 			return
@@ -110,7 +235,7 @@ func TestDefaultVariableResolutionWithValue(t *testing.T) {
 			return
 		}
 
-		content, err := ioutil.ReadFile(tempFile)
+		content, err := os.ReadFile(tempFile)
 		assert.NoError(t, err)
 		if err != nil {
 			return
@@ -175,7 +300,7 @@ func TestFormatForEnvString(t *testing.T) {
 			_, err := os.Stat(path)
 			assert.NoError(t, err)
 
-			contents, _ := ioutil.ReadFile(path)
+			contents, _ := os.ReadFile(path)
 
 			assert.Contains(t, string(contents), "mysecretvalue")
 		})
@@ -193,7 +318,7 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	filename := "test.txt"
 
 	t.Run("Finds file in current working directory", func(t *testing.T) {
-		topDir, err := ioutil.TempDir("", "summon")
+		topDir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
@@ -208,7 +333,7 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	})
 
 	t.Run("Finds file in a higher working directory", func(t *testing.T) {
-		topDir, err := ioutil.TempDir("", "summon")
+		topDir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
@@ -228,7 +353,7 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	})
 
 	t.Run("returns a friendly error if file not found", func(t *testing.T) {
-		topDir, err := ioutil.TempDir("", "summon")
+		topDir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
@@ -243,7 +368,7 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	})
 
 	t.Run("returns a friendly error if file is an absolute path", func(t *testing.T) {
-		topDir, err := ioutil.TempDir("", "summon")
+		topDir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
@@ -255,7 +380,7 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	})
 
 	t.Run("returns a friendly error in unexpected circumstances (100% coverage)", func(t *testing.T) {
-		topDir, err := ioutil.TempDir("", "summon")
+		topDir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
@@ -286,4 +411,25 @@ func TestReturnStatusOfError(t *testing.T) {
 		_, err := returnStatusOfError(expected)
 		assert.Equal(t, expected, err)
 	})
+}
+func TestNonInteractiveProviderFallback(t *testing.T) {
+	secrets := secretsyml.SecretsMap{
+		"key1": secretsyml.SecretSpec{Path: "path1"},
+		"key2": secretsyml.SecretSpec{Path: "path2"},
+	}
+	sc := &SubprocessConfig{
+		FetchSecret: func(path string) ([]byte, error) {
+			return []byte(path), nil
+		},
+	}
+	tempFactory := NewTempFactory("")
+	defer tempFactory.Cleanup()
+
+	results := nonInteractiveProviderFallback(secrets, sc, &tempFactory)
+
+	assert.Equal(t, len(secrets), len(results))
+	for _, result := range results {
+		assert.Equal(t, secrets[result.Key].Path, result.Value)
+		assert.Nil(t, result.Error)
+	}
 }

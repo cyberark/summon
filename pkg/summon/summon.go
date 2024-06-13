@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 
+	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 )
 
@@ -59,61 +60,39 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 	tempFactory := NewTempFactory("")
 	defer tempFactory.Cleanup()
 
-	type Result struct {
-		key   string
-		value string
-		error
+	var results []prov.Result
+
+	// Filter out non variables
+	filteredResults, filteredSecrets := filterNonVariables(secrets, &tempFactory)
+	results = append(results, filteredResults...)
+
+	// Call provider with no arguments
+	resultsCh, errorsCh, cleanup := prov.CallInteractiveMode(sc.Provider, filteredSecrets)
+	defer cleanup()
+
+	// This extracts the logic of handling results from provider interactive mode
+	resultsFromProvider, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
+	results = append(results, resultsFromProvider...)
+
+	if err != nil {
+		results = nonInteractiveProviderFallback(secrets, sc, &tempFactory)
 	}
-
-	// Run provider calls concurrently
-	results := make(chan Result, len(secrets))
-	var wg sync.WaitGroup
-
-	for key, spec := range secrets {
-		wg.Add(1)
-		go func(key string, spec secretsyml.SecretSpec) {
-			var value string
-			if spec.IsVar() {
-				valueBytes, err := sc.FetchSecret(spec.Path)
-				if err != nil {
-					results <- Result{key, "", err}
-					wg.Done()
-					return
-				}
-				value = string(valueBytes)
-			} else {
-				// If the spec isn't a variable, use its value as-is
-				value = spec.Path
-			}
-
-			// Set a default value if the provider didn't return one for the item
-			if value == "" && spec.DefaultValue != "" {
-				value = spec.DefaultValue
-			}
-
-			k, v := formatForEnv(key, value, spec, &tempFactory)
-			results <- Result{k, v, nil}
-			wg.Done()
-		}(key, spec)
-	}
-	wg.Wait()
-	close(results)
 
 EnvLoop:
-	for envvar := range results {
-		if envvar.error == nil {
-			env[envvar.key] = envvar.value
+	for _, envvar := range results {
+		if envvar.Error == nil {
+			env[envvar.Key] = envvar.Value
 		} else {
 			if sc.IgnoreAll {
 				continue EnvLoop
 			}
 
 			for i := range sc.Ignores {
-				if sc.Ignores[i] == fmt.Sprintf("%s=%s", envvar.key, envvar.value) {
+				if sc.Ignores[i] == fmt.Sprintf("%s=%s", envvar.Key, envvar.Value) {
 					continue EnvLoop
 				}
 			}
-			return 0, fmt.Errorf("Error fetching variable %v: %v", envvar.key, envvar.error.Error())
+			return 0, fmt.Errorf("Error fetching variable %v: %v", envvar.Key, envvar.Error.Error())
 		}
 	}
 
@@ -135,6 +114,90 @@ EnvLoop:
 	}
 
 	return 0, nil
+}
+
+func filterNonVariables(secrets secretsyml.SecretsMap, tempFactory *TempFactory) ([]prov.Result, secretsyml.SecretsMap) {
+	filteredSecrets := make(secretsyml.SecretsMap)
+	results := []prov.Result{}
+
+	for key, spec := range secrets {
+		if spec.IsVar() {
+			filteredSecrets[key] = spec
+		} else {
+			k, v := formatForEnv(key, spec.Path, spec, tempFactory)
+			result := prov.Result{k, v, nil}
+			results = append(results, result)
+		}
+	}
+
+	return results, filteredSecrets
+}
+
+func handleResultsFromProvider(resultsCh chan prov.Result, errorsCh chan error,
+	filteredSecrets secretsyml.SecretsMap, tempFactory *TempFactory) (results []prov.Result, err error) {
+	for {
+		select {
+		case result, ok := <-resultsCh:
+			if !ok {
+				return results, nil
+			}
+
+			spec := filteredSecrets[result.Key]
+
+			// Set a default value if the provider didn't return one for the item
+			if result.Value == "" && spec.DefaultValue != "" {
+				result.Value = spec.DefaultValue
+			}
+			k, v := formatForEnv(result.Key, result.Value, spec, tempFactory)
+			result = prov.Result{k, v, nil}
+			results = append(results, result)
+
+		// Fallback to the old implementation if either provider doesn't support interactive mode or an error occured
+		case err = <-errorsCh:
+			return nil, err
+		}
+	}
+}
+
+func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) []prov.Result {
+	results := make(chan prov.Result, len(secrets))
+	var wg sync.WaitGroup
+
+	for key, spec := range secrets {
+		wg.Add(1)
+		go func(key string, spec secretsyml.SecretSpec) {
+			var value string
+			if spec.IsVar() {
+				valueBytes, err := sc.FetchSecret(spec.Path)
+				if err != nil {
+					results <- prov.Result{key, "", err}
+					wg.Done()
+					return
+				}
+				value = string(valueBytes)
+			} else {
+				// If the spec isn't a variable, use its value as-is
+				value = spec.Path
+			}
+
+			// Set a default value if the provider didn't return one for the item
+			if value == "" && spec.DefaultValue != "" {
+				value = spec.DefaultValue
+			}
+
+			k, v := formatForEnv(key, value, spec, tempFactory)
+			results <- prov.Result{k, v, nil}
+			wg.Done()
+		}(key, spec)
+	}
+	wg.Wait()
+	close(results)
+
+	resultsSlice := make([]prov.Result, 0, len(secrets))
+	for result := range results {
+		resultsSlice = append(resultsSlice, result)
+	}
+	return resultsSlice
 }
 
 func returnStatusOfError(err error) (int, error) {

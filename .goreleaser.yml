@@ -1,4 +1,6 @@
 # all available options: https://goreleaser.com/customization/
+version: 2
+
 project_name: summon
 
 before:
@@ -70,7 +72,7 @@ brews:
     test: |
       system "#{bin}/summon", "-v"
 
-    tap:
+    repository:
       owner: cyberark
       name: homebrew-tools
     skip_upload: true

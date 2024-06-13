@@ -26,3 +26,8 @@ the system directory.
 
 Given a provider and secret's namespace, runs the provider to resolve
 the secret's value.
+
+`func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func())`
+
+Given a provider and secrets, runs the provider in interactive mode to resolve multiple
+secret's values in a single process.
