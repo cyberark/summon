@@ -20,7 +20,22 @@ builds:
   - windows
   goarch:
   - amd64
+  ldflags:
+    - -s -w
+    - -X "github.com/cyberark/summon/pkg/summon.Tag={{ .ShortCommit }}"
+    - -X "github.com/cyberark/summon/pkg/summon.Version={{ .Env.VERSION }}"
   main: ./cmd/main.go
+  hooks:
+    post:
+      # Copy the binary out into the <dist> path, and give the copy the name we want
+      # in the release <extra_files>.
+      # e.g. Suppose a windows amd64 build generates a binary at
+      # path/to/binary.exe. This will be copied to
+      # path/to/../binary-windows_amd64.exe. The copy path can then be added to
+      # the release <extra_files> and will result in a release artifact with the name
+      # binary-windows_amd64.exe.
+      - mkdir -p "{{ dir .Path }}/../binaries"
+      - cp "{{ .Path }}" "{{ dir .Path }}/../binaries/summon_{{ .Target }}{{ .Ext }}"
 
 # Arm support
 - id: summon-arm
@@ -34,7 +49,22 @@ builds:
   - linux
   goarch:
   - arm64
+  ldflags:
+    - -s -w
+    - -X "github.com/cyberark/summon/pkg/summon.Tag={{ .ShortCommit }}"
+    - -X "github.com/cyberark/summon/pkg/summon.Version={{ .Env.VERSION }}"
   main: ./cmd/main.go
+  hooks:
+    post:
+      # Copy the binary out into the <dist> path, and give the copy the name we want
+      # in the release <extra_files>.
+      # e.g. Suppose a windows amd64 build generates a binary at
+      # path/to/binary.exe. This will be copied to
+      # path/to/../binary-windows_amd64.exe. The copy path can then be added to
+      # the release <extra_files> and will result in a release artifact with the name
+      # binary-windows_amd64.exe.
+      - mkdir -p "{{ dir .Path }}/../binaries"
+      - cp "{{ .Path }}" "{{ dir .Path }}/../binaries/summon_{{ .Target }}{{ .Ext }}"
 
 # Make a static build for Linux
 - id: summon-linux
@@ -47,8 +77,23 @@ builds:
   - linux
   goarch:
   - amd64
-  ldflags: -s -w -linkmode external -extldflags "-static"
+  ldflags:
+    - -s -w
+    - -X "github.com/cyberark/summon/pkg/summon.Tag={{ .ShortCommit }}"
+    - -X "github.com/cyberark/summon/pkg/summon.Version={{ .Env.VERSION }}"
+    - -linkmode external -extldflags "-static"
   main: ./cmd/main.go
+  hooks:
+    post:
+      # Copy the binary out into the <dist> path, and give the copy the name we want
+      # in the release <extra_files>.
+      # e.g. Suppose a windows amd64 build generates a binary at
+      # path/to/binary.exe. This will be copied to
+      # path/to/../binary-windows_amd64.exe. The copy path can then be added to
+      # the release <extra_files> and will result in a release artifact with the name
+      # binary-windows_amd64.exe.
+      - mkdir -p "{{ dir .Path }}/../binaries"
+      - cp "{{ .Path }}" "{{ dir .Path }}/../binaries/summon-{{ .Target }}{{ .Ext }}"
 
 
 archives:
@@ -96,7 +141,7 @@ nfpms:
 dist: ./dist/goreleaser
 
 release:
-  disable: false
+  disable: true
   draft: true
   extra_files:
     - glob: LICENSE
