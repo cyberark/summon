@@ -100,6 +100,14 @@ This is their contract:
 * If retrieval is successful, they return the value on stdout with exit code 0.
 * If an error occurs, they return an error message on stderr and a non-0 exit code.
 
+When providers support stream mode and a call is made without arguments, Summon continuously sends
+secret identifiers to the provider's standard input, and the provider sends the secret values to its
+standard output until all secrets are retrieved. The returned values are Base64 encoded to avoid issues with
+special characters.
+
+Summon always tries to use stream mode. However, when this mode is not supported Summon falls back
+to the legacy mode where each secret is retrieved using its own process.
+
 The default path for providers is `/usr/local/lib/summon/`. If one provider is in that path,
 summon will use it. If multiple providers are in the path, you can specify which one to use
 with the `--provider` flag or the environment variable `SUMMON_PROVIDER`. If your providers are
