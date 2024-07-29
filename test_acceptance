@@ -4,6 +4,9 @@ OUTPUT_DIR="$PWD/output/acceptance"
 
 rm -f "$OUTPUT_DIR/*.xml"
 
+pwd
+ls -la
+
 echo "Running acceptance tests"
 docker build --pull -t summon-acceptance -f Dockerfile.acceptance .
 
