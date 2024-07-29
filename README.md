@@ -240,6 +240,14 @@ fixed locations, e.g. `/etc/ssl/cert.pem` for an SSL certificate. This can be
 accomplished by using symbolic links as described in the
 [symbolic link example](examples/symlinks/README.md).
 
+## Provider interactive mode
+
+When available, Summon uses the provider's stream mode to retrieve secrets. Whereas the legacy mode required
+a new process to be created for each secret retrieval, the stream mode can fetch multiple secrets in a single
+process and allows providers to implement token caching.
+
+If the provider does not support stream mode, Summon uses the legacy mode.
+
 ## Contributing
 
 For more info on contributing, please see [CONTRIBUTING.md](CONTRIBUTING.md).
