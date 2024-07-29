@@ -31,7 +31,6 @@ pipeline {
   options {
     timestamps()
     buildDiscarder(logRotator(numToKeepStr: '30'))
-    skipDefaultCheckout()  // see 'post' below, once perms are fixed this is no longer needed
   }
 
   triggers {
@@ -56,12 +55,6 @@ pipeline {
           currentBuild.result = 'ABORTED'
           error("Aborting build because this build was triggered from upstream, but no release was built")
         }
-      }
-    }
-
-    stage('Checkout SCM') {
-      steps {
-        checkout scm
       }
     }
 
@@ -135,6 +128,7 @@ pipeline {
     stage('Run acceptance tests') {
       steps {
         script {
+          // Use the artifacts from the previous stage
           infrapool.agentDir('./pristine-checkout') {
             infrapool.agentSh './test_acceptance'
             infrapool.agentStash name: 'acceptance-output', includes: 'output/acceptance/*.xml'

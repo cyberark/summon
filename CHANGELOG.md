@@ -6,11 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.10.0] - 2024-06-05
+## [0.10.0] - 2024-07-29
 
 ### Added
 - Introduced secrets streaming from providers (CNJR-3580)
 - Upgrade Go to 1.22.4
+- Added NOTICES.txt file to project
 
 ## [0.9.8] - 2024-04-25
 
