@@ -113,9 +113,20 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 			ctxCancel()
 		}
 	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		errorsCh <- err
+		return resultsCh, errorsCh, func() {
+			stdinPipe.Close()
+			stdoutPipe.Close()
+			ctxCancel()
+		}
+	}
+
 	cleanup := func() {
 		stdinPipe.Close()
 		stdoutPipe.Close()
+		stderrPipe.Close()
 		ctxCancel()
 	}
 
@@ -145,16 +156,10 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	go func() {
 		defer close(resultsCh)
 		scanner := bufio.NewScanner(stdoutPipe)
-
 		index := 0
 
 		for scanner.Scan() {
-
 			line := scanner.Text()
-			if err != nil {
-				errorsCh <- ErrInteractiveModeNotSupported
-				break
-			}
 
 			decoded, err := base64.StdEncoding.DecodeString(line)
 
@@ -178,6 +183,13 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 			errorsCh <- ErrInteractiveModeNotSupported
 		}
 
+	}()
+	go func() {
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			errorsCh <- fmt.Errorf(line)
+		}
 	}()
 	return resultsCh, errorsCh, cleanup
 }
