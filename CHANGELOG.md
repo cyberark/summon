@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.10.1] - 2024-08-14
+
+### Changed
+- Fixed a bug that caused Summon to not properly handle a situation where a secret
+  to be fetched did not exist (CNJR-6093)
+
 ## [0.10.0] - 2024-07-29
 
 ### Added
