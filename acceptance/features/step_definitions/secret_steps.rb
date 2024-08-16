@@ -35,3 +35,15 @@ Given(/^other secrets don't exist$/) do
 			"""
 	}
 end
+
+Given(/^a non-existent secret "([^"]*)"$/) do |name|
+	steps %{
+		Given I append to "provider" with:
+			"""
+			if [ "$1" == "#{name}" ]; then
+        	    echo "Error fetching variable #{name}" >&2
+        	    exit 1
+			fi
+			"""
+	}
+end
