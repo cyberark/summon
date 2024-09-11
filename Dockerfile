@@ -7,9 +7,8 @@ ENV GOARCH=amd64
 
 COPY go.mod go.sum ./
 
-RUN apt update -y && \
-    apt install -y bash \
-                   git && \
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends bash git && \
     go mod download && \
     go install github.com/jstemmer/go-junit-report@latest && \
     go install github.com/axw/gocov/gocov@latest && \
