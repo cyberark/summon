@@ -319,12 +319,10 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	filename := "test.txt"
 
 	t.Run("Finds file in current working directory", func(t *testing.T) {
-		topDir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		defer os.RemoveAll(topDir)
+		topDir := t.TempDir()
 
 		localFilePath := filepath.Join(topDir, filename)
-		_, err = os.Create(localFilePath)
+		_, err := os.Create(localFilePath)
 		assert.NoError(t, err)
 
 		gotPath, err := findInParentTree(filename, topDir)
@@ -334,12 +332,10 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	})
 
 	t.Run("Finds file in a directory above the working directory", func(t *testing.T) {
-		topDir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		defer os.RemoveAll(topDir)
+		topDir := t.TempDir()
 
 		fileAbovePath := filepath.Join(topDir, filename)
-		_, err = os.Create(fileAbovePath)
+		_, err := os.Create(fileAbovePath)
 		assert.NoError(t, err)
 
 		// Create a downwards directory hierarchy, starting from topDir
@@ -354,9 +350,7 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	})
 
 	t.Run("returns a friendly error if file not found", func(t *testing.T) {
-		topDir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		defer os.RemoveAll(topDir)
+		topDir := t.TempDir()
 
 		// A unlikely to exist file name
 		nonExistingFileName := strconv.FormatInt(time.Now().Unix(), 10)
@@ -364,31 +358,27 @@ func TestLocateFileRecurseUp(t *testing.T) {
 			"unable to locate file specified (%s): reached root of file system",
 			nonExistingFileName)
 
-		_, err = findInParentTree(nonExistingFileName, topDir)
+		_, err := findInParentTree(nonExistingFileName, topDir)
 		assert.EqualError(t, err, wantErrMsg)
 	})
 
 	t.Run("returns a friendly error if file is an absolute path", func(t *testing.T) {
-		topDir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		defer os.RemoveAll(topDir)
+		topDir := t.TempDir()
 
 		absFileName := "/foo/bar/baz"
 		wantErrMsg := "file specified (/foo/bar/baz) is an absolute path: will not recurse up"
 
-		_, err = findInParentTree(absFileName, topDir)
+		_, err := findInParentTree(absFileName, topDir)
 		assert.EqualError(t, err, wantErrMsg)
 	})
 
 	t.Run("returns a friendly error in unexpected circumstances (100% coverage)", func(t *testing.T) {
-		topDir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		defer os.RemoveAll(topDir)
+		topDir := t.TempDir()
 
 		fileNameWithNulByte := "pizza\x00margherita"
 		wantErrMsg := "unable to locate file specified (pizza\x00margherita): stat"
 
-		_, err = findInParentTree(fileNameWithNulByte, topDir)
+		_, err := findInParentTree(fileNameWithNulByte, topDir)
 		assert.Contains(t, err.Error(), wantErrMsg)
 	})
 }
