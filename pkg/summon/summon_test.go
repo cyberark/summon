@@ -244,6 +244,7 @@ func TestDefaultVariableResolutionWithValue(t *testing.T) {
 		assert.Equal(t, expectedValue, string(content))
 	})
 }
+
 func TestConvertSubsToMap(t *testing.T) {
 	t.Run("Substitutions are returned as a map used later for interpolation", func(t *testing.T) {
 		input := []string{
@@ -332,24 +333,24 @@ func TestLocateFileRecurseUp(t *testing.T) {
 		assert.Equal(t, localFilePath, gotPath)
 	})
 
-	t.Run("Finds file in a higher working directory", func(t *testing.T) {
+	t.Run("Finds file in a directory above the working directory", func(t *testing.T) {
 		topDir, err := os.MkdirTemp("", "summon")
 		assert.NoError(t, err)
 		defer os.RemoveAll(topDir)
 
-		higherFilePath := filepath.Join(topDir, filename)
-		_, err = os.Create(higherFilePath)
+		fileAbovePath := filepath.Join(topDir, filename)
+		_, err = os.Create(fileAbovePath)
 		assert.NoError(t, err)
 
 		// Create a downwards directory hierarchy, starting from topDir
 		downDir := filepath.Join(topDir, "dir1", "dir2", "dir3")
-		err = os.MkdirAll(downDir, 0700)
+		err = os.MkdirAll(downDir, 0o700)
 		assert.NoError(t, err)
 
 		gotPath, err := findInParentTree(filename, downDir)
 		assert.NoError(t, err)
 
-		assert.Equal(t, higherFilePath, gotPath)
+		assert.Equal(t, fileAbovePath, gotPath)
 	})
 
 	t.Run("returns a friendly error if file not found", func(t *testing.T) {
@@ -412,6 +413,7 @@ func TestReturnStatusOfError(t *testing.T) {
 		assert.Equal(t, expected, err)
 	})
 }
+
 func TestNonInteractiveProviderFallback(t *testing.T) {
 	secrets := secretsyml.SecretsMap{
 		"key1": secretsyml.SecretSpec{Path: "path1"},
