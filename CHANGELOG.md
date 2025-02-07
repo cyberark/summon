@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.10.3] - 2025-02-07
+
+### Fixed
+- Fix unhelpful error message when specifying nonexistent environment
+  [cyberark/summon#63](https://github.com/cyberark/summon-conjur/issues/63)
+
 ## [0.10.2] - 2025-01-10
 
 ### Changed
