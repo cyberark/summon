@@ -53,21 +53,15 @@ we should be able to track them in source control. `$env` is a variable that we
 will supply at runtime with Summon's `-D` flag. This means that we can use one
 `secrets.yml` file for all environments, swapping out `$env` as needed.
 
-<script src="http://gist-it.appspot.com/github/cyberark/summon/blob/main/examples/docker/secrets.yml"></script>
-
 **deploy.py**
 
 A stubbed-out deploy script. It checks that you have the proper credentials
 before attempting a deploy.
 
-<script src="http://gist-it.appspot.com/github/cyberark/summon/blob/main/examples/docker/deploy.py"></script>
-
 **Dockerfile**
 
 Inherits from the [offical Python Docker image](https://registry.hub.docker.com/_/python/)
 and runs the deploy script.
-
-<script src="http://gist-it.appspot.com/github/cyberark/summon/blob/main/examples/docker/Dockerfile"></script>
 
 ### 2. Build and run the container
 
