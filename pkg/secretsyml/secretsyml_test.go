@@ -168,6 +168,22 @@ MissingEnvironment:
 		})
 	})
 
+	t.Run("Given an environment with no sections", func(t *testing.T) {
+		testEnv := "TestEnvironment"
+		// This input has no environment sections, but the environment is specified
+		input := `SOME_VAR: value`
+
+		t.Run("It should error", func(t *testing.T) {
+			_, err := ParseFromString(input, testEnv, map[string]string{"env": "prod"})
+			assert.Error(t, err)
+
+			// Should return the same error message as before, not a YAML parsing error
+			errMessage := fmt.Sprintf("No such environment '%v' found in secrets file", testEnv)
+			assert.EqualError(t, err, errMessage)
+		})
+	})
+
+
 	t.Run("Given a common section and environment ", func(t *testing.T) {
 		testEnv := "TestEnvironment"
 		input := `common:

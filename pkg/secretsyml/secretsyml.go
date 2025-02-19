@@ -153,6 +153,13 @@ func parseEnvironment(ymlContent, env string, subs map[string]string) (SecretsMa
 	out := make(map[string]SecretsMap)
 
 	if err := yaml.Unmarshal([]byte(ymlContent), &out); err != nil {
+		// Check if the error is due to there being no environment sections
+		if _, err = parseRegular(ymlContent, subs); err == nil {
+			// If a regular parse is successful, then the error is due to the environment not existing
+			return nil, fmt.Errorf("No such environment '%v' found in secrets file", env)
+		}
+
+		// Otherwise, return the YAML parsings original error
 		return nil, err
 	}
 
