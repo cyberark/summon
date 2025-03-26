@@ -73,7 +73,7 @@ func Call(provider, specPath string) (string, error) {
 		if stdErr.Len() > 0 {
 			errstr += ": " + strings.TrimSpace(stdErr.String())
 		}
-		return "", fmt.Errorf(errstr)
+		return "", errors.New(errstr)
 	}
 
 	return strings.TrimSpace(stdOut.String()), nil
@@ -188,7 +188,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
 			line := scanner.Text()
-			errorsCh <- fmt.Errorf(line)
+			errorsCh <- errors.New(line)
 		}
 	}()
 	return resultsCh, errorsCh, cleanup
