@@ -19,6 +19,20 @@ if (params.MODE == "PROMOTE") {
     // Any version number updates from sourceVersion to targetVersion occur here
     // Any publishing of targetVersion artifacts occur here
     // Anything added to assetDirectory will be attached to the Github Release
+
+    //Sign *tar.gz, *.deb, *.exe and summon_darwin_* artifacts
+    infrapool.agentGet from: "${assetDirectory}", to: "./"
+
+    signArtifacts patterns: ["*.tar.gz"]
+    signArtifacts patterns: ["*.deb"]
+    signArtifacts patterns: ["*.exe"]
+    signArtifacts patterns: ["summon_darwin_*"]
+
+    infrapool.agentPut from: "*.sig", to: "${assetDirectory}"
+    infrapool.agentPut from: "*.deb", to: "${assetDirectory}"
+    infrapool.agentPut from: "*.exe", to: "${assetDirectory}"
+    infrapool.agentPut from: "summon_darwin_*", to: "${assetDirectory}"
+
   }
 
   release.copyEnterpriseRelease(params.VERSION_TO_PROMOTE)
