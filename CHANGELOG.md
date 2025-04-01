@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.10.4] - 2025-03-21
+## [0.10.4] - 2025-04-01
 
 ### Changed
 - Upgrade Go to 1.24 and bump dependencies
@@ -286,7 +286,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.9.7...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.4...HEAD
+[0.10.4]: https://github.com/cyberark/summon/compare/v0.10.3...v0.10.4
+[0.10.3]: https://github.com/cyberark/summon/compare/v0.10.2...v0.10.3
+[0.10.2]: https://github.com/cyberark/summon/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/cyberark/summon/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/cyberark/summon/compare/v0.9.8...v0.10.0
+[0.9.8]: https://github.com/cyberark/summon/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/cyberark/summon/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/cyberark/summon/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/cyberark/summon/compare/v0.9.4...v0.9.5
@@ -323,4 +329,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [0.2.0]: https://github.com/cyberark/summon/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/cyberark/summon/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/cyberark/summon/compare/v0.1.0...v0.1.1
-[0.0.1]: https://github.com/cyberark/summon/releases/tag/v0.0.1
+[0.1.0]: https://github.com/cyberark/summon/releases/tag/v0.0.1
