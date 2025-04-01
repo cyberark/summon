@@ -329,4 +329,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [0.2.0]: https://github.com/cyberark/summon/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/cyberark/summon/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/cyberark/summon/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/cyberark/summon/releases/tag/v0.0.1
+[0.1.0]: https://github.com/cyberark/summon/releases/tag/v0.1.0
