@@ -21,7 +21,7 @@ if (params.MODE == "PROMOTE") {
     // Anything added to assetDirectory will be attached to the Github Release
 
     //Sign *tar.gz, *.deb, *.exe and summon_darwin_* artifacts
-    infrapool.agentGet from: "${assetDirectory}", to: "./"
+    infrapool.agentGet from: "${assetDirectory}/", to: "."
 
     signArtifacts patterns: ["*.tar.gz"]
     signArtifacts patterns: ["*.deb"]
@@ -33,6 +33,8 @@ if (params.MODE == "PROMOTE") {
     infrapool.agentPut from: "*.exe", to: "${assetDirectory}"
     infrapool.agentPut from: "summon_darwin_*", to: "${assetDirectory}"
 
+    // Resolve ownership issue before promotion
+    sh 'git config --global --add safe.directory ${PWD}'
   }
 
   release.copyEnterpriseRelease(params.VERSION_TO_PROMOTE)
