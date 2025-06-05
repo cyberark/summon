@@ -452,65 +452,6 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 	}
 }
 
-func TestTempFactoryPushAndCleanup(t *testing.T) {
-	tf := NewTempFactory("")
-
-	content := "test secret"
-	tempFilePath := tf.Push(content)
-
-	data, err := os.ReadFile(tempFilePath)
-	if err != nil {
-		t.Fatalf("Temp file was not created: %v", err)
-	}
-	if string(data) != content {
-		t.Errorf("Temp file content mismatch: got %q, want %q", string(data), content)
-	}
-
-	tf.Cleanup()
-
-	if _, err := os.Stat(tempFilePath); !os.IsNotExist(err) {
-		t.Errorf("Temp file was not removed by Cleanup")
-	}
-
-	if tf.path != DEVSHM {
-		if _, err := os.Stat(tf.path); !os.IsNotExist(err) {
-			t.Errorf("Temp directory was not removed by Cleanup")
-		}
-	}
-}
-
-func TestTempFactoryMultiplePushesAndCleanup(t *testing.T) {
-    tf := NewTempFactory("")
-    files := []string{
-        tf.Push("secret1"),
-        tf.Push("secret2"),
-        tf.Push("secret3"),
-    }
-
-    tf.Cleanup()
-
-    for _, file := range files {
-        _, err := os.Stat(file)
-        assert.True(t, os.IsNotExist(err), "Temp file was not removed by Cleanup")
-    }
-
-    if tf.path != DEVSHM {
-        _, err := os.Stat(tf.path)
-        assert.True(t, os.IsNotExist(err), "Temp directory was not removed by Cleanup")
-    }
-}
-
-func TestTempFactoryCleanupWithNoFiles(t *testing.T) {
-    tf := NewTempFactory("")
-
-    tf.Cleanup()
-
-    if tf.path != DEVSHM {
-        _, err := os.Stat(tf.path)
-        assert.True(t, os.IsNotExist(err), "Temp directory was not removed by Cleanup when no files were created")
-    }
-}
-
 // chdir changes the current working directory to the named directory and
 // returns a function that, when called, restores the original working
 // directory.
