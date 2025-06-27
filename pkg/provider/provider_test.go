@@ -375,6 +375,43 @@ func TestCallInteractiveMode(t *testing.T) {
 		assert.Equal(t, "provider2.go", results["key2"])
 		assert.Equal(t, "provider3.go", results["key3"])
 	})
+
+	t.Run("provider command executes successfully with large number of secrets", func(t *testing.T) {
+		provider, err := createMockProvider()
+		assert.NoError(t, err)
+		defer os.Remove(provider)
+
+		numResults := 500
+		secrets := make(secretsyml.SecretsMap, numResults)
+		for i := range numResults {
+			key := fmt.Sprintf("key%d", i+1)
+			secrets[key] = secretsyml.SecretSpec{Path: fmt.Sprintf("provider%d.go", i+1)}
+		}
+		results := make(map[string]string)
+
+		resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		defer cleanup()
+
+		for range numResults {
+			select {
+			case result := <-resultsCh:
+				assert.NotNil(t, result)
+				assert.Nil(t, result.Error)
+				results[result.Key] = result.Value
+			case err := <-errorsCh:
+				assert.Fail(t, "Unexpected error: %v", err)
+			case <-time.After(1 * time.Second):
+				assert.Fail(t, "Timeout waiting for result")
+			}
+		}
+
+		assert.Equal(t, numResults, len(results))
+		for i := range numResults {
+			key := fmt.Sprintf("key%d", i+1)
+			expectedValue := fmt.Sprintf("provider%d.go", i+1)
+			assert.Equal(t, expectedValue, results[key], "Mismatch for key %s", key)
+		}
+	})
 }
 
 // Mocks the behaviour of a summon provider. The provider reads a list of secrets from stdin
