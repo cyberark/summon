@@ -107,6 +107,45 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		assert.Equal(t, expectedKey, results[0].Key)
 		assert.Equal(t, expectedValue, results[0].Value)
 	})
+	t.Run("Handles large number of results", func(t *testing.T) {
+		numResults := 10000
+		resultsCh := make(chan prov.Result, numResults)
+		errorsCh := make(chan error, 1)
+
+		tempFactory := NewTempFactory("")
+		defer tempFactory.Cleanup()
+
+		filteredSecrets := make(secretsyml.SecretsMap, numResults)
+		for i := range numResults {
+			key := fmt.Sprintf("SECRET_KEY_%d", i)
+			filteredSecrets[key] = secretsyml.SecretSpec{
+				Path:         key,
+				DefaultValue: "",
+				Tags:         []secretsyml.YamlTag{secretsyml.Var},
+			}
+		}
+
+		go func() {
+			for i := range numResults {
+				key := fmt.Sprintf("SECRET_KEY_%d", i)
+				value := fmt.Sprintf("secretvalue_%d", i)
+				resultsCh <- prov.Result{Key: key, Value: value, Error: nil}
+			}
+			close(resultsCh)
+		}()
+
+		results, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
+
+		assert.NoError(t, err)
+		assert.Equal(t, numResults, len(results))
+		for i := range numResults {
+			expectedKey := fmt.Sprintf("SECRET_KEY_%d", i)
+			expectedValue := fmt.Sprintf("secretvalue_%d", i)
+			assert.Equal(t, expectedKey, results[i].Key)
+			assert.Equal(t, expectedValue, results[i].Value)
+		}
+	})
+
 	t.Run("Returns default value when provider returns empty value", func(t *testing.T) {
 		secretPath := "path/to/secret"
 		expectedValue := "defaultVal"

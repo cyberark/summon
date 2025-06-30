@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -155,18 +156,26 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	// After all secrets are read, it closes the results channel
 	go func() {
 		defer close(resultsCh)
-		scanner := bufio.NewScanner(stdoutPipe)
+		reader := bufio.NewReader(stdoutPipe)
 		index := 0
 
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			decoded, err := base64.StdEncoding.DecodeString(line)
-
+		for {
+			line, err := reader.ReadString('\n')
 			if err != nil {
+				if err == io.EOF {
+					break
+				}
 				errorsCh <- err
-				break
+				continue
 			}
+
+			line = strings.TrimRight(line, "\r\n")
+			decoded, err := base64.StdEncoding.DecodeString(line)
+			if err != nil {
+				errorsCh <- fmt.Errorf("failed to decode base64 string: %w", err)
+				continue
+			}
+
 			keyVal := <-secretEnvVarCh
 			resultsCh <- Result{
 				Key:   keyVal,
