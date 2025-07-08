@@ -1,7 +1,9 @@
 package provider
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -81,7 +83,7 @@ func TestProviderResolutionOfAbsPath(t *testing.T) {
 func TestProviderResolutionOfRelPath(t *testing.T) {
 	f, err := os.CreateTemp("", "")
 	defer os.RemoveAll(f.Name())
-	f.Chmod(755)
+	f.Chmod(0755)
 
 	currentDir, err := os.Getwd()
 	assert.Nil(t, err)
@@ -122,7 +124,7 @@ func TestProviderResolutionViaEnvVarOfAbsPath(t *testing.T) {
 func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
 	f, err := os.CreateTemp("", "")
 	defer os.RemoveAll(f.Name())
-	f.Chmod(755)
+	f.Chmod(0755)
 
 	currentDir, err := os.Getwd()
 	assert.Nil(t, err)
@@ -154,7 +156,7 @@ func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 	f, err := os.CreateTemp(tempDir, "")
 	defer os.RemoveAll(f.Name())
-	f.Chmod(755)
+	f.Chmod(0755)
 
 	// DefaultPath is no longer a global, so use
 	// the env var instead.
@@ -179,7 +181,7 @@ func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
 
 	f, err := os.CreateTemp(defaultPath, "")
 	defer os.RemoveAll(f.Name())
-	f.Chmod(755)
+	f.Chmod(0755)
 	provider, err := Resolve("")
 
 	assert.Nil(t, err)
@@ -385,7 +387,8 @@ func TestCallInteractiveMode(t *testing.T) {
 		secrets := make(secretsyml.SecretsMap, numResults)
 		for i := range numResults {
 			key := fmt.Sprintf("key%d", i+1)
-			secrets[key] = secretsyml.SecretSpec{Path: fmt.Sprintf("provider%d.go", i+1)}
+			path := generateRandomString(100) // Generate a random string of length 100 chars
+			secrets[key] = secretsyml.SecretSpec{Path: path}
 		}
 		results := make(map[string]string)
 
@@ -408,7 +411,7 @@ func TestCallInteractiveMode(t *testing.T) {
 		assert.Equal(t, numResults, len(results))
 		for i := range numResults {
 			key := fmt.Sprintf("key%d", i+1)
-			expectedValue := fmt.Sprintf("provider%d.go", i+1)
+			expectedValue := secrets[key].Path
 			assert.Equal(t, expectedValue, results[key], "Mismatch for key %s", key)
 		}
 	})
@@ -426,7 +429,7 @@ func createMockProvider() (string, error) {
 	// Write a script to the temporary file that outputs multiple base64 encoded strings
 	script := `#!/bin/bash
     while read -r line; do
-        echo $(echo -n $line | base64)
+        echo $(echo -n $line | base64 -w 0)
     done`
 	if _, err := tmpfile.Write([]byte(script)); err != nil {
 		return "", err
@@ -441,4 +444,15 @@ func createMockProvider() (string, error) {
 	}
 
 	return tmpfile.Name(), nil
+}
+
+func generateRandomString(n int) string {
+	const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
+	ret := make([]byte, n)
+	for i := range n {
+		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		ret[i] = letters[num.Int64()]
+	}
+
+	return string(ret)
 }
