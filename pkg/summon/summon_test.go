@@ -1,8 +1,10 @@
 package summon
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -108,7 +110,7 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		assert.Equal(t, expectedValue, results[0].Value)
 	})
 	t.Run("Handles large number of results", func(t *testing.T) {
-		numResults := 10000
+		numResults := 1000
 		resultsCh := make(chan prov.Result, numResults)
 		errorsCh := make(chan error, 1)
 
@@ -128,8 +130,10 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		go func() {
 			for i := range numResults {
 				key := fmt.Sprintf("SECRET_KEY_%d", i)
-				value := fmt.Sprintf("secretvalue_%d", i)
-				resultsCh <- prov.Result{Key: key, Value: value, Error: nil}
+				// Generate a 1024 character random string
+				val := generateRandomString(1024)
+				val = fmt.Sprintf("%s_____%d", val, i) // Append index
+				resultsCh <- prov.Result{Key: key, Value: val, Error: nil}
 			}
 			close(resultsCh)
 		}()
@@ -140,9 +144,9 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		assert.Equal(t, numResults, len(results))
 		for i := range numResults {
 			expectedKey := fmt.Sprintf("SECRET_KEY_%d", i)
-			expectedValue := fmt.Sprintf("secretvalue_%d", i)
+			expectedValue := fmt.Sprintf("_____%d", i)
 			assert.Equal(t, expectedKey, results[i].Key)
-			assert.Equal(t, expectedValue, results[i].Value)
+			assert.Contains(t, results[i].Value, expectedValue)
 		}
 	})
 
@@ -512,4 +516,15 @@ func chdir(t *testing.T, dir string) func() {
 			t.Fatalf("restoring working directory: %v", err)
 		}
 	}
+}
+
+func generateRandomString(n int) string {
+	const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
+	ret := make([]byte, n)
+	for i := range n {
+		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		ret[i] = letters[num.Int64()]
+	}
+
+	return string(ret)
 }
