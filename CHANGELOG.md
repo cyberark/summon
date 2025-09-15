@@ -6,7 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.10.6] - 2025-07-08
+## [0.10.6] - 2025-09-15
+
+### Changed
+- Updated documentation to align with Conjur Enterprise name change to Secrets Manager. (CNJR-10976)
 
 ## [0.10.5] - 2025-06-30
 
@@ -294,7 +297,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/cyberark/summon/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/cyberark/summon/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/cyberark/summon/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/cyberark/summon/compare/v0.10.2...v0.10.3

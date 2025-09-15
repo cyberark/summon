@@ -57,7 +57,7 @@ These can be installed with `dpkg -i summon_v*.deb` and
 
 **Note** Check the
 [release notes](https://github.com/cyberark/summon/releases) and select an
-appropriate release to ensure support for your version of Conjur.
+appropriate release to ensure support for your version of CyberArk Secrets Manager.
 
 Use the auto-install script. This will install the latest version of summon.
 The script requires sudo to place summon in `/usr/local/bin`.
