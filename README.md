@@ -149,7 +149,7 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 `summon` supports a number of flags.
 
 * `-p, --provider <path-to-provider>` specify the path to the
-[provider](provider/README.md) summon should use.
+[provider](pkg/provider/README.md) summon should use.
 
     If you do not provide Summon with the full path to the provider, Summon will look for providers in the following order:
     * Environment Variable: `SUMMON_PROVIDER_PATH`
