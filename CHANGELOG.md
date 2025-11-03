@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.10.8] - 2025-11-03
+
+### Changed
+- Update Go to 1.25 (CONJSE-2067)
+
 ## [0.10.7] - 2025-10-27
 
 ### Changed
