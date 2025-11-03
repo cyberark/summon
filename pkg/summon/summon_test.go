@@ -64,8 +64,7 @@ func TestRunSubprocess(t *testing.T) {
 		downDir := filepath.Join(topDir, "dir1", "dir2", "dir3")
 		err = os.MkdirAll(downDir, 0o700)
 		assert.NoError(t, err)
-		restore := chdir(t, downDir)
-		t.Cleanup(restore)
+		t.Chdir(downDir)
 
 		code, err := RunSubprocess(&SubprocessConfig{
 			Args:      []string{"true"},
@@ -492,29 +491,6 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 	for _, result := range results {
 		assert.Equal(t, secrets[result.Key].Path, result.Value)
 		assert.Nil(t, result.Error)
-	}
-}
-
-// chdir changes the current working directory to the named directory and
-// returns a function that, when called, restores the original working
-// directory.
-//
-// Courtesy of https://github.com/golang/go/issues/45182
-// Can be replaced by https://pkg.go.dev/testing@master#T.Chdir
-// when Go 1.24 is out (2025-02).
-func chdir(t *testing.T, dir string) func() {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("chdir %s: %v", dir, err)
-	}
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-
-	return func() {
-		if err := os.Chdir(wd); err != nil {
-			t.Fatalf("restoring working directory: %v", err)
-		}
 	}
 }
 
