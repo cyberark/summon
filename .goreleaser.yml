@@ -122,6 +122,9 @@ brews:
       name: homebrew-tools
     skip_upload: true
 
+snapshot:
+  version_template: "{{ .Version }}"
+
 nfpms:
   - file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Arch }}"
     vendor: CyberArk
