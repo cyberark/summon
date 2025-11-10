@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.10.8] - 2025-11-03
+## [0.10.8] - 2025-11-10
 
 ### Changed
 - Update Go to 1.25 (CONJSE-2067)
@@ -307,7 +307,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.6...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.8...HEAD
+[0.10.8]: https://github.com/cyberark/summon/compare/v0.10.7...v0.10.8
+[0.10.7]: https://github.com/cyberark/summon/compare/v0.10.6...v0.10.7
 [0.10.6]: https://github.com/cyberark/summon/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/cyberark/summon/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/cyberark/summon/compare/v0.10.3...v0.10.4
