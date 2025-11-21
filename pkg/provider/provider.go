@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -90,12 +91,36 @@ type Result struct {
 // ErrInteractiveModeNotSupported is returned when a provider does not support interactive mode
 var ErrInteractiveModeNotSupported = errors.New("interactive mode not supported")
 
+const (
+	// defaultInteractiveTimeout is the fallback timeout for interactive mode
+	defaultInteractiveTimeout = 60
+	// Even though summon can be used for non-Conjur providers, the environment
+	// variable name is kept the same as the Conjur provider to avoid confusion.
+	interactiveTimeoutEnvVar = "CONJUR_HTTP_TIMEOUT"
+)
+
+// interactiveModeTimeout returns the timeout for interactive provider calls.
+// It can be overridden via CONJUR_HTTP_TIMEOUT which must be a positive
+// integer number of seconds.
+func interactiveModeTimeout() time.Duration {
+	timeoutStr, ok := os.LookupEnv(interactiveTimeoutEnvVar)
+	if !ok || len(timeoutStr) == 0 {
+		return defaultInteractiveTimeout * time.Second
+	}
+
+	secs, err := strconv.Atoi(timeoutStr)
+	if err != nil || secs <= 0 {
+		secs = defaultInteractiveTimeout
+	}
+	return time.Duration(secs) * time.Second
+}
+
 // CallInteractiveMode calls a provider without passing any arguments. It then constantly fetches
 // secrets from its stdout. It returns a channel of results, a channel of errors and a cleanup function.
 func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func()) {
 	resultsCh := make(chan Result)
 	errorsCh := make(chan error, 1)
-	ctxTimeout, ctxCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctxTimeout, ctxCancel := context.WithTimeout(context.Background(), interactiveModeTimeout())
 
 	cmd := exec.CommandContext(ctxTimeout, provider)
 
