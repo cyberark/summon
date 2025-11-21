@@ -248,6 +248,12 @@ process and allows providers to implement token caching.
 
 If the provider does not support stream mode, Summon uses the legacy mode.
 
+### Timeout
+
+By default, Summon will wait up to 60 seconds for a provider to respond when using stream mode.
+You can change this timeout by setting the `CONJUR_HTTP_TIMEOUT` environment variable to
+the desired number of seconds.
+
 ## Contributing
 
 For more info on contributing, please see [CONTRIBUTING.md](CONTRIBUTING.md).

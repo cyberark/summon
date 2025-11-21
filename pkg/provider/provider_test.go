@@ -456,3 +456,26 @@ func generateRandomString(n int) string {
 
 	return string(ret)
 }
+
+func TestInteractiveModeTimeout(t *testing.T) {
+	defaultTimeout := time.Duration(defaultInteractiveTimeout) * time.Second
+
+	tests := []struct {
+		envValue string
+		expected time.Duration
+	}{
+		{"", defaultTimeout},
+		{"30", 30 * time.Second},
+		{"0", defaultTimeout},
+		{"-10", defaultTimeout},
+		{"abc", defaultTimeout},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.envValue, func(t *testing.T) {
+			os.Setenv(interactiveTimeoutEnvVar, testCase.envValue)
+			defer os.Unsetenv(interactiveTimeoutEnvVar)
+			assert.Equal(t, testCase.expected, interactiveModeTimeout())
+		})
+	}
+}
