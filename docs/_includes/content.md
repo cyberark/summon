@@ -22,7 +22,7 @@ summon resolves the entries in `secrets.yml` with the `conjur` provider and
 makes the secret values available to the environment of the command `chef-client --once`.
 In our chef recipes we can access the secrets with Ruby's `ENV['...']` syntax.
 
-This same pattern works for any tooling that can access environment variables. 
+This same pattern works for any tooling that can access environment variables.
 
 As a second example, Docker:
 
@@ -59,7 +59,7 @@ file and sets the value of `key` to the file's path.
 identified by `secret`, write it to a temp file and set `key` to the temp file path.
 
 * If there is no tag, `<secret>` is treated as a literal string and set as the value of `key`.
-In this scenario, the value in the `<secret>` should not actually be a secret, but rather a piece of 
+In this scenario, the value in the `<secret>` should not actually be a secret, but rather a piece of
 metadata which is associated with secrets.
 
 Here is an example:
@@ -91,6 +91,8 @@ Here are some specific examples of how you can use summon with your current tool
 * [Keepass kdbx database file](https://github.com/mskarbek/summon-keepass)
 * [Gopass](https://github.com/gopasspw/gopass-summon-provider)
 * [AWS Secrets Manager](https://github.com/cyberark/summon-aws-secrets)
+* [KeePass 2](https://github.com/stanislavbebej-ext43345/summon-keepass)
+* [Bitwarden Secrets Manager](https://github.com/stanislavbebej-ext43345/summon-secrets-manager)
 
 Providers are easy to write. Given the identifier of a secret, they either return its value or an error.
 
