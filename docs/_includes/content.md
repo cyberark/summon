@@ -84,13 +84,18 @@ Here are some specific examples of how you can use summon with your current tool
 
 <h1 id="providers">providers</h1>
 
+Developed by Cyberark:
+
 * [AWS S3](https://github.com/conjurinc/summon-s3)
 * [Conjur](https://github.com/cyberark/summon-conjur)
 * [Chef encrypted data bags](https://github.com/conjurinc/summon-chefapi)
 * [keyring](https://github.com/conjurinc/summon-keyring)
+* [AWS Secrets Manager](https://github.com/cyberark/summon-aws-secrets)
+
+Developed by the community:
+
 * [Keepass kdbx database file](https://github.com/mskarbek/summon-keepass)
 * [Gopass](https://github.com/gopasspw/gopass-summon-provider)
-* [AWS Secrets Manager](https://github.com/cyberark/summon-aws-secrets)
 * [KeePass 2](https://github.com/stanislavbebej-ext43345/summon-keepass)
 * [Bitwarden Secrets Manager](https://github.com/stanislavbebej-ext43345/summon-secrets-manager)
 
