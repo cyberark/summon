@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.10.10] - 2025-12-10
+
 ### Fixed
 - Fix handling of multi-line environment parameters
   ([cyberark/summon#260](https://github.com/cyberark/summon/issues/260), CNJR-11775)
@@ -316,7 +318,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.9...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.10...HEAD
+[0.10.10]: https://github.com/cyberark/summon/compare/v0.10.9...v0.10.10
 [0.10.9]: https://github.com/cyberark/summon/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/cyberark/summon/compare/v0.10.7...v0.10.8
 [0.10.7]: https://github.com/cyberark/summon/compare/v0.10.6...v0.10.7
