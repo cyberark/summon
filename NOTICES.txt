@@ -18,8 +18,8 @@ SECTION 3: BSD 3-clause "New" or "Revised" License
 
 SECTION 4: MIT License
 
->>> github.com/cpuguy83/go-md2man/v2/md2man-2.0.6
->>> github.com/urfave/cli-1.22.16
+>>> github.com/cpuguy83/go-md2man/v2/md2man-2.0.7
+>>> github.com/urfave/cli-1.22.17
 >>> gopkg.in/yaml.v3-3.0.1
 
 SECTION 5: ISC License
@@ -75,7 +75,7 @@ BSD 3-clause "New" or "Revised" License is applicable to the following component
 
 MIT License is applicable to the following component(s).
 
->>> github.com/cpuguy83/go-md2man/v2/md2man-2.0.6
+>>> github.com/cpuguy83/go-md2man/v2/md2man-2.0.7
 
 The MIT License (MIT)
 
@@ -100,7 +100,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
->>> github.com/urfave/cli-1.22.16
+>>> github.com/urfave/cli-1.22.17
 
 MIT License
 
