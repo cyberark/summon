@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+- Fix handling of multi-line environment parameters
+  ([cyberark/summon#260](https://github.com/cyberark/summon/issues/260), CNJR-11775)
+
 ## [0.10.9] - 2025-11-21
 
 ### Added

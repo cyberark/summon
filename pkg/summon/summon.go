@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -236,6 +237,9 @@ func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFact
 func joinEnv(env map[string]string) string {
 	var envs []string
 	for k, v := range env {
+		if strings.ContainsAny(v, " \t\n\r\"'\\") {
+			v = strconv.Quote(v)
+		}
 		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
 	}
 

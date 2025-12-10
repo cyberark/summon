@@ -381,6 +381,37 @@ func TestJoinEnv(t *testing.T) {
 		result := joinEnv(map[string]string{"foo": "bar", "baz": "qux"})
 		assert.Equal(t, "baz=qux\nfoo=bar\n", result)
 	})
+
+	t.Run("quotes values with spaces", func(t *testing.T) {
+		result := joinEnv(map[string]string{"key": "value with spaces"})
+		assert.Equal(t, "key=\"value with spaces\"\n", result)
+	})
+
+	t.Run("quotes and escapes multi-line values", func(t *testing.T) {
+		multiLineValue := "-----BEGIN KEY-----\nCERT_DATA...\n-----END KEY-----"
+		result := joinEnv(map[string]string{"CERT": multiLineValue})
+		expected := "CERT=\"-----BEGIN KEY-----\\nCERT_DATA...\\n-----END KEY-----\"\n"
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("escapes quotes in values", func(t *testing.T) {
+		result := joinEnv(map[string]string{"key": "value with \"quotes\""})
+		assert.Equal(t, "key=\"value with \\\"quotes\\\"\"\n", result)
+	})
+
+	t.Run("escapes backslashes in values", func(t *testing.T) {
+		result := joinEnv(map[string]string{"key": "value\\with\\backslashes"})
+		assert.Equal(t, "key=\"value\\\\with\\\\backslashes\"\n", result)
+	})
+
+	t.Run("handles mixed simple and complex values", func(t *testing.T) {
+		result := joinEnv(map[string]string{
+			"SIMPLE":  "value",
+			"COMPLEX": "value with spaces",
+		})
+		assert.Contains(t, result, "SIMPLE=value\n")
+		assert.Contains(t, result, "COMPLEX=\"value with spaces\"\n")
+	})
 }
 
 func TestLocateFileRecurseUp(t *testing.T) {
