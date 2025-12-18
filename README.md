@@ -216,6 +216,7 @@ production:
 Doing something along the lines of: `summon -f secrets.yaml -e staging printenv | grep DB_`, `summon` will populate `DB_USER`, `DB_NAME`, `DB_HOST` with values from `common` and set `DB_PASS` to `some_password`.
 
 Note: `default` is an alias for `common` section. You can use either one.
+Also note that when not using named environments, the `common` section will be ignored.
 
 * `-h` View help and all flags.
 
