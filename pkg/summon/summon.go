@@ -57,11 +57,16 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 		}
 	}
 
+	var config *secretsyml.ParsedConfig
 	switch sc.YamlInline {
 	case "":
-		secrets, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
+		config, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
+		// For now we only handle env secrets
+		secrets = config.EnvSecrets
 	default:
-		secrets, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
+		config, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
+		// For now we only handle env secrets
+		secrets = config.EnvSecrets
 	}
 
 	if err != nil {
