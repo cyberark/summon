@@ -325,9 +325,20 @@ func TestConvertSubsToMap(t *testing.T) {
 			"environment": "production",
 		}
 
-		output := convertSubsToMap(input)
+		output, err := convertSubsToMap(input)
 
+		assert.NoError(t, err)
 		assert.EqualValues(t, expected, output)
+	})
+
+	t.Run("Invalid substitutions produce error", func(t *testing.T) {
+		input := []string{
+			"invalidsubstitution",
+		}
+
+		output, err := convertSubsToMap(input)
+		assert.ErrorContains(t, err, "invalid substitution format")
+		assert.Nil(t, output)
 	})
 }
 
@@ -338,13 +349,14 @@ func TestFormatForEnvString(t *testing.T) {
 				Path: "mysql1/password",
 				Tags: []secretsyml.YamlTag{secretsyml.Var},
 			}
-			k, v := formatForEnv(
+			k, v, err := formatForEnv(
 				"dbpass",
 				"mysecretvalue",
 				spec,
 				nil,
 			)
 
+			assert.NoError(t, err)
 			assert.Equal(t, "dbpass", k)
 			assert.Equal(t, "mysecretvalue", v)
 		})
@@ -356,17 +368,18 @@ func TestFormatForEnvString(t *testing.T) {
 				Path: "certs/webtier1/private-cert",
 				Tags: []secretsyml.YamlTag{secretsyml.File},
 			}
-			key, path := formatForEnv(
+			key, path, err := formatForEnv(
 				"SSL_CERT",
 				"mysecretvalue",
 				spec,
 				&tempFactory,
 			)
 
+			assert.NoError(t, err)
 			assert.Equal(t, "SSL_CERT", key)
 
 			// Temp path should exist
-			_, err := os.Stat(path)
+			_, err = os.Stat(path)
 			assert.NoError(t, err)
 
 			contents, _ := os.ReadFile(path)

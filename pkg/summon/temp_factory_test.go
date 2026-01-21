@@ -12,7 +12,8 @@ func TestTempFactoryPushAndCleanup(t *testing.T) {
     tf := NewTempFactory("")
 
     content := "test secret"
-    tempFilePath := tf.Push(content)
+    tempFilePath, err := tf.Push(content)
+	require.NoError(t, err)
 
     data, err := os.ReadFile(tempFilePath)
 	require.NoError(t, err)
@@ -31,11 +32,15 @@ func TestTempFactoryPushAndCleanup(t *testing.T) {
 
 func TestTempFactoryMultiplePushesAndCleanup(t *testing.T) {
     tf := NewTempFactory("")
-    files := []string{
-        tf.Push("secret1"),
-        tf.Push("secret2"),
-        tf.Push("secret3"),
-    }
+    
+	file1, err := tf.Push("secret1")
+	require.NoError(t, err)
+	file2, err := tf.Push("secret2")
+	require.NoError(t, err)
+	file3, err := tf.Push("secret3")
+	require.NoError(t, err)
+	
+	files := []string{file1, file2, file3}
 
     tf.Cleanup()
 

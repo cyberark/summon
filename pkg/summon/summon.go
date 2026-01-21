@@ -44,7 +44,10 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 		err     error
 	)
 
-	subs := convertSubsToMap(sc.Subs)
+	subs, err := convertSubsToMap(sc.Subs)
+	if err != nil {
+		return 0, err
+	}
 
 	if sc.RecurseUp {
 		currentDir, err := os.Getwd()
@@ -117,7 +120,10 @@ EnvLoop:
 		env[SUMMON_ENV_KEY_NAME] = sc.Environment
 	}
 
-	setupEnvFile(sc.Args, env, &tempFactory)
+	_, err = setupEnvFile(sc.Args, env, &tempFactory)
+	if err != nil {
+		return 0, fmt.Errorf("Error creating %s: %v", ENV_FILE_MAGIC, err)
+	}
 
 	var e []string
 	for k, v := range env {
@@ -140,8 +146,13 @@ func filterNonVariables(secrets secretsyml.SecretsMap, tempFactory *TempFactory)
 		if spec.IsVar() {
 			filteredSecrets[key] = spec
 		} else {
-			k, v := formatForEnv(key, spec.Path, spec, tempFactory)
-			result := prov.Result{k, v, nil}
+			k, v, err := formatForEnv(key, spec.Path, spec, tempFactory)
+			var result prov.Result
+			if err != nil {
+				result = prov.Result{Key: key, Value: "", Error: err}
+			} else {
+				result = prov.Result{Key: k, Value: v, Error: nil}
+			}
 			results = append(results, result)
 		}
 	}
@@ -164,8 +175,12 @@ func handleResultsFromProvider(resultsCh chan prov.Result, errorsCh chan error,
 			if result.Value == "" && spec.DefaultValue != "" {
 				result.Value = spec.DefaultValue
 			}
-			k, v := formatForEnv(result.Key, result.Value, spec, tempFactory)
-			result = prov.Result{k, v, nil}
+			k, v, err := formatForEnv(result.Key, result.Value, spec, tempFactory)
+			if err != nil {
+				result = prov.Result{Key: result.Key, Value: "", Error: err}
+			} else {
+				result = prov.Result{Key: k, Value: v, Error: nil}
+			}
 			results = append(results, result)
 
 		// Fallback to the old implementation if either provider doesn't support interactive mode or an error occured
@@ -186,7 +201,7 @@ func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *Subproces
 			if spec.IsVar() {
 				valueBytes, err := sc.FetchSecret(spec.Path)
 				if err != nil {
-					results <- prov.Result{key, "", err}
+					results <- prov.Result{Key: key, Value: "", Error: err}
 					wg.Done()
 					return
 				}
@@ -201,8 +216,12 @@ func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *Subproces
 				value = spec.DefaultValue
 			}
 
-			k, v := formatForEnv(key, value, spec, tempFactory)
-			results <- prov.Result{k, v, nil}
+			k, v, err := formatForEnv(key, value, spec, tempFactory)
+			if err != nil {
+				results <- prov.Result{Key: key, Value: "", Error: err}
+			} else {
+				results <- prov.Result{Key: k, Value: v, Error: nil}
+			}
 			wg.Done()
 		}(key, spec)
 	}
@@ -229,13 +248,16 @@ func returnStatusOfError(err error) (int, error) {
 
 // formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
 // %v=the secret value or path to a temporary file containing the secret
-func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) (string, string) {
+func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) (string, string, error) {
 	if spec.IsFile() {
-		fname := tempFactory.Push(value)
+		fname, err := tempFactory.Push(value)
+		if err != nil {
+			return "", "", err
+		}
 		value = fname
 	}
 
-	return key, value
+	return key, value, nil
 }
 
 func joinEnv(env map[string]string) string {
@@ -293,31 +315,39 @@ func findInParentTree(secretsFile string, leafDir string) (string, error) {
 // scans arguments for the magic string; if found,
 // creates a tempfile to which all the environment mappings are dumped
 // and replaces the magic string with its path.
-// Returns the path if so, returns an empty string otherwise.
-func setupEnvFile(args []string, env map[string]string, tempFactory *TempFactory) string {
+// Returns the path if so, returns an empty string otherwise. Also
+// returns any error encountered during the process.
+func setupEnvFile(args []string, env map[string]string, tempFactory *TempFactory) (string, error) {
 	var envFile = ""
+	var err error
 
 	for i, arg := range args {
 		idx := strings.Index(arg, ENV_FILE_MAGIC)
 		if idx >= 0 {
 			if envFile == "" {
-				envFile = tempFactory.Push(joinEnv(env))
+				envFile, err = tempFactory.Push(joinEnv(env))
+				if err != nil {
+					return "", err
+				}
 			}
 			args[i] = strings.Replace(arg, ENV_FILE_MAGIC, envFile, -1)
 		}
 	}
 
-	return envFile
+	return envFile, nil
 }
 
 // convertSubsToMap converts the list of substitutions passed in via
 // command line to a map
-func convertSubsToMap(subs []string) map[string]string {
+func convertSubsToMap(subs []string) (map[string]string, error) {
 	out := make(map[string]string)
 	for _, sub := range subs {
 		s := strings.SplitN(sub, "=", 2)
+		if len(s) < 2 {
+			return nil, fmt.Errorf("invalid substitution format: %q (expected key=value)", sub)
+		}
 		key, val := s[0], s[1]
 		out[key] = val
 	}
-	return out
+	return out, nil
 }

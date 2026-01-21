@@ -32,31 +32,39 @@ func DefaultTempPath() string {
 	}
 	home, err := os.UserHomeDir()
 	if err == nil {
-		dir, _ := os.MkdirTemp(home, ".tmp")
-		return dir
+		dir, err := os.MkdirTemp(home, ".tmp")
+		if err == nil {
+			return dir
+		}
 	}
 	return os.TempDir()
 }
 
 // Push creates a temp file with given value. Returns the path.
-func (tf *TempFactory) Push(value string) string {
-	f, _ := os.CreateTemp(tf.path, ".summon")
+func (tf *TempFactory) Push(value string) (string, error) {
+	f, err := os.CreateTemp(tf.path, ".summon")
+	if err != nil {
+		return "", err
+	}
 	defer f.Close()
 
-	f.Write([]byte(value))
+	if _, err := f.Write([]byte(value)); err != nil {
+		return "", err
+	}
 	name := f.Name()
 	tf.files = append(tf.files, name)
-	return name
+	return name, nil
 }
 
 // Cleanup removes the temporary files created with this factory.
 func (tf *TempFactory) Cleanup() {
 	for _, file := range tf.files {
-		os.Remove(file)
+		_ = os.Remove(file) // Best-effort cleanup
 	}
 	// Also remove the tempdir if it's not DEVSHM
 	if !strings.Contains(tf.path, DEVSHM) {
-		os.Remove(tf.path)
+		_ = os.Remove(tf.path) // Best-effort cleanup
 	}
-	tf = nil
+	tf.files = []string{}
+	tf.path = ""
 }
