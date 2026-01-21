@@ -101,26 +101,13 @@ archives:
     name_template: "{{.ProjectName}}-{{.Os}}-{{.Arch}}"
     format_overrides:
     - goos: windows
-      format: zip
+      formats:
+      - zip
     files:
       - none*  # only package the binary - not defaults: readme, license, changelog
 
 checksum:
   name_template: 'SHA256SUMS.txt'
-
-brews:
-  - description: CLI that provides on-demand secrets access for common DevOps tools.
-    homepage: https://github.com/cyberark/summon
-    url_template: https://github.com/cyberark/summon/releases/download/v{{.Version}}/summon-{{ tolower .Os }}-{{ tolower .Arch }}.tar.gz
-    install: |
-      bin.install "summon"
-    test: |
-      system "#{bin}/summon", "-v"
-
-    repository:
-      owner: cyberark
-      name: homebrew-tools
-    skip_upload: true
 
 snapshot:
   version_template: "{{ .Version }}"

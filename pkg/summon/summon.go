@@ -61,17 +61,16 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 	switch sc.YamlInline {
 	case "":
 		config, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
-		// For now we only handle env secrets
-		secrets = config.EnvSecrets
 	default:
 		config, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
-		// For now we only handle env secrets
-		secrets = config.EnvSecrets
 	}
 
 	if err != nil {
 		return 0, err
 	}
+
+	// For now we only handle env secrets
+	secrets = config.EnvSecrets
 
 	env := make(map[string]string)
 	tempFactory := NewTempFactory("")
