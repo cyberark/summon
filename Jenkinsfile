@@ -186,24 +186,17 @@ pipeline {
 
     stage('Validate installation script') {
       parallel {
-        stage('Validate installation on Ubuntu 20:04') {
+        stage('Validate installation on Ubuntu 24.04') {
           steps {
             script {
-              infrapool.agentSh 'bin/installer-test --ubuntu-20.04'
+              infrapool.agentSh 'bin/installer-test --ubuntu-24.04'
             }
           }
         }
-        stage('Validate installation on Ubuntu 18:04') {
+        stage('Validate installation on Ubuntu 22.04') {
           steps {
             script {
-              infrapool.agentSh 'bin/installer-test --ubuntu-18.04'
-            }
-          }
-        }
-        stage('Validate installation on Ubuntu 16:04') {
-          steps {
-            script {
-              infrapool.agentSh 'bin/installer-test --ubuntu-16.04'
+              infrapool.agentSh 'bin/installer-test --ubuntu-22.04'
             }
           }
         }
