@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	_ "golang.org/x/net/context"
 )
 
 func TestPrintProviderVersions(t *testing.T) {

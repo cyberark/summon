@@ -1,0 +1,29 @@
+Feature: Push to file
+
+    In order to protect secrets
+    As a developer using summon
+    I want to be able to fetch the externally
+    stored secrets into the environment
+    and push them to a file for use by other applications
+
+    Scenario: Pushing secrets to a file
+        Given a file named "secrets.yml" with:
+            """
+            summon.files:
+              - path: "./output/test-secrets.json"
+                format: "json"
+                secrets:
+                  DB_USERNAME: !var very/secret/db-username
+                  DB_PASSWORD: !var very/secret/db-password
+            """
+        And a secret "very/secret/db-username" with "secretUsername"
+        And a secret "very/secret/db-password" with "notSoSecret"
+        When I successfully run `summon -p ./provider cat ./output/test-secrets.json`
+        Then the output should contain:
+            """
+            "DB_USERNAME":"secretUsername"
+            """
+        And the output should contain:
+            """
+            "DB_PASSWORD":"notSoSecret"
+            """

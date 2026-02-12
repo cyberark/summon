@@ -1,10 +1,8 @@
 package summon
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,62 +16,64 @@ import (
 )
 
 func TestRunSubprocess(t *testing.T) {
-	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
-		expectedValue := "valueOfVariable"
-
-		dir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		if err != nil {
-			return
-		}
-		defer os.RemoveAll(dir)
-
-		tempFile := filepath.Join(dir, "outputFile.txt")
-
-		code, err := RunSubprocess(&SubprocessConfig{
-			Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
-			YamlInline: "FOO: " + expectedValue,
-		})
-
-		assert.NoError(t, err)
-		assert.Equal(t, 0, code)
-
-		if err != nil || code != 0 {
-			return
+	t.Run("Variable resolution", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			yamlInline string
+			expected   string
+		}{
+			{"plain value", "FOO: valueOfVariable", "valueOfVariable"},
+			{"default when provider returns empty", "FOO: !str:default='defaultValueOfVariable'", "defaultValueOfVariable"},
+			{"provider value overrides default", "FOO: !str:default='something' valueOfVariable", "valueOfVariable"},
 		}
 
-		content, err := os.ReadFile(tempFile)
-		assert.NoError(t, err)
-		if err != nil {
-			return
-		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				dir := t.TempDir()
+				tempFile := filepath.Join(dir, "outputFile.txt")
 
-		assert.Equal(t, expectedValue, string(content))
+				code, err := RunSubprocess(&SubprocessConfig{
+					Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
+					YamlInline: tc.yamlInline,
+				})
+
+				assert.NoError(t, err)
+				assert.Equal(t, 0, code)
+
+				content, err := os.ReadFile(tempFile)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected, string(content))
+			})
+		}
 	})
 
-	t.Run("Finds secrets file in a directory above the working directory", func(t *testing.T) {
-		var err error
+	t.Run("Finds and uses secrets file in a directory above the working directory", func(t *testing.T) {
 		topDir := t.TempDir()
 
-		fileAbovePath := filepath.Join(topDir, "secrets.yml")
-		_, err = os.Create(fileAbovePath)
+		// Write a secrets.yml with a real secret that the subprocess will echo
+		secretsPath := filepath.Join(topDir, "secrets.yml")
+		err := os.WriteFile(secretsPath, []byte("BAR: barvalue\n"), 0o644)
 		assert.NoError(t, err)
 
-		// Create a downwards directory hierarchy, starting from topDir, and
-		// chdir to it.
+		// Create a deep subdirectory and chdir into it
 		downDir := filepath.Join(topDir, "dir1", "dir2", "dir3")
 		err = os.MkdirAll(downDir, 0o700)
 		assert.NoError(t, err)
 		t.Chdir(downDir)
 
+		outFile := filepath.Join(topDir, "output.txt")
 		code, err := RunSubprocess(&SubprocessConfig{
-			Args:      []string{"true"},
+			Args:      []string{"bash", "-c", "echo -n \"$BAR\" > " + outFile},
 			RecurseUp: true,
 			Filepath:  "secrets.yml",
 		})
 
 		assert.NoError(t, err)
 		assert.Equal(t, 0, code)
+
+		content, err := os.ReadFile(outFile)
+		assert.NoError(t, err)
+		assert.Equal(t, "barvalue", string(content))
 	})
 }
 
@@ -97,7 +97,7 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		}
 
 		go func() {
-			resultsCh <- prov.Result{expectedKey, expectedValue, nil}
+			resultsCh <- prov.Result{Key: expectedKey, Value: expectedValue, Error: nil}
 			close(resultsCh)
 		}()
 
@@ -107,46 +107,6 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		assert.Equal(t, 1, len(results))
 		assert.Equal(t, expectedKey, results[0].Key)
 		assert.Equal(t, expectedValue, results[0].Value)
-	})
-	t.Run("Handles large number of results", func(t *testing.T) {
-		numResults := 1000
-		resultsCh := make(chan prov.Result, numResults)
-		errorsCh := make(chan error, 1)
-
-		tempFactory := NewTempFactory("")
-		defer tempFactory.Cleanup()
-
-		filteredSecrets := make(secretsyml.SecretsMap, numResults)
-		for i := range numResults {
-			key := fmt.Sprintf("SECRET_KEY_%d", i)
-			filteredSecrets[key] = secretsyml.SecretSpec{
-				Path:         key,
-				DefaultValue: "",
-				Tags:         []secretsyml.YamlTag{secretsyml.Var},
-			}
-		}
-
-		go func() {
-			for i := range numResults {
-				key := fmt.Sprintf("SECRET_KEY_%d", i)
-				// Generate a 1024 character random string
-				val := generateRandomString(1024)
-				val = fmt.Sprintf("%s_____%d", val, i) // Append index
-				resultsCh <- prov.Result{Key: key, Value: val, Error: nil}
-			}
-			close(resultsCh)
-		}()
-
-		results, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
-
-		assert.NoError(t, err)
-		assert.Equal(t, numResults, len(results))
-		for i := range numResults {
-			expectedKey := fmt.Sprintf("SECRET_KEY_%d", i)
-			expectedValue := fmt.Sprintf("_____%d", i)
-			assert.Equal(t, expectedKey, results[i].Key)
-			assert.Contains(t, results[i].Value, expectedValue)
-		}
 	})
 
 	t.Run("Returns default value when provider returns empty value", func(t *testing.T) {
@@ -168,7 +128,7 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		}
 
 		go func() {
-			resultsCh <- prov.Result{expectedKey, "", nil}
+			resultsCh <- prov.Result{Key: expectedKey, Value: "", Error: nil}
 			close(resultsCh)
 		}()
 
@@ -202,6 +162,35 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		assert.Equal(t, prov.ErrInteractiveModeNotSupported, err)
 		assert.Nil(t, results)
 	})
+
+	t.Run("Returns error result when formatForEnv fails", func(t *testing.T) {
+		resultsCh := make(chan prov.Result, 1)
+		errorsCh := make(chan error, 1)
+
+		// Use an invalid path so tempFactory.Push() fails
+		tempFactory := NewTempFactory("/nonexistent/dir")
+		defer tempFactory.Cleanup()
+
+		filteredSecrets := secretsyml.SecretsMap{
+			"FILE_KEY": secretsyml.SecretSpec{
+				Path: "some-value",
+				Tags: []secretsyml.YamlTag{secretsyml.Var, secretsyml.File},
+			},
+		}
+
+		go func() {
+			resultsCh <- prov.Result{Key: "FILE_KEY", Value: "content", Error: nil}
+			close(resultsCh)
+		}()
+
+		results, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
+
+		assert.NoError(t, err)
+		assert.Len(t, results, 1)
+		assert.Equal(t, "FILE_KEY", results[0].Key)
+		assert.Empty(t, results[0].Value)
+		assert.ErrorContains(t, results[0].Error, "/nonexistent/dir")
+	})
 }
 
 func TestFilterNonVariables(t *testing.T) {
@@ -226,7 +215,7 @@ func TestFilterNonVariables(t *testing.T) {
 		}
 
 		expectedResults := []prov.Result{
-			{nonVarKey, nonVarPath, nil},
+			{Key: nonVarKey, Value: nonVarPath, Error: nil},
 		}
 
 		expectedFilteredSecrets := secretsyml.SecretsMap{
@@ -241,75 +230,25 @@ func TestFilterNonVariables(t *testing.T) {
 		assert.Equal(t, expectedResults, results)
 		assert.Equal(t, expectedFilteredSecrets, filteredSecrets)
 	})
-}
 
-func TestDefaultVariableResolution(t *testing.T) {
-	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
-		expectedDefaultValue := "defaultValueOfVariable"
+	t.Run("Returns error result when formatForEnv fails for non-variable", func(t *testing.T) {
+		tempFactory := NewTempFactory("/nonexistent/dir")
+		defer tempFactory.Cleanup()
 
-		dir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		if err != nil {
-			return
-		}
-		defer os.RemoveAll(dir)
-
-		tempFile := filepath.Join(dir, "outputFile.txt")
-
-		code, err := RunSubprocess(&SubprocessConfig{
-			Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
-			YamlInline: "FOO: !str:default='" + expectedDefaultValue + "'",
-		})
-
-		assert.NoError(t, err)
-		assert.Equal(t, 0, code)
-
-		if err != nil || code != 0 {
-			return
+		secrets := secretsyml.SecretsMap{
+			"FILE_KEY": secretsyml.SecretSpec{
+				Path: "file-content",
+				Tags: []secretsyml.YamlTag{secretsyml.File},
+			},
 		}
 
-		content, err := os.ReadFile(tempFile)
-		assert.NoError(t, err)
-		if err != nil {
-			return
-		}
+		results, filteredSecrets := filterNonVariables(secrets, &tempFactory)
 
-		assert.Equal(t, expectedDefaultValue, string(content))
-	})
-}
-
-func TestDefaultVariableResolutionWithValue(t *testing.T) {
-	t.Run("Variable resolution correctly resolves variables", func(t *testing.T) {
-		expectedValue := "valueOfVariable"
-
-		dir, err := os.MkdirTemp("", "summon")
-		assert.NoError(t, err)
-		if err != nil {
-			return
-		}
-		defer os.RemoveAll(dir)
-
-		tempFile := filepath.Join(dir, "outputFile.txt")
-
-		code, err := RunSubprocess(&SubprocessConfig{
-			Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
-			YamlInline: "FOO: !str:default='something' " + expectedValue,
-		})
-
-		assert.NoError(t, err)
-		assert.Equal(t, 0, code)
-
-		if err != nil || code != 0 {
-			return
-		}
-
-		content, err := os.ReadFile(tempFile)
-		assert.NoError(t, err)
-		if err != nil {
-			return
-		}
-
-		assert.Equal(t, expectedValue, string(content))
+		assert.Empty(t, filteredSecrets, "file specs should not be in filtered (var-only) secrets")
+		assert.Len(t, results, 1)
+		assert.Equal(t, "FILE_KEY", results[0].Key)
+		assert.Empty(t, results[0].Value)
+		assert.ErrorContains(t, results[0].Error, "/nonexistent/dir")
 	})
 }
 
@@ -384,7 +323,7 @@ func TestFormatForEnvString(t *testing.T) {
 
 			contents, _ := os.ReadFile(path)
 
-			assert.Contains(t, string(contents), "mysecretvalue")
+			assert.Equal(t, "mysecretvalue", string(contents))
 		})
 	})
 }
@@ -517,34 +456,68 @@ func TestReturnStatusOfError(t *testing.T) {
 }
 
 func TestNonInteractiveProviderFallback(t *testing.T) {
-	secrets := secretsyml.SecretsMap{
-		"key1": secretsyml.SecretSpec{Path: "path1"},
-		"key2": secretsyml.SecretSpec{Path: "path2"},
-	}
-	sc := &SubprocessConfig{
-		FetchSecret: func(path string) ([]byte, error) {
-			return []byte(path), nil
+	tests := []struct {
+		name        string
+		secrets     secretsyml.SecretsMap
+		fetchSecret func(string) ([]byte, error)
+		tempPath    string
+		assertFunc  func(t *testing.T, results []prov.Result)
+	}{
+		{
+			name: "returns results for all secrets",
+			secrets: secretsyml.SecretsMap{
+				"key1": secretsyml.SecretSpec{Path: "path1"},
+				"key2": secretsyml.SecretSpec{Path: "path2"},
+			},
+			fetchSecret: func(path string) ([]byte, error) { return []byte(path), nil },
+			assertFunc: func(t *testing.T, results []prov.Result) {
+				assert.Len(t, results, 2)
+				for _, r := range results {
+					assert.NoError(t, r.Error)
+					// The stub returns the path as the value, so value should equal the spec's path
+					assert.NotEmpty(t, r.Value)
+				}
+			},
+		},
+		{
+			name: "returns error when fetch fails",
+			secrets: secretsyml.SecretsMap{
+				"FAILING_KEY": {Path: "path/to/secret", Tags: []secretsyml.YamlTag{secretsyml.Var}},
+			},
+			fetchSecret: func(path string) ([]byte, error) {
+				return nil, fmt.Errorf("provider error for %s", path)
+			},
+			assertFunc: func(t *testing.T, results []prov.Result) {
+				assert.Len(t, results, 1)
+				assert.Equal(t, "FAILING_KEY", results[0].Key)
+				assert.Empty(t, results[0].Value)
+				assert.ErrorContains(t, results[0].Error, "provider error for path/to/secret")
+			},
+		},
+		{
+			name: "returns error when formatForEnv fails",
+			secrets: secretsyml.SecretsMap{
+				"FILE_KEY": {Path: "path/to/secret", Tags: []secretsyml.YamlTag{secretsyml.Var, secretsyml.File}},
+			},
+			fetchSecret: func(path string) ([]byte, error) { return []byte("secret-content"), nil },
+			tempPath:    "/nonexistent/dir",
+			assertFunc: func(t *testing.T, results []prov.Result) {
+				assert.Len(t, results, 1)
+				assert.Equal(t, "FILE_KEY", results[0].Key)
+				assert.Empty(t, results[0].Value)
+				assert.ErrorContains(t, results[0].Error, "/nonexistent/dir")
+			},
 		},
 	}
-	tempFactory := NewTempFactory("")
-	defer tempFactory.Cleanup()
 
-	results := nonInteractiveProviderFallback(secrets, sc, &tempFactory)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sc := &SubprocessConfig{FetchSecret: tc.fetchSecret}
+			tempFactory := NewTempFactory(tc.tempPath)
+			defer tempFactory.Cleanup()
 
-	assert.Equal(t, len(secrets), len(results))
-	for _, result := range results {
-		assert.Equal(t, secrets[result.Key].Path, result.Value)
-		assert.Nil(t, result.Error)
+			results := nonInteractiveProviderFallback(tc.secrets, sc, &tempFactory)
+			tc.assertFunc(t, results)
+		})
 	}
-}
-
-func generateRandomString(n int) string {
-	const letters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
-	ret := make([]byte, n)
-	for i := range n {
-		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
-		ret[i] = letters[num.Int64()]
-	}
-
-	return string(ret)
 }

@@ -81,11 +81,15 @@ func Call(provider, specPath string) (string, error) {
 	return strings.TrimSpace(stdOut.String()), nil
 }
 
-// Result represents secret key and its value taken from the provider
+// Result is the outcome of fetching a single secret from the provider.
+// It pairs the resolved Value with the Key used to request it, plus an
+// Error for failed fetches. The Error field is needed here (but absent
+// from filetemplates.Secret) because callers inspect it for retry and
+// ignore logic before secrets reach the template-rendering stage.
 type Result struct {
-	Key   string
-	Value string
-	Error error
+	Key   string // The secret's identifier (environment variable name or alias).
+	Value string // The resolved secret content returned by the provider.
+	Error error  // Non-nil when the provider failed to fetch this secret.
 }
 
 // ErrInteractiveModeNotSupported is returned when a provider does not support interactive mode

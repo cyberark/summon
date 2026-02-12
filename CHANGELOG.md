@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-02-13
+
+### Added
+- Add support for writing secrets to files (CNJR-12226)
+
 ## [0.10.10] - 2025-12-10
 
 ### Fixed
@@ -318,7 +323,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.10.10...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/cyberark/summon/compare/v0.10.10...v0.11.0
 [0.10.10]: https://github.com/cyberark/summon/compare/v0.10.9...v0.10.10
 [0.10.9]: https://github.com/cyberark/summon/compare/v0.10.8...v0.10.9
 [0.10.8]: https://github.com/cyberark/summon/compare/v0.10.7...v0.10.8
