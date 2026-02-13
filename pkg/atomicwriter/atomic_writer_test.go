@@ -3,6 +3,7 @@ package atomicwriter
 import (
 	"bytes"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -393,6 +394,6 @@ func newTestWriter(path string, permissions os.FileMode,
 	funcs, counts := newTestOSFuncs(injectErrs)
 	logBuf := bytes.Buffer{}
 	writer.(*atomicWriter).os = funcs
-	writer.(*atomicWriter).logger.SetOutput(&logBuf)
+	writer.(*atomicWriter).logger = slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	return writer, counts, &logBuf
 }

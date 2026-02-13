@@ -1,6 +1,8 @@
 package command
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,5 +33,32 @@ testprovider-trailingnewline version 3.2.1
 `
 
 		assert.Equal(t, expected, output)
+	})
+}
+
+func TestConfigureDebugLogging(t *testing.T) {
+	// Save the original default logger and restore it after the test
+	originalHandler := slog.Default().Handler()
+	defer slog.SetDefault(slog.New(originalHandler))
+
+	t.Run("debug messages are written when debug logging is enabled", func(t *testing.T) {
+		var buf bytes.Buffer
+		configureDebugLogging(&buf)
+
+		slog.Debug("test debug message")
+
+		output := buf.String()
+		assert.Contains(t, output, "test debug message")
+		assert.Contains(t, output, "level=DEBUG")
+	})
+
+	t.Run("debug messages are suppressed with default logger", func(t *testing.T) {
+		var buf bytes.Buffer
+		// Reset to default (Info level) logger writing to our buffer
+		slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+
+		slog.Debug("this should not appear")
+
+		assert.Empty(t, buf.String())
 	})
 }

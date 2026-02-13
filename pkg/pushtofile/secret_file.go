@@ -3,6 +3,7 @@ package pushtofile
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path"
 	"slices"
@@ -199,7 +200,7 @@ func validateSecretsAgainstSpecs(
 
 		// Check if this alias exists in specs
 		if _, hasAlias := specs[alias]; !hasAlias {
-			fmt.Fprintf(os.Stderr, "Warning: alias %q not found in specs, skipping\n", alias)
+			slog.Warn("alias not found in specs, skipping", "alias", alias)
 			continue
 		}
 
@@ -212,7 +213,8 @@ func validateSecretsAgainstSpecs(
 	// If there are any non-ignored errors, return the first one
 	if len(errorResults) > 0 {
 		firstError := errorResults[0]
-		return nil, fmt.Errorf("error fetching variable %v: %v", firstError.Key, firstError.Error.Error())
+		slog.Debug("Error fetching secret", "name", firstError.Key, "error", firstError.Error)
+		return nil, fmt.Errorf("Error fetching secret: %v", firstError.Error.Error())
 	}
 
 	// Check for missing aliases (specs that don't have corresponding results)

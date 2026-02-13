@@ -45,4 +45,8 @@ var Flags = []cli.Flag{
 		Name:  "all-provider-versions, V",
 		Usage: "List of all of the providers in the default path and their versions(if they have the --version tag)",
 	},
+	cli.BoolFlag{
+		Name:  "debug, d",
+		Usage: "Enable debug logging",
+	},
 }

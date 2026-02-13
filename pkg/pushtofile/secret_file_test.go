@@ -292,7 +292,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			map[string]string{"alias1": "value1"},
 			map[string]error{"alias2": errors.New("secret fetch failed")},
 		),
-		assert: assertWriteErrorContains("error fetching variable alias2"),
+		assert: assertWriteErrorContains("Error fetching secret: secret fetch failed"),
 	},
 	{
 		description: "provider error with IgnoreAll",
@@ -384,7 +384,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		),
 		assert: func(t *testing.T, _ openWriteCloserSpy, _ *ClosableBuffer, _ pushToWriterSpy, err error) {
 			if assert.Error(t, err) {
-				assert.Contains(t, err.Error(), "error fetching variable")
+				assert.Contains(t, err.Error(), "Error fetching secret:")
 				// Should contain one of the errors (order not guaranteed due to map iteration)
 				assert.True(t, strings.Contains(err.Error(), "first error") || strings.Contains(err.Error(), "second error"))
 			}

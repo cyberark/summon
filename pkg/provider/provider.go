@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -172,6 +173,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	// This goroutine sends the paths of the secrets to the stdin of a secrets provider
 	go func() {
 		for key, spec := range secrets {
+			slog.Debug("Fetching secret", "name", key, "provider", provider)
 			_, err := fmt.Fprintln(stdinPipe, spec.Path)
 			if err != nil {
 				errorsCh <- ErrInteractiveModeNotSupported

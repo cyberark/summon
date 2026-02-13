@@ -2,6 +2,7 @@ package summon
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,13 +57,17 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 	var config *secretsyml.ParsedConfig
 	switch sc.YamlInline {
 	case "":
+		slog.Debug("Loading summon configuration", "filename", sc.Filepath)
 		config, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
+		if err != nil {
+			return 0, fmt.Errorf("Unable to parse configuration from %s: %w", sc.Filepath, err)
+		}
 	default:
+		slog.Debug("Loading summon configuration from inline YAML")
 		config, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
-	}
-
-	if err != nil {
-		return 0, err
+		if err != nil {
+			return 0, fmt.Errorf("Unable to parse configuration from inline YAML: %w", err)
+		}
 	}
 
 	tempFactory := NewTempFactory("")
@@ -179,7 +184,8 @@ EnvLoop:
 					continue EnvLoop
 				}
 			}
-			return nil, fmt.Errorf("Error fetching variable %v: %v", envvar.Key, envvar.Error.Error())
+			slog.Debug("Error fetching secret", "name", envvar.Key, "error", envvar.Error)
+			return nil, fmt.Errorf("Error fetching secret: %v", envvar.Error.Error())
 		}
 	}
 

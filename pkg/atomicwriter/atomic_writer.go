@@ -2,7 +2,7 @@ package atomicwriter
 
 import (
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -38,7 +38,7 @@ type atomicWriter struct {
 	permissions os.FileMode
 	tempFile    *os.File
 	os          osFuncs
-	logger      log.Logger
+	logger      *slog.Logger
 }
 
 // NewAtomicWriter provides a simple atomic file writer which implements the
@@ -57,7 +57,7 @@ func newAtomicWriter(path string, permissions os.FileMode, osFuncs osFuncs) io.W
 		tempFile:    nil,
 		permissions: permissions,
 		os:          osFuncs,
-		logger:      *log.New(os.Stderr, "", 0),
+		logger:      slog.Default(),
 	}
 }
 
@@ -68,16 +68,17 @@ func (w *atomicWriter) Write(content []byte) (n int, err error) {
 
 		f, err := w.os.tempFile(dir, file)
 		if err != nil {
-			w.logger.Printf("Could not create temporary file for '%s'", w.path)
+			w.logger.Error("Could not create temporary file", "path", w.path, "error", err)
 			return 0, err
 		}
+		w.logger.Debug("Writing temporary secrets file", "tempFile", f.Name())
 		w.tempFile = f
 	}
 
 	// Write to the temporary file
 	n, err = w.os.write(w.tempFile, content)
 	if err != nil {
-		w.logger.Printf("Could not write content to temporary file for '%s'", w.path)
+		w.logger.Error("Could not write content to temporary file", "path", w.path)
 		w.Cleanup()
 	}
 	return n, err
@@ -92,7 +93,7 @@ func (w *atomicWriter) Close() error {
 	// Flush and close the temporary file
 	err := w.os.sync(w.tempFile)
 	if err != nil {
-		w.logger.Printf("Could not flush temporary file '%s'", w.tempFile.Name())
+		w.logger.Error("Could not flush temporary file", "tempFile", w.tempFile.Name())
 		return err
 	}
 	w.tempFile.Close()
@@ -100,14 +101,15 @@ func (w *atomicWriter) Close() error {
 	// Set the file permissions
 	err = w.os.chmod(w.tempFile.Name(), w.permissions)
 	if err != nil {
-		w.logger.Printf("Could not set permissions on temporary file '%s'", w.tempFile.Name())
+		w.logger.Error("Could not set permissions on temporary file", "tempFile", w.tempFile.Name())
 		// Try to rename the file anyway
 	}
 
 	// Rename the temporary file to the destination
+	w.logger.Debug("Moving temporary file", "dest", w.path)
 	err = w.os.rename(w.tempFile.Name(), w.path)
 	if err != nil {
-		w.logger.Printf("Could not rename temporary file '%s' to '%s'", w.tempFile.Name(), w.path)
+		w.logger.Error("Could not move temporary file", "dest", w.path, "error", err)
 		return err
 	}
 	w.tempFile = nil
@@ -130,15 +132,15 @@ func (w *atomicWriter) Cleanup() {
 	}
 
 	// If we can't remove the temporary directory, truncate the file to remove all secret content
-	err = w.os.truncate(w.tempFile.Name(), 0)
+	truncErr := w.os.truncate(w.tempFile.Name(), 0)
 	switch {
-	case os.IsNotExist(err):
+	case os.IsNotExist(truncErr):
 		// This shouldn't happen, but just to be safe.
 		w.tempFile = nil
-	case err != nil:
+	case truncErr != nil:
 		// Truncate failed as well
-		w.logger.Printf("Could not delete temporary file '%s'. File may be left on disk.", w.tempFile.Name())
+		w.logger.Error("Could not delete temporary file. File may be left on disk.", "tempFile", w.tempFile.Name(), "error", truncErr)
 	default:
-		w.logger.Printf("Could not delete temporary file '%s'. Truncated file.", w.tempFile.Name())
+		w.logger.Error("Could not delete temporary file. Truncated file.", "tempFile", w.tempFile.Name(), "error", err)
 	}
 }

@@ -2,6 +2,7 @@ package summon
 
 import (
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -17,6 +18,8 @@ import (
 // handling results from the provider, and falling back to non-interactive mode if necessary.
 func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) ([]prov.Result, error) {
 	var results []prov.Result
+
+	slog.Debug("Fetching secrets", "count", len(secrets), "provider", sc.Provider)
 
 	// Filter out non variables
 	filteredResults, filteredSecrets := filterNonVariables(secrets, tempFactory)
@@ -98,6 +101,7 @@ func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *Subproces
 		go func(key string, spec secretsyml.SecretSpec) {
 			var value string
 			if spec.IsVar() {
+				slog.Debug("Fetching secret", "name", key, "provider", sc.Provider)
 				valueBytes, err := sc.FetchSecret(spec.Path)
 				if err != nil {
 					results <- prov.Result{Key: key, Value: "", Error: err}
