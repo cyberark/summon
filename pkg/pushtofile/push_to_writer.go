@@ -46,12 +46,6 @@ func openFileAsWriteCloser(path string, permissions os.FileMode, overwrite bool)
 		}
 	}
 
-	wc, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, permissions)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open file to write at %q: %s", path, err)
-	}
-	wc.Close()
-
 	// Return an instance of an atomic writer
 	atomicWriter := atomicwriter.NewAtomicWriter(path, permissions)
 

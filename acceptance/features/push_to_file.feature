@@ -19,11 +19,27 @@ Feature: Push to file
         And a secret "very/secret/db-username" with "secretUsername"
         And a secret "very/secret/db-password" with "notSoSecret"
         When I successfully run `summon -p ./provider cat ./output/test-secrets.json`
+        Then the output should match:
+            """
+            {"DB_PASSWORD":"notSoSecret","DB_USERNAME":"secretUsername"}
+            """
+        And a file "output/test-secrets.json" should not exist
+
+    Scenario: A secret is missing when pushing to a file
+        Given a file named "secrets.yml" with:
+            """
+            summon.files:
+              - path: "./output/test-secrets.json"
+                format: "json"
+                secrets:
+                  DB_USERNAME: !var very/secret/db-username
+                  DB_PASSWORD: !var very/secret/db-password-non-existent
+            """
+        And a secret "very/secret/db-username" with "secretUsername"
+        And a non-existent secret "very/secret/db-password-non-existent"
+        When I run `summon -p ./provider cat ./output/test-secrets.json`
         Then the output should contain:
             """
-            "DB_USERNAME":"secretUsername"
+            Error fetching secret: very/secret/db-password-non-existent
             """
-        And the output should contain:
-            """
-            "DB_PASSWORD":"notSoSecret"
-            """
+        And a file "output/test-secrets.json" should not exist

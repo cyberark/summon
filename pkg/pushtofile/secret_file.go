@@ -238,6 +238,11 @@ func validateSecretsAgainstSpecs(
 		return nil, fmt.Errorf("some secret specs are not present in secrets: %q", strings.Join(missingAliases, ", "))
 	}
 
+	// Sort the secrets by alias for deterministic output
+	sort.Slice(secrets, func(i, j int) bool {
+		return secrets[i].Alias < secrets[j].Alias
+	})
+
 	return secrets, nil
 }
 
