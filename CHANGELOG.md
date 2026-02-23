@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.11.0] - 2026-02-13
+## [0.11.0] - 2026-02-23
 
 ### Added
 - Add support for writing secrets to files (CNJR-12226)

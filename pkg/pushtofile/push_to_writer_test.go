@@ -2,6 +2,7 @@ package pushtofile
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	filetemplates "github.com/cyberark/summon/pkg/file_templates"
@@ -150,5 +151,66 @@ Value : example-pass
 func Test_pushToWriter(t *testing.T) {
 	for _, tc := range writeToFileTestCases {
 		tc.Run(t)
+	}
+}
+
+func Test_dirPermsForFilePerms(t *testing.T) {
+	tests := []struct {
+		description string
+		filePerms   os.FileMode
+		expected    os.FileMode
+	}{
+		{
+			description: "owner-only read/write returns 0700",
+			filePerms:   0600,
+			expected:    0700,
+		},
+		{
+			description: "owner-only read returns 0700",
+			filePerms:   0400,
+			expected:    0700,
+		},
+		{
+			description: "group read returns 0750",
+			filePerms:   0640,
+			expected:    0750,
+		},
+		{
+			description: "group read/write returns 0750",
+			filePerms:   0660,
+			expected:    0750,
+		},
+		{
+			description: "other read returns 0755",
+			filePerms:   0644,
+			expected:    0755,
+		},
+		{
+			description: "world read/write returns 0755",
+			filePerms:   0666,
+			expected:    0755,
+		},
+		{
+			description: "other execute only returns 0755",
+			filePerms:   0601,
+			expected:    0755,
+		},
+		{
+			description: "group execute only returns 0750",
+			filePerms:   0610,
+			expected:    0750,
+		},
+		{
+			description: "no permissions returns 0700",
+			filePerms:   0000,
+			expected:    0700,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			actual := dirPermsForFilePerms(tc.filePerms)
+			assert.Equal(t, tc.expected, actual)
+		})
 	}
 }

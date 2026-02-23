@@ -33,8 +33,7 @@ type openWriteCloserFunc func(
 func openFileAsWriteCloser(path string, permissions os.FileMode, overwrite bool) (io.WriteCloser, error) {
 	dir := filepath.Dir(path)
 
-	// Create the file here to capture any errors, instead of in atomicWriter.Close() which may be deferred and ignored
-	err := os.MkdirAll(dir, os.ModePerm)
+	err := os.MkdirAll(dir, dirPermsForFilePerms(permissions))
 	if err != nil {
 		return nil, fmt.Errorf("unable to mkdir when opening file to write at %q: %s", path, err)
 	}
@@ -86,4 +85,24 @@ func pushToWriter(
 func writeContent(writer io.Writer, fileContent *bytes.Buffer) error {
 	_, err := writer.Write(fileContent.Bytes())
 	return err
+}
+
+// dirPermsForFilePerms derives directory permissions from file permissions.
+// Directories need the execute bit set for traversal, so this function maps
+// file permission scopes (owner/group/other) to the corresponding r-x
+// directory permissions. The owner always gets rwx. Group and other scopes
+// only get read and execute (not write), since they should not be able to
+// create or delete files in the directory:
+//   - If "others" have any access bits → 0755
+//   - Else if "group" has any access bits → 0750
+//   - Otherwise → 0700
+func dirPermsForFilePerms(filePerms os.FileMode) os.FileMode {
+	switch {
+	case filePerms&0007 != 0:
+		return 0755
+	case filePerms&0070 != 0:
+		return 0750
+	default:
+		return 0700
+	}
 }
