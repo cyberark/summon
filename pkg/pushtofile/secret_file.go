@@ -193,10 +193,6 @@ func validateSecretsAgainstSpecs(
 				ignoredAliases[alias] = struct{}{}
 				continue
 			}
-			// Still ignore if IgnoreAll is set
-			if ignoreAll {
-				continue
-			}
 			errorResults = append(errorResults, result)
 			continue
 		}
@@ -217,7 +213,7 @@ func validateSecretsAgainstSpecs(
 	if len(errorResults) > 0 {
 		firstError := errorResults[0]
 		slog.Debug("Error fetching secret", "name", firstError.Key, "error", firstError.Error)
-		return nil, fmt.Errorf("Error fetching secret: %v", firstError.Error.Error())
+		return nil, fmt.Errorf("Error fetching secret: %w", firstError.Error)
 	}
 
 	// Check for missing aliases (specs that don't have corresponding results)
@@ -264,7 +260,7 @@ func maybeFileTemplateFromFormat(
 	// TODO: Detect format from filename
 
 	// Default to "yaml" file format
-	if len(fileTemplate)+len(fileFormat) == 0 {
+	if fileTemplate == "" && fileFormat == "" {
 		fileFormat = "yaml"
 	}
 

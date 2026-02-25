@@ -109,7 +109,7 @@ const (
 // integer number of seconds.
 func interactiveModeTimeout() time.Duration {
 	timeoutStr, ok := os.LookupEnv(interactiveTimeoutEnvVar)
-	if !ok || len(timeoutStr) == 0 {
+	if !ok || timeoutStr == "" {
 		return defaultInteractiveTimeout * time.Second
 	}
 
@@ -324,7 +324,7 @@ func GetDefaultPath() (string, error) {
 func GetAllProviders(providerDir string) ([]string, error) {
 	files, err := os.ReadDir(providerDir)
 	if err != nil {
-		return make([]string, 0), err
+		return nil, err
 	}
 
 	names := make([]string, len(files))

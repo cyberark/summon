@@ -108,7 +108,7 @@ func runPrintProviderVersions() error {
 func printProviderVersions(providerPath string) (string, error) {
 	var providerVersions bytes.Buffer
 
-	providerVersions.WriteString(fmt.Sprintf("Provider versions in %s:\n", providerPath))
+	fmt.Fprintf(&providerVersions, "Provider versions in %s:\n", providerPath)
 
 	providers, err := prov.GetAllProviders(providerPath)
 	if err != nil {
@@ -118,14 +118,11 @@ func printProviderVersions(providerPath string) (string, error) {
 	for _, provider := range providers {
 		version, err := exec.Command(filepath.Join(providerPath, provider), "--version").Output()
 		if err != nil {
-			providerVersions.WriteString(fmt.Sprintf("%s: unknown version\n", provider))
+			fmt.Fprintf(&providerVersions, "%s: unknown version\n", provider)
 			continue
 		}
 
-		versionString := fmt.Sprintf("%s", version)
-		versionString = strings.TrimSpace(versionString)
-
-		providerVersions.WriteString(fmt.Sprintf("%s version %s\n", provider, versionString))
+		fmt.Fprintf(&providerVersions, "%s version %s\n", provider, strings.TrimSpace(string(version)))
 	}
 
 	return providerVersions.String(), nil
