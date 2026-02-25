@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -162,7 +162,7 @@ func assertSuccessfulWrite(expectedPath, expectedTemplate string, expectedSecret
 		assert.Equal(t, secretsToMap(expectedSecrets), secretsToMap(spyPushToWriter.args.fileSecrets))
 		// openWriteCloser receives the absolute path
 		assert.Equal(t, expectedPerms, spyOpenWriteCloser.args.permissions)
-		assert.True(t, path.IsAbs(spyOpenWriteCloser.args.path), "openWriteCloser should receive absolute path")
+		assert.True(t, filepath.IsAbs(spyOpenWriteCloser.args.path), "openWriteCloser should receive absolute path")
 	}
 }
 
@@ -476,7 +476,7 @@ func TestSecretFile_Write(t *testing.T) {
 		{"file with non-existent parent folder", "./path/to/file", 0640},
 	} {
 		t.Run(tc.description, func(t *testing.T) {
-			absoluteFilePath := path.Join(dir, tc.path)
+			absoluteFilePath := filepath.Join(dir, tc.path)
 
 			// Create a file, and push to file
 			file := SecretFile{
@@ -537,7 +537,7 @@ func TestSecretFile_Write(t *testing.T) {
 	})
 
 	t.Run("overwrite false errors when file exists", func(t *testing.T) {
-		filePath := path.Join(dir, "overwrite-test-no")
+		filePath := filepath.Join(dir, "overwrite-test-no")
 
 		// Create the file first
 		err := os.WriteFile(filePath, []byte("existing content"), 0o644)
@@ -563,7 +563,7 @@ func TestSecretFile_Write(t *testing.T) {
 	})
 
 	t.Run("overwrite true succeeds when file exists", func(t *testing.T) {
-		filePath := path.Join(dir, "overwrite-test-yes")
+		filePath := filepath.Join(dir, "overwrite-test-yes")
 
 		// Create the file first
 		err := os.WriteFile(filePath, []byte("old content"), 0o644)
@@ -589,7 +589,7 @@ func TestSecretFile_Write(t *testing.T) {
 	})
 
 	t.Run("overwrite false succeeds when file does not exist", func(t *testing.T) {
-		filePath := path.Join(dir, "overwrite-test-new")
+		filePath := filepath.Join(dir, "overwrite-test-new")
 		defer os.Remove(filePath)
 
 		file := SecretFile{
@@ -631,8 +631,8 @@ func TestSecretFile_absoluteFilePath(t *testing.T) {
 			name: "relative path",
 			path: "relative/file",
 			assertFn: func(t *testing.T, result string) {
-				assert.Equal(t, path.Join(pwd, "relative/file"), result)
-				assert.True(t, path.IsAbs(result))
+				assert.Equal(t, filepath.Join(pwd, "relative/file"), result)
+				assert.True(t, filepath.IsAbs(result))
 			},
 		},
 		{
@@ -661,7 +661,15 @@ func TestSecretFile_absoluteFilePath(t *testing.T) {
 			name: "nested relative path",
 			path: "a/b/c/file",
 			assertFn: func(t *testing.T, result string) {
-				assert.Equal(t, path.Join(pwd, "a/b/c/file"), result)
+				assert.Equal(t, filepath.Join(pwd, "a/b/c/file"), result)
+			},
+		},
+		{
+			name: "path traversal is cleaned",
+			path: "a/../b/file",
+			assertFn: func(t *testing.T, result string) {
+				assert.Equal(t, filepath.Join(pwd, "b/file"), result)
+				assert.NotContains(t, result, "..")
 			},
 		},
 	}
