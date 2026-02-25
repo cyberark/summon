@@ -480,6 +480,7 @@ func TestParseFromString_FileConfigErrors(t *testing.T) {
 		name          string
 		input         string
 		env           string
+		subs          map[string]string
 		expectedError string
 	}{
 		{
@@ -489,7 +490,6 @@ summon.files:
   - path: "/path/to/file"
     format: "yaml"
 `,
-			env:           "",
 			expectedError: "no secrets defined",
 		},
 		{
@@ -506,15 +506,66 @@ summon.files:
 			env:           "staging",
 			expectedError: "No such environment 'staging' found in file config",
 		},
+		{
+			name:          "Invalid YAML",
+			input:         "{{not valid yaml",
+			expectedError: "did not find expected ',' or '}'",
+		},
+		{
+			name:          "Non-mapping root node",
+			input:         "- item1\n- item2",
+			expectedError: "invalid YAML structure: expected mapping",
+		},
+		{
+			name: "summon.files is not a sequence",
+			input: `
+summon.files:
+  key: value
+`,
+			expectedError: "summon.files must be a sequence/array",
+		},
+		{
+			name: "Undeclared substitution variable in common section",
+			input: `
+common:
+  SHARED: !var $missing/path
+
+myenv:
+  VAR: !var myenv/var
+`,
+			env:           "myenv",
+			subs:          map[string]string{},
+			expectedError: "variable missing not declared",
+		},
+		{
+			name: "File secrets with env sections but empty env",
+			input: `
+summon.files:
+  - path: "/path/to/file"
+    secrets:
+      dev:
+        VAR: !var dev/variable
+`,
+			env:           "",
+			expectedError: "environment sections exist in file config but no environment specified",
+		},
 	}
 
 	for _, tt := range errorTests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := ParseFromString(tt.input, tt.env, nil)
+			_, err := ParseFromString(tt.input, tt.env, tt.subs)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.expectedError)
 		})
 	}
+}
+
+func TestSetYAML_EdgeCases(t *testing.T) {
+	t.Run("Unknown value type", func(t *testing.T) {
+		spec := SecretSpec{}
+		err := spec.setYAML("", []string{"unsupported"})
+		assert.EqualError(t, err, "unable to convert value to a known type")
+	})
 }
 
 func TestParseFromFile(t *testing.T) {

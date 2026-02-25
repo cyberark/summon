@@ -9,6 +9,6 @@ docker build --pull -t summon-acceptance -f Dockerfile.acceptance .
 
 docker run --rm -t \
            -v "$OUTPUT_DIR:/summon/acceptance/output" \
-           summon-acceptance bash -c 'cucumber --format junit --out ./output'
+           summon-acceptance bash -c 'cucumber --format junit --out ./output --format pretty'
 
 echo "Results are in $OUTPUT_DIR"

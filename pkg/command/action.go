@@ -3,6 +3,8 @@ package command
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,8 +15,17 @@ import (
 	"github.com/urfave/cli"
 )
 
+// configureDebugLogging sets up slog to output debug-level messages to the given writer.
+func configureDebugLogging(w io.Writer) {
+	slog.SetDefault(slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})))
+}
+
 // Action is the runner for the main program logic
 var Action = func(c *cli.Context) {
+	if c.Bool("debug") {
+		configureDebugLogging(os.Stderr)
+	}
+
 	if !c.Args().Present() && !c.Bool("all-provider-versions") {
 		fmt.Println("Enter a subprocess to run!")
 		os.Exit(127)

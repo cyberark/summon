@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// DEVSHM is the default *nix shared-memory directory path
-const DEVSHM = "/dev/shm"
+// devSHM is the default *nix shared-memory directory path
+var devSHM = "/dev/shm"
 
 // TempFactory handels transient files that require cleaning up
 // after the child process exits.
@@ -19,16 +19,16 @@ type TempFactory struct {
 // defer Cleanup() if you want the files removed.
 func NewTempFactory(path string) TempFactory {
 	if path == "" {
-		path = DefaultTempPath()
+		path = defaultTempPath()
 	}
 	return TempFactory{path: path}
 }
 
-// DefaultTempPath returns the best possible temp folder path for temp files
-func DefaultTempPath() string {
-	fi, err := os.Stat(DEVSHM)
+// defaultTempPath returns the best possible temp folder path for temp files
+func defaultTempPath() string {
+	fi, err := os.Stat(devSHM)
 	if err == nil && fi.Mode().IsDir() {
-		return DEVSHM
+		return devSHM
 	}
 	home, err := os.UserHomeDir()
 	if err == nil {
@@ -38,6 +38,11 @@ func DefaultTempPath() string {
 		}
 	}
 	return os.TempDir()
+}
+
+// AddFile adds an existing file to the factory's list of files to clean up.
+func (tf *TempFactory) AddFile(path string) {
+	tf.files = append(tf.files, path)
 }
 
 // Push creates a temp file with given value. Returns the path.
@@ -61,8 +66,8 @@ func (tf *TempFactory) Cleanup() {
 	for _, file := range tf.files {
 		_ = os.Remove(file) // Best-effort cleanup
 	}
-	// Also remove the tempdir if it's not DEVSHM
-	if !strings.Contains(tf.path, DEVSHM) {
+	// Also remove the tempdir if it's not devSHM
+	if !strings.Contains(tf.path, devSHM) {
 		_ = os.Remove(tf.path) // Best-effort cleanup
 	}
 	tf.files = []string{}
