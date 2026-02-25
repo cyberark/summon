@@ -2,6 +2,7 @@ package command
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/summon"
@@ -16,14 +18,30 @@ import (
 )
 
 // configureDebugLogging sets up slog to output debug-level messages to the given writer.
-func configureDebugLogging(w io.Writer) {
-	slog.SetDefault(slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})))
+// It returns an error if the initial log write fails.
+func configureDebugLogging(w io.Writer) error {
+	handler := slog.NewTextHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+
+	// Verify the logger works by writing a startup message.
+	// If this fails, the caller should abort rather than run silently without logging.
+	if err := handler.Handle(
+		context.Background(),
+		slog.NewRecord(time.Now(), slog.LevelDebug, "Debug logging enabled", 0),
+	); err != nil {
+		return fmt.Errorf("failed to initialize debug logging: %w", err)
+	}
+	return nil
 }
 
 // Action is the runner for the main program logic
 var Action = func(c *cli.Context) {
 	if c.Bool("debug") {
-		configureDebugLogging(os.Stderr)
+		if err := configureDebugLogging(os.Stderr); err != nil {
+			fmt.Println(err.Error())
+			os.Exit(127)
+		}
 	}
 
 	if !c.Args().Present() && !c.Bool("all-provider-versions") {
