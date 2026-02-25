@@ -109,7 +109,7 @@ const (
 // integer number of seconds.
 func interactiveModeTimeout() time.Duration {
 	timeoutStr, ok := os.LookupEnv(interactiveTimeoutEnvVar)
-	if !ok || len(timeoutStr) == 0 {
+	if !ok || timeoutStr == "" {
 		return defaultInteractiveTimeout * time.Second
 	}
 
@@ -213,6 +213,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 				Value: string(decoded),
 				Error: nil,
 			}
+			clear(decoded)
 			index++
 			if index >= len(secrets) {
 				break
@@ -323,7 +324,7 @@ func GetDefaultPath() (string, error) {
 func GetAllProviders(providerDir string) ([]string, error) {
 	files, err := os.ReadDir(providerDir)
 	if err != nil {
-		return make([]string, 0), err
+		return nil, err
 	}
 
 	names := make([]string, len(files))

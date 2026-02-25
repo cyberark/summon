@@ -99,16 +99,18 @@ func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *Subproces
 	for key, spec := range secrets {
 		wg.Add(1)
 		go func(key string, spec secretsyml.SecretSpec) {
+			defer wg.Done()
+
 			var value string
 			if spec.IsVar() {
 				slog.Debug("Fetching secret", "name", key, "provider", sc.Provider)
 				valueBytes, err := sc.FetchSecret(spec.Path)
 				if err != nil {
 					results <- prov.Result{Key: key, Value: "", Error: err}
-					wg.Done()
 					return
 				}
 				value = string(valueBytes)
+				clear(valueBytes)
 			} else {
 				// If the spec isn't a variable, use its value as-is
 				value = spec.Path
@@ -125,7 +127,6 @@ func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *Subproces
 			} else {
 				results <- prov.Result{Key: k, Value: v, Error: nil}
 			}
-			wg.Done()
 		}(key, spec)
 	}
 	wg.Wait()

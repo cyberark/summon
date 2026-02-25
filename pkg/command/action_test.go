@@ -2,6 +2,7 @@ package command
 
 import (
 	"bytes"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -43,7 +44,9 @@ func TestConfigureDebugLogging(t *testing.T) {
 
 	t.Run("debug messages are written when debug logging is enabled", func(t *testing.T) {
 		var buf bytes.Buffer
-		configureDebugLogging(&buf)
+		err := configureDebugLogging(&buf)
+
+		assert.NoError(t, err)
 
 		slog.Debug("test debug message")
 
@@ -61,4 +64,18 @@ func TestConfigureDebugLogging(t *testing.T) {
 
 		assert.Empty(t, buf.String())
 	})
+
+	t.Run("returns error when writer fails", func(t *testing.T) {
+		err := configureDebugLogging(&failWriter{})
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to initialize debug logging")
+	})
+}
+
+// failWriter is an io.Writer that always returns an error.
+type failWriter struct{}
+
+func (fw *failWriter) Write(p []byte) (int, error) {
+	return 0, fmt.Errorf("write failed")
 }

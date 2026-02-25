@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	prov "github.com/cyberark/summon/pkg/provider"
@@ -55,14 +56,13 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 
 	// Parse the secrets configuration from a file or inline YAML
 	var config *secretsyml.ParsedConfig
-	switch sc.YamlInline {
-	case "":
+	if sc.YamlInline == "" {
 		slog.Debug("Loading summon configuration", "filename", sc.Filepath)
 		config, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
 		if err != nil {
 			return 0, fmt.Errorf("Unable to parse configuration from %s: %w", sc.Filepath, err)
 		}
-	default:
+	} else {
 		slog.Debug("Loading summon configuration from inline YAML")
 		config, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
 		if err != nil {
@@ -170,23 +170,18 @@ func convertSubsToMap(subs []string) (map[string]string, error) {
 func processResultsAndSetupEnv(results []prov.Result, sc *SubprocessConfig, tempFactory *TempFactory) ([]string, error) {
 	env := make(map[string]string)
 	// Process results from the provider and add them to the environment
-EnvLoop:
 	for _, envvar := range results {
 		if envvar.Error == nil {
 			env[envvar.Key] = envvar.Value
-		} else {
-			if sc.IgnoreAll {
-				continue EnvLoop
-			}
-
-			for i := range sc.Ignores {
-				if sc.Ignores[i] == envvar.Key {
-					continue EnvLoop
-				}
-			}
-			slog.Debug("Error fetching secret", "name", envvar.Key, "error", envvar.Error)
-			return nil, fmt.Errorf("Error fetching secret: %v", envvar.Error.Error())
+			continue
 		}
+
+		if sc.IgnoreAll || slices.Contains(sc.Ignores, envvar.Key) {
+			continue
+		}
+
+		slog.Debug("Error fetching secret", "name", envvar.Key, "error", envvar.Error)
+		return nil, fmt.Errorf("Error fetching secret: %w", envvar.Error)
 	}
 
 	// Append environment variable if one is specified

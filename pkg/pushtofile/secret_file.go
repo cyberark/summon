@@ -5,7 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -108,17 +108,20 @@ func (secretFile *SecretFile) absoluteFilePath() (string, error) {
 		)
 	}
 
+	// Clean the path to resolve any ".." or "." segments
+	filePath = filepath.Clean(filePath)
+
 	// If the file path is not absolute, make it absolute by joining it with the current working directory
-	if !path.IsAbs(filePath) {
+	if !filepath.IsAbs(filePath) {
 		pwd, err := os.Getwd()
 		if err != nil {
 			return "", fmt.Errorf("relative file path %q provided but current working directory cannot be determined: %s", filePath, err)
 		}
-		filePath = path.Join(pwd, filePath)
+		filePath = filepath.Join(pwd, filePath)
 	}
 
 	// Filename cannot be longer than allowed by the filesystem
-	_, filename := path.Split(filePath)
+	_, filename := filepath.Split(filePath)
 	if len(filename) > maxFilenameLen {
 		return "", fmt.Errorf(
 			"filename %q for provided filepath must not be longer than %d characters",
@@ -190,10 +193,6 @@ func validateSecretsAgainstSpecs(
 				ignoredAliases[alias] = struct{}{}
 				continue
 			}
-			// Still ignore if IgnoreAll is set
-			if ignoreAll {
-				continue
-			}
 			errorResults = append(errorResults, result)
 			continue
 		}
@@ -214,7 +213,7 @@ func validateSecretsAgainstSpecs(
 	if len(errorResults) > 0 {
 		firstError := errorResults[0]
 		slog.Debug("Error fetching secret", "name", firstError.Key, "error", firstError.Error)
-		return nil, fmt.Errorf("Error fetching secret: %v", firstError.Error.Error())
+		return nil, fmt.Errorf("Error fetching secret: %w", firstError.Error)
 	}
 
 	// Check for missing aliases (specs that don't have corresponding results)
@@ -261,7 +260,7 @@ func maybeFileTemplateFromFormat(
 	// TODO: Detect format from filename
 
 	// Default to "yaml" file format
-	if len(fileTemplate)+len(fileFormat) == 0 {
+	if fileTemplate == "" && fileFormat == "" {
 		fileFormat = "yaml"
 	}
 
