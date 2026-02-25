@@ -60,9 +60,12 @@ func (tf *TempFactory) Push(value string) (string, error) {
 	}
 	defer f.Close()
 
-	if _, err := f.Write([]byte(value)); err != nil {
+	b := []byte(value)
+	if _, err := f.Write(b); err != nil {
+		clear(b)
 		return "", err
 	}
+	clear(b)
 	name := f.Name()
 	tf.files = append(tf.files, name)
 	return name, nil

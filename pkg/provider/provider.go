@@ -213,6 +213,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 				Value: string(decoded),
 				Error: nil,
 			}
+			clear(decoded)
 			index++
 			if index >= len(secrets) {
 				break

@@ -109,6 +109,7 @@ func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *Subproces
 					return
 				}
 				value = string(valueBytes)
+				clear(valueBytes)
 			} else {
 				// If the spec isn't a variable, use its value as-is
 				value = spec.Path
