@@ -197,9 +197,9 @@ func validateSecretsAgainstSpecs(
 			continue
 		}
 
-		// Check if this alias exists in specs
+		// Check if this alias exists in specs — if not, it may belong
+		// to another file's spec, so skip silently.
 		if _, hasAlias := specs[alias]; !hasAlias {
-			slog.Warn("alias not found in specs, skipping", "alias", alias)
 			continue
 		}
 
