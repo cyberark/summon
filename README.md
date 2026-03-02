@@ -234,8 +234,79 @@ This file is created on demand - only when `@SUMMONENVFILE` appears in the
 arguments of the command summon is wrapping. This feature is not Docker-specific; if you have another tools that reads variables in `VAR=VAL` format
 you can use `@SUMMONENVFILE` just the same.
 
-## Fixed tempfile name
+## Push-to-File
 
+`summon.files` lets you write resolved secrets directly to files rather than environment
+variables. Summon fetches each secret via the provider and renders a file from a Go
+`text/template` (or a built-in format), then writes the result atomically with the
+configured permissions. The file will be removed when the summon process exits.
+
+### Configuration fields
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `path` | string | Yes | — | Destination file path (absolute or relative to working directory) |
+| `format` | string | No | `yaml` | Output format; see table below |
+| `template` | string | No | — | Inline Go `text/template` string; required when `format: template` |
+| `permissions` | octal | No | `0600` | File permission bits |
+| `overwrite` | bool | No | `false` | Overwrite the file if it already exists |
+| `secrets` | mapping | Yes | — | Map of alias → `!var` / `!str` secret references |
+
+### Supported `format:` values
+
+| Value | Description |
+|---|---|
+| `yaml` | JSON-compatible YAML mapping of `"alias": "value"` pairs **(default)** |
+| `json` | JSON object of `"alias": "value"` pairs |
+| `dotenv` | `ALIAS=value` lines suitable for `.env` files |
+| `properties` | `alias=value` Java-style properties |
+| `bash` | `export ALIAS=value` lines |
+| `template` | Inline Go `text/template` string supplied in the `template:` field |
+
+### Template rendering context
+
+When `format: template` is used, the following functions and variables are available:
+
+| Symbol | Description |
+|---|---|
+| `secret "alias"` | Returns the resolved value for the given alias |
+| `b64enc` | Base64-encodes a string |
+| `b64dec` | Base64-decodes a string; errors if the input is not valid base64 |
+| `.SecretsArray` | `[]Secret` — all secrets sorted lexicographically by alias |
+| `.SecretsMap` | `map[string]Secret` — all secrets keyed by alias |
+
+All built-in Go `text/template` functions (e.g. `html`, `urlquery`, `printf`) are also
+available.
+
+### Example
+
+```yaml
+# secrets.yml
+summon.files:
+  - path: "./config/db.conf"
+    format: template
+    permissions: 0640
+    overwrite: true
+    template: |
+      [database]
+      host     = {{ secret "DB_HOST" }}
+      username = {{ secret "DB_USERNAME" }}
+      password = {{ secret "DB_PASSWORD" }}
+      api_key  = {{ secret "API_KEY" | b64enc }}
+    secrets:
+      DB_HOST:     !var app/prod/db-host
+      DB_USERNAME: !var app/prod/db-username
+      DB_PASSWORD: !var app/prod/db-password
+      API_KEY:     !var app/prod/api-key
+```
+
+Running `summon -p <provider> cat ./config/db.conf` will write `config/db.conf` with the
+resolved secrets substituted into the template, followed by outputting its contents to
+STDOUT, and finally the file will be removed when the summon process exits.
+
+---
+
+## Fixed tempfile name
 There are times when you would like to have certain secrets values available at
 fixed locations, e.g. `/etc/ssl/cert.pem` for an SSL certificate. This can be
 accomplished by using symbolic links as described in the

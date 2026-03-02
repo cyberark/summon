@@ -104,9 +104,9 @@ var writeToFileTestCases = []pushToWriterTestCase{
 			{Alias: "password", Value: "example-pass"},
 		},
 		assert: assertGoodOutput(`environment: prod
+password: example-pass
 url: https://example.com
-username: example-user
-password: example-pass`),
+username: example-user`),
 	},
 	{
 		description: "nested templates",
@@ -133,6 +133,10 @@ Alias : environment
 Value : prod
 ===============
 Nested Template
+Alias : password
+Value : example-pass
+===============
+Nested Template
 Alias : url
 Value : https://example.com
 ===============
@@ -140,11 +144,59 @@ Nested Template
 Alias : username
 Value : example-user
 ===============
-Nested Template
-Alias : password
-Value : example-pass
-===============
 `),
+	},
+	{
+		// .SecretsArray is sorted lexicographically by alias regardless of input order.
+		description: "SecretsArray sorted iteration",
+		template:    "{{range .SecretsArray}}{{.Alias}}: {{.Value}}\n{{end}}",
+		secrets: []*filetemplates.Secret{
+			{Alias: "z", Value: "1"},
+			{Alias: "a", Value: "2"},
+			{Alias: "m", Value: "3"},
+		},
+		assert: assertGoodOutput("a: 2\nm: 3\nz: 1\n"),
+	},
+	{
+		// Smoke test to ensure summon template features do not break existing text/template blocks.
+		description: "nested define and template",
+		template:    `{{define "sub"}}inner{{end}}{{template "sub" .}}`,
+		secrets:     []*filetemplates.Secret{{Alias: "alias", Value: "value"}},
+		assert:      assertGoodOutput("inner"),
+	},
+	// The following cases assert that native text/template constructs work
+	// as-is inside summon templates. Summon wraps text/template and adds a
+	// small FuncMap of custom template functions, but must not restrict
+	// any built-in language features that users rely on.
+	{
+		description: "native text/template: if/else conditional on secret value",
+		template:    `{{if secret "flag"}}enabled{{else}}disabled{{end}}`,
+		secrets:     []*filetemplates.Secret{{Alias: "flag", Value: "true"}},
+		assert:      assertGoodOutput("enabled"),
+	},
+	{
+		description: "native text/template: with block re-scopes dot",
+		template:    `{{with .SecretsMap.key}}{{.Value}}{{end}}`,
+		secrets:     []*filetemplates.Secret{{Alias: "key", Value: "scoped-value"}},
+		assert:      assertGoodOutput("scoped-value"),
+	},
+	{
+		description: "native text/template: printf formats a secret value",
+		template:    `{{printf "host=%s port=%s" (secret "host") (secret "port")}}`,
+		secrets: []*filetemplates.Secret{
+			{Alias: "host", Value: "db.internal"},
+			{Alias: "port", Value: "5432"},
+		},
+		assert: assertGoodOutput("host=db.internal port=5432"),
+	},
+	{
+		description: "native text/template: variable assignment and reuse",
+		template:    `{{$u := secret "user"}}{{$p := secret "pass"}}{{$u}}:{{$p}}`,
+		secrets: []*filetemplates.Secret{
+			{Alias: "user", Value: "admin"},
+			{Alias: "pass", Value: "s3cr3t"},
+		},
+		assert: assertGoodOutput("admin:s3cr3t"),
 	},
 }
 

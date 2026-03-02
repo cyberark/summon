@@ -221,19 +221,86 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 		},
 	},
 	{
-		description: "missing file format or template",
+		// The parser always sets Format="yaml" when no format is specified.
+		// When Format is set but Template is empty, SecretFile.Write derives
+		// the template from the standard format definitions.
+		description: "empty template derives yaml template from format",
 		file: modifyGoodFile(func(file SecretFile) SecretFile {
 			file.FileConfig.Template = ""
-			file.FileConfig.Format = ""
+			file.FileConfig.Format = "yaml" // parser-layer default
 
 			return file
 		}),
 		overrideResults: nil,
 		assert: func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, closableBuf *ClosableBuffer, spyPushToWriter pushToWriterSpy, err error) {
 			if assert.NoError(t, err) {
-				// Defaults to yaml
 				assert.Equal(t, yamlTemplate, spyPushToWriter.args.fileTemplate)
 			}
+		},
+	},
+	{
+		description: "format template with valid content",
+		file: modifyGoodFile(func(file SecretFile) SecretFile {
+			file.FileConfig.Template = `{{secret "a"}}`
+			file.FileConfig.Format = "template"
+			file.FileConfig.Secrets = secretsyml.SecretsMap{
+				"a": secretsyml.SecretSpec{Path: "path-a"},
+			}
+			return file
+		}),
+		overrideResults:      createResults(map[string]string{"a": "val"}),
+		overridePushToWriter: pushToWriter, // use the real renderer
+		assert: func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, closableBuf *ClosableBuffer, _ pushToWriterSpy, err error) {
+			assert.NoError(t, err)
+			assert.Equal(t, 1, spyOpenWriteCloser._calls, "openWriteCloser should be called once")
+			assert.Equal(t, "val", closableBuf.String())
+		},
+	},
+	{
+		description: "format template with no template content",
+		file: modifyGoodFile(func(file SecretFile) SecretFile {
+			file.FileConfig.Template = ""
+			file.FileConfig.Format = "template"
+			return file
+		}),
+		assert: func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, _ *ClosableBuffer, _ pushToWriterSpy, err error) {
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "no template content was provided")
+				assert.Contains(t, err.Error(), "/absolute/path/to/file")
+			}
+			assert.Equal(t, 0, spyOpenWriteCloser._calls, "openWriteCloser must not be called")
+		},
+	},
+	{
+		description: "malformed template syntax",
+		file: modifyGoodFile(func(file SecretFile) SecretFile {
+			file.FileConfig.Template = "{{.Broken"
+			file.FileConfig.Format = "template"
+			return file
+		}),
+		assert: func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, _ *ClosableBuffer, _ pushToWriterSpy, err error) {
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "unable to use file template")
+			}
+			assert.Equal(t, 0, spyOpenWriteCloser._calls, "openWriteCloser must not be called")
+		},
+	},
+	{
+		description: "template references undeclared alias",
+		file: modifyGoodFile(func(file SecretFile) SecretFile {
+			file.FileConfig.Template = `{{secret "x"}}`
+			file.FileConfig.Format = "template"
+			file.FileConfig.Secrets = secretsyml.SecretsMap{
+				"a": secretsyml.SecretSpec{Path: "path-a"},
+			}
+			return file
+		}),
+		overrideResults: createResults(map[string]string{"a": "val"}),
+		assert: func(t *testing.T, spyOpenWriteCloser openWriteCloserSpy, _ *ClosableBuffer, _ pushToWriterSpy, err error) {
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "unable to use file template")
+			}
+			assert.Equal(t, 0, spyOpenWriteCloser._calls, "openWriteCloser must not be called")
 		},
 	},
 	{

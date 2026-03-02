@@ -151,6 +151,14 @@ func (secretFile *SecretFile) validate() error {
 		}
 	}
 
+	// Require template content when format is "template"
+	if fileFormat == "template" && len(fileTemplate) == 0 {
+		return fmt.Errorf(
+			"file config for path %q specifies format \"template\" but no template content was provided",
+			filePath,
+		)
+	}
+
 	// First-pass at provided template rendering with dummy secret values
 	// This first-pass is limited for templates that branch conditionally on secret values
 	// Relying logically on specific secret values should be avoided
@@ -259,12 +267,8 @@ func maybeFileTemplateFromFormat(
 ) (string, error) {
 	// TODO: Detect format from filename
 
-	// Default to "yaml" file format
-	if fileTemplate == "" && fileFormat == "" {
-		fileFormat = "yaml"
-	}
-
-	// fileFormat is used to set fileTemplate when fileTemplate is not already set
+	// fileFormat is used to set fileTemplate when fileTemplate is not already set.
+	// The default format ("yaml") is applied upstream in processFileConfigWithNode.
 	if len(fileTemplate) == 0 {
 		var err error
 

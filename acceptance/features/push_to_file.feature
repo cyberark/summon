@@ -88,3 +88,31 @@ Feature: Push to file
             drwxr-x---
             """
         And a file "output/test-secrets.json" should not exist
+
+    Scenario: Pushing secrets to a file using a custom template
+        Given a file named "secrets.yml" with:
+            """
+            summon.files:
+              - path: "./output/test-secrets.xml"
+                format: "template"
+                template: |
+                  <xml>
+                    <db_username>{{ secret "DB_USERNAME" }}</db_username>
+                    <db_password>{{ secret "DB_PASSWORD" }}</db_password>
+                  </xml>
+                secrets:
+                  DB_USERNAME: !var very/secret/db-username
+                  DB_PASSWORD: !var very/secret/db-password
+            """
+        And a secret "very/secret/db-username" with "secretUsername"
+        And a secret "very/secret/db-password" with "notSoSecret"
+        When I successfully run `summon -p ./provider cat ./output/test-secrets.xml`
+        Then the output should contain:
+            """
+            <db_username>secretUsername</db_username>
+            """
+        And the output should contain:
+            """
+            <db_password>notSoSecret</db_password>
+            """
+        And a file "output/test-secrets.xml" should not exist

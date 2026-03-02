@@ -139,6 +139,63 @@ func TestGetTemplate(t *testing.T) {
 			want:    "test",
 			wantErr: false,
 		},
+		{
+			name: "TOML: database config section with quoted string values",
+			template: `[database]
+host = "{{ secret "db_host" }}"
+password = "{{ secret "db_pass" }}"`,
+			secretsMap: map[string]*Secret{
+				"db_host": {Alias: "db_host", Value: "prod.db.internal"},
+				"db_pass": {Alias: "db_pass", Value: "s3cr3t!"},
+			},
+			want: `[database]
+host = "prod.db.internal"
+password = "s3cr3t!"`,
+			wantErr: false,
+		},
+		{
+			name:     "kubeconfig YAML: certificate-authority-data is base64-encoded with b64enc",
+			template: `certificate-authority-data: {{ secret "ca_cert" | b64enc }}`,
+			secretsMap: map[string]*Secret{
+				"ca_cert": {Alias: "ca_cert", Value: "cert-data"},
+			},
+			// "cert-data" base64-encoded = "Y2VydC1kYXRh"
+			want:    "certificate-authority-data: Y2VydC1kYXRh",
+			wantErr: false,
+		},
+		{
+			name: "AWS credentials: INI-style file with unquoted secret values",
+			template: `[default]
+aws_access_key_id = {{ secret "access_key" }}
+aws_secret_access_key = {{ secret "secret_key" }}`,
+			secretsMap: map[string]*Secret{
+				"access_key": {Alias: "access_key", Value: "AKIAIOSFODNN7EXAMPLE"},
+				"secret_key": {Alias: "secret_key", Value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"},
+			},
+			want: `[default]
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`,
+			wantErr: false,
+		},
+		{
+			name: "HCL: Terraform provider block with quoted string values",
+			template: `provider "aws" {
+  access_key = "{{ secret "access_key" }}"
+  secret_key = "{{ secret "secret_key" }}"
+  region     = "{{ secret "region" }}"
+}`,
+			secretsMap: map[string]*Secret{
+				"access_key": {Alias: "access_key", Value: "AKIAIOSFODNN7EXAMPLE"},
+				"secret_key": {Alias: "secret_key", Value: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"},
+				"region":     {Alias: "region", Value: "us-east-1"},
+			},
+			want: `provider "aws" {
+  access_key = "AKIAIOSFODNN7EXAMPLE"
+  secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+  region     = "us-east-1"
+}`,
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

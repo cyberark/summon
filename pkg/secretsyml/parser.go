@@ -219,8 +219,9 @@ func processFileConfigWithNode(fc *FileConfig, env string, subs map[string]strin
 	if fc.Permissions == 0 {
 		fc.Permissions = 0600
 	}
+	// Default to "yaml" file format
 	if fc.Format == "" {
-		fc.Format = "template"
+		fc.Format = "yaml"
 	}
 	if fc.secretsNode == nil {
 		return fmt.Errorf("no secrets defined")
