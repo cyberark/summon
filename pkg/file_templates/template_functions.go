@@ -1,6 +1,9 @@
 package filetemplates
 
-import "encoding/base64"
+import (
+	"encoding/base64"
+	"html"
+)
 
 // Define template functions that don't need access to secrets in this file
 // to keep the push_to_writer.go file cleaner with only the functions that
@@ -23,4 +26,12 @@ func b64decTemplateFunc(encValue string) string {
 	// Panic in a template function is captured as an error
 	// when the template is executed.
 	panic("value could not be base64 decoded")
+}
+
+// htmlenc is a custom template function that escapes a string for safe
+// embedding in HTML or XML attribute values and text content.
+// It replaces &, <, >, ", and ' with their character entity equivalents,
+// producing well-formed XML output.
+func htmlencTemplateFunc(value string) string {
+	return html.EscapeString(value)
 }

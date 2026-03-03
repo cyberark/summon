@@ -1,10 +1,16 @@
 package filetemplates
 
 import (
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
 	"testing"
 	"text/template"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRenderFile(t *testing.T) {
@@ -219,6 +225,91 @@ aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`,
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, buf.String())
 			}
+		})
+	}
+}
+
+// assertValidXML wraps rendered output in a root element and parses it,
+// confirming the output is well-formed XML.
+func assertValidXML(t *testing.T, output string) {
+	t.Helper()
+	wrapped := fmt.Sprintf("<root>%s</root>", output)
+	decoder := xml.NewDecoder(strings.NewReader(wrapped))
+	for {
+		_, err := decoder.Token()
+		if err != nil && errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err, "rendered output is not well-formed XML:\n%s", output)
+	}
+}
+
+func TestWebConfigXML(t *testing.T) {
+	tests := []struct {
+		description string
+		template    string
+		secretsMap  map[string]*Secret
+		wantOutput  string
+	}{
+		{
+			description: "safe value: no special characters",
+			template:    `<add key="Password" value="{{ secret "db_pass" }}" />`,
+			secretsMap: map[string]*Secret{
+				"db_pass": {Alias: "db_pass", Value: "SafePassword123"},
+			},
+			wantOutput: `<add key="Password" value="SafePassword123" />`,
+		},
+		{
+			description: "special chars escaped with htmlenc: ampersand in connection string",
+			template:    `<add key="ConnectionString" value="{{ secret "conn_str" | htmlenc }}" />`,
+			secretsMap: map[string]*Secret{
+				"conn_str": {Alias: "conn_str", Value: "Server=db;Password=P@ss&word!"},
+			},
+			// htmlenc escapes & → &amp;, producing valid XML
+			wantOutput: `<add key="ConnectionString" value="Server=db;Password=P@ss&amp;word!" />`,
+		},
+		{
+			description: "special chars escaped with htmlenc: angle brackets and quotes",
+			template:    `<add key="Filter" value="{{ secret "filter" | htmlenc }}" />`,
+			secretsMap: map[string]*Secret{
+				"filter": {Alias: "filter", Value: `<script>alert("xss")</script>`},
+			},
+			wantOutput: `<add key="Filter" value="&lt;script&gt;alert(&#34;xss&#34;)&lt;/script&gt;" />`,
+		},
+		{
+			description: "Maven settings.xml: password in text node escaped with htmlenc",
+			template: `<server>
+  <id>{{ secret "server_id" }}</id>
+  <username>{{ secret "username" }}</username>
+  <password>{{ secret "password" | htmlenc }}</password>
+</server>`,
+			secretsMap: map[string]*Secret{
+				"server_id": {Alias: "server_id", Value: "central"},
+				"username":  {Alias: "username", Value: "deploy-bot"},
+				// password contains & to verify text-node escaping, not just attribute escaping
+				"password": {Alias: "password", Value: "P@ss&phrase!"},
+			},
+			wantOutput: `<server>
+  <id>central</id>
+  <username>deploy-bot</username>
+  <password>P@ss&amp;phrase!</password>
+</server>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			tpl := GetTemplate("test", tt.secretsMap)
+			parsedTpl, err := tpl.Parse(tt.template)
+			require.NoError(t, err)
+
+			tplData := TemplateData{SecretsMap: tt.secretsMap}
+			buf, err := RenderFile(parsedTpl, tplData)
+			require.NoError(t, err)
+
+			output := buf.String()
+			assert.Equal(t, tt.wantOutput, output)
+			assertValidXML(t, output)
 		})
 	}
 }

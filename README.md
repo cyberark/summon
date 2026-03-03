@@ -272,6 +272,7 @@ When `format: template` is used, the following functions and variables are avail
 | `secret "alias"` | Returns the resolved value for the given alias |
 | `b64enc` | Base64-encodes a string |
 | `b64dec` | Base64-decodes a string; errors if the input is not valid base64 |
+| `htmlenc` | HTML-encodes a string |
 | `.SecretsArray` | `[]Secret` — all secrets sorted lexicographically by alias |
 | `.SecretsMap` | `map[string]Secret` — all secrets keyed by alias |
 
