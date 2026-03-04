@@ -117,7 +117,15 @@ pipeline {
         always {
           unstash 'output-xml'
           junit 'output/junit.xml'
-          cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'output/coverage.xml', conditionalCoverageTargets: '100, 0, 0', failUnhealthy: true, failUnstable: false, lineCoverageTargets: '74, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '92, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+          recordCoverage(
+                  tools: [[parser: 'COBERTURA', pattern: 'output/coverage.xml']],
+                  sourceCodeEncoding: 'ASCII',
+                  qualityGates: [
+                      [threshold: 74.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                      [threshold: 90.0, metric: 'METHOD', baseline: 'PROJECT', unstable: true]
+                  ],
+                  skipPublishingChecks: false
+            )
         }
       }
     }

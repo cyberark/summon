@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 - Add support for writing secrets to files (CNJR-12226)
+- Add support for writing secrets to files using custom templates (CNJR-12228)
 - Update Go to 1.26
 
 ## [0.10.10] - 2025-12-10

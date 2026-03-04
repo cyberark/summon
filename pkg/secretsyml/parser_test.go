@@ -471,8 +471,8 @@ summon.files:
 	// Should use default permissions (0600)
 	assert.Equal(t, os.FileMode(0600), config.Files[0].Permissions)
 
-	// Should use default format (template)
-	assert.Equal(t, "template", config.Files[0].Format)
+	// Should default to "yaml" when no format is specified in the config
+	assert.Equal(t, "yaml", config.Files[0].Format)
 }
 
 func TestParseFromString_FileConfigErrors(t *testing.T) {

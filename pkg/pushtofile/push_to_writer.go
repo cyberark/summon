@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/cyberark/summon/pkg/atomicwriter"
 	filetemplates "github.com/cyberark/summon/pkg/file_templates"
@@ -59,6 +60,13 @@ func pushToWriter(
 	fileTemplate string,
 	fileSecrets []*filetemplates.Secret,
 ) error {
+	// Sort secrets by alias so .SecretsArray is lexicographically ordered in templates.
+	// Intended to make output deterministic for testing purposes and to provide a
+	// consistent experience for users.
+	sort.Slice(fileSecrets, func(i, j int) bool {
+		return fileSecrets[i].Alias < fileSecrets[j].Alias
+	})
+
 	secretsMap := map[string]*filetemplates.Secret{}
 	for _, s := range fileSecrets {
 		secretsMap[s.Alias] = s
