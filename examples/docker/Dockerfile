@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.14
 
 RUN mkdir /src
 WORKDIR /src
