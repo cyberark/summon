@@ -117,7 +117,15 @@ pipeline {
         always {
           unstash 'output-xml'
           junit 'output/junit.xml'
-          cobertura autoUpdateHealth: false, autoUpdateStability: false, coberturaReportFile: 'output/coverage.xml', conditionalCoverageTargets: '100, 0, 0', failUnhealthy: true, failUnstable: false, lineCoverageTargets: '74, 0, 0', maxNumberOfBuilds: 0, methodCoverageTargets: '92, 0, 0', onlyStable: false, sourceEncoding: 'ASCII', zoomCoverageChart: false
+          recordCoverage(
+                  tools: [[parser: 'COBERTURA', pattern: 'output/coverage.xml']],
+                  sourceCodeEncoding: 'ASCII',
+                  qualityGates: [
+                      [threshold: 74.0, metric: 'LINE', baseline: 'PROJECT', unstable: true],
+                      [threshold: 90.0, metric: 'METHOD', baseline: 'PROJECT', unstable: true]
+                  ],
+                  skipPublishingChecks: false
+            )
         }
       }
     }
@@ -186,24 +194,17 @@ pipeline {
 
     stage('Validate installation script') {
       parallel {
-        stage('Validate installation on Ubuntu 20:04') {
+        stage('Validate installation on Ubuntu 24.04') {
           steps {
             script {
-              infrapool.agentSh 'bin/installer-test --ubuntu-20.04'
+              infrapool.agentSh 'bin/installer-test --ubuntu-24.04'
             }
           }
         }
-        stage('Validate installation on Ubuntu 18:04') {
+        stage('Validate installation on Ubuntu 22.04') {
           steps {
             script {
-              infrapool.agentSh 'bin/installer-test --ubuntu-18.04'
-            }
-          }
-        }
-        stage('Validate installation on Ubuntu 16:04') {
-          steps {
-            script {
-              infrapool.agentSh 'bin/installer-test --ubuntu-16.04'
+              infrapool.agentSh 'bin/installer-test --ubuntu-22.04'
             }
           }
         }

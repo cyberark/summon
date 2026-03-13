@@ -20,6 +20,7 @@ It provides an interface for
 * Reading a `secrets.yml` file
 * Fetching secrets from a trusted store
 * Exporting secret values to a sub-process environment
+* Writing secrets to files in various formats (push-to-file)
 
 ## Install
 
@@ -196,6 +197,10 @@ errors.
     path and their versions (if they have the --version tag).
 * `-v, --version` Print the Summon version.
 
+* `-d, --debug` Enable debug logging.
+
+    When set, summon prints detailed log messages (at `DEBUG` level) to stderr, including configuration loading, secret fetching progress, and error details. Useful for troubleshooting provider or secrets.yml issues.
+
 * `-e, --environment` Specify section (environment) to parse from secret YAML.
 
     This flag specifies which specific environment/section to parse from the secrets YAML file (or string). In addition, it will also enable the usage of a `common` (or `default`) section which will be inherited by other sections/environments. In other words, if your `secrets.yaml` looks something like this:
@@ -234,8 +239,93 @@ This file is created on demand - only when `@SUMMONENVFILE` appears in the
 arguments of the command summon is wrapping. This feature is not Docker-specific; if you have another tools that reads variables in `VAR=VAL` format
 you can use `@SUMMONENVFILE` just the same.
 
-## Fixed tempfile name
+## Push-to-File
 
+`summon.files` lets you write resolved secrets directly to files rather than environment
+variables. Summon fetches each secret via the provider and renders a file from a Go
+`text/template` (or a built-in format), then writes the result atomically with the
+configured permissions. The file will be removed when the summon process exits.
+
+### Configuration fields
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `path` | string | Yes | — | Destination file path (absolute or relative to working directory) |
+| `format` | string | No | `yaml` | Output format; see table below |
+| `template` | string | No | — | Inline Go `text/template` string; required when `format: template` |
+| `permissions` | octal | No | `0600` | File permission bits |
+| `overwrite` | bool | No | `false` | Overwrite the file if it already exists |
+| `secrets` | mapping | Yes | — | Map of alias → `!var` / `!str` secret references |
+
+### Supported `format:` values
+
+| Value | Description |
+|---|---|
+| `yaml` | JSON-compatible YAML mapping of `"alias": "value"` pairs **(default)** |
+| `json` | JSON object of `"alias": "value"` pairs |
+| `dotenv` | `ALIAS=value` lines suitable for `.env` files |
+| `properties` | `alias=value` Java-style properties |
+| `bash` | `export ALIAS=value` lines |
+| `template` | Inline Go `text/template` string supplied in the `template:` field |
+
+### Template rendering context
+
+When `format: template` is used, the following functions and variables are available:
+
+| Symbol | Description |
+|---|---|
+| `secret "alias"` | Returns the resolved value for the given alias |
+| `b64enc` | Base64-encodes a string |
+| `b64dec` | Base64-decodes a string; errors if the input is not valid base64 |
+| `htmlenc` | HTML-encodes a string |
+| `.SecretsArray` | `[]Secret` — all secrets sorted lexicographically by alias |
+| `.SecretsMap` | `map[string]Secret` — all secrets keyed by alias |
+
+All built-in Go `text/template` functions (e.g. `html`, `urlquery`, `printf`) are also
+available.
+
+### Example
+
+```yaml
+# secrets.yml
+summon.files:
+  - path: "./config/db.conf"
+    format: template
+    permissions: 0640
+    overwrite: true
+    template: |
+      [database]
+      host     = {{ secret "DB_HOST" }}
+      username = {{ secret "DB_USERNAME" }}
+      password = {{ secret "DB_PASSWORD" }}
+      api_key  = {{ secret "API_KEY" | b64enc }}
+    secrets:
+      DB_HOST:     !var app/prod/db-host
+      DB_USERNAME: !var app/prod/db-username
+      DB_PASSWORD: !var app/prod/db-password
+      API_KEY:     !var app/prod/api-key
+```
+
+Running `summon -p <provider> cat ./config/db.conf` will write `config/db.conf` with the
+resolved secrets substituted into the template, followed by outputting its contents to
+STDOUT, and finally the file will be removed when the summon process exits.
+
+### Security considerations
+
+* **File cleanup is not guaranteed.** Summon removes pushed files when the
+  wrapped process exits normally or is terminated by a signal it can catch.
+  However, if the summon process is forcefully killed (e.g. `SIGKILL` /
+  `kill -9`) or the system crashes, the files may remain on disk. You should
+  have a secondary cleanup mechanism (e.g. a startup script, `tmpwatch`, or
+  an ephemeral filesystem) for environments where this is a concern.
+* **Use the most restrictive permissions possible.** The default file
+  permissions are `0600` (owner read/write only). If your application allows
+  it, keep the default. Avoid overly permissive modes such
+  as `0644` or `0755` which expose secret files to other users on the system.
+
+---
+
+## Fixed tempfile name
 There are times when you would like to have certain secrets values available at
 fixed locations, e.g. `/etc/ssl/cert.pem` for an SSL certificate. This can be
 accomplished by using symbolic links as described in the

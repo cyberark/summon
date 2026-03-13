@@ -20,4 +20,4 @@ jobs:
       - name: Run acceptance tests
         run: ./test_acceptance
       - name: Validate installation script
-        run: ./bin/installer-test --ubuntu-20.04
+        run: ./bin/installer-test --ubuntu-24.04

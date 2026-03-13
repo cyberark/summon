@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -81,11 +82,15 @@ func Call(provider, specPath string) (string, error) {
 	return strings.TrimSpace(stdOut.String()), nil
 }
 
-// Result represents secret key and its value taken from the provider
+// Result is the outcome of fetching a single secret from the provider.
+// It pairs the resolved Value with the Key used to request it, plus an
+// Error for failed fetches. The Error field is needed here (but absent
+// from filetemplates.Secret) because callers inspect it for retry and
+// ignore logic before secrets reach the template-rendering stage.
 type Result struct {
-	Key   string
-	Value string
-	Error error
+	Key   string // The secret's identifier (environment variable name or alias).
+	Value string // The resolved secret content returned by the provider.
+	Error error  // Non-nil when the provider failed to fetch this secret.
 }
 
 // ErrInteractiveModeNotSupported is returned when a provider does not support interactive mode
@@ -104,7 +109,7 @@ const (
 // integer number of seconds.
 func interactiveModeTimeout() time.Duration {
 	timeoutStr, ok := os.LookupEnv(interactiveTimeoutEnvVar)
-	if !ok || len(timeoutStr) == 0 {
+	if !ok || timeoutStr == "" {
 		return defaultInteractiveTimeout * time.Second
 	}
 
@@ -168,6 +173,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	// This goroutine sends the paths of the secrets to the stdin of a secrets provider
 	go func() {
 		for key, spec := range secrets {
+			slog.Debug("Fetching secret", "name", key, "provider", provider)
 			_, err := fmt.Fprintln(stdinPipe, spec.Path)
 			if err != nil {
 				errorsCh <- ErrInteractiveModeNotSupported
@@ -207,6 +213,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 				Value: string(decoded),
 				Error: nil,
 			}
+			clear(decoded)
 			index++
 			if index >= len(secrets) {
 				break
@@ -317,7 +324,7 @@ func GetDefaultPath() (string, error) {
 func GetAllProviders(providerDir string) ([]string, error) {
 	files, err := os.ReadDir(providerDir)
 	if err != nil {
-		return make([]string, 0), err
+		return nil, err
 	}
 
 	names := make([]string, len(files))

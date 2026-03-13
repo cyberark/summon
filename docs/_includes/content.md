@@ -1,8 +1,10 @@
 # overview
 
 summon is a command-line tool that reads a file in secrets.yml format
-and injects secrets as environment variables into any process. Once the
-process exits, the secrets are gone.
+and injects secrets as environment variables into any process. It can also
+write secrets directly to files in common formats like JSON, YAML, and dotenv,
+or render them with custom Go templates.
+Once the process exits, the secrets are gone.
 
 <div style="text-align: center">
   <img src="//i.imgur.com/ZeSpdZT.png" width="80%" />
@@ -72,6 +74,112 @@ SSL_CERT: !var:file ssl/certs/private
 ```
 
 `$environment` is an example of a substitution variable, given as an flag argument when running summon.
+
+<h1 id="push-to-file">push to file</h1>
+
+In addition to exporting secrets as environment variables, summon can write
+resolved secrets directly to files using the `summon.files` key in secrets.yml.
+The files are written atomically with the configured permissions and are
+automatically removed when the summon process exits.
+
+## Configuration
+
+Add a `summon.files` list to your secrets.yml. Each entry describes one output
+file:
+
+```yaml
+summon.files:
+  - path: "./config/db-secrets.json"
+    format: "json"
+    secrets:
+      DB_USERNAME: !var app/db/username
+      DB_PASSWORD: !var app/db/password
+```
+
+Each file entry supports the following fields:
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `path` | string | Yes | — | Destination file path (absolute or relative to working directory) |
+| `format` | string | No | `yaml` | Output format (see table below) |
+| `template` | string | No | — | Inline Go `text/template` string; required when `format: template` |
+| `permissions` | octal | No | `0600` | File permission bits |
+| `overwrite` | bool | No | `false` | Overwrite the file if it already exists |
+| `secrets` | mapping | Yes | — | Map of alias → `!var` / `!str` secret references |
+
+## Supported formats
+
+| Value | Description |
+|---|---|
+| `yaml` | YAML mapping of `"alias": "value"` pairs **(default)** |
+| `json` | JSON object of `"alias": "value"` pairs |
+| `dotenv` | `ALIAS=value` lines suitable for `.env` files |
+| `properties` | `ALIAS=value` Java-style properties |
+| `bash` | `export ALIAS=value` lines |
+| `template` | Use the inline Go `text/template` from the `template:` field |
+
+## Custom templates
+
+When `format: template` is used, the
+following functions and variables are available inside the template:
+
+| Symbol | Description |
+|---|---|
+| `secret "alias"` | Returns the resolved value for the given alias |
+| `b64enc` | Base64-encodes a string |
+| `b64dec` | Base64-decodes a string; errors if the input is not valid base64 |
+| `htmlenc` | HTML-encodes a string |
+| `.SecretsArray` | `[]Secret` — all secrets sorted lexicographically by alias |
+| `.SecretsMap` | `map[string]Secret` — keyed by alias |
+
+All built-in Go `text/template` functions (e.g. `printf`, `urlquery`) are also
+available.
+
+Example with a custom template:
+
+```yaml
+summon.files:
+  - path: "./config/app.cfg"
+    format: template
+    template: |
+      [database]
+      username={{ secret "DB_USERNAME" }}
+      password={{ secret "DB_PASSWORD" }}
+    secrets:
+      DB_USERNAME: !var app/db/username
+      DB_PASSWORD: !var app/db/password
+```
+
+## Mixing environment and file secrets
+
+You can define regular environment-variable secrets and `summon.files` entries
+in the same secrets.yml file:
+
+```yaml
+DB_HOST: !var app/db/host
+summon.files:
+  - path: "./config/db-creds.json"
+    format: json
+    secrets:
+      DB_USERNAME: !var app/db/username
+      DB_PASSWORD: !var app/db/password
+```
+
+Running `summon -p <provider> myapp` makes `DB_HOST` available as an
+environment variable while `./config/db-creds.json` is written to disk.
+
+## Security considerations
+
+* **File cleanup is not guaranteed.** Summon removes pushed files when the
+  wrapped process exits normally or is terminated by a signal it can catch.
+  However, if the summon process is forcefully killed (e.g. `SIGKILL` /
+  `kill -9`) or the system crashes, the files may remain on disk. You should
+  have a secondary cleanup mechanism (e.g. a startup script, `tmpwatch`, or
+  an ephemeral filesystem) for environments where this is a concern.
+* **Use the most restrictive permissions possible.** The default file
+  permissions are `0600` (owner read/write only). If your application allows
+  it, keep the default. Avoid overly permissive modes such
+  as `0644` or `0755` which expose secret files to other users on the system.
 
 <h1 id="examples">examples</h1>
 

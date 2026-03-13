@@ -2,50 +2,47 @@ package summon
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"sort"
-	"strconv"
+	"slices"
 	"strings"
-	"sync"
-	"syscall"
 
 	prov "github.com/cyberark/summon/pkg/provider"
+	"github.com/cyberark/summon/pkg/pushtofile"
 	"github.com/cyberark/summon/pkg/secretsyml"
 )
 
 // SubprocessConfig is an object that holds all the info needed to run
 // a Summon instance
 type SubprocessConfig struct {
-	Args                 []string
-	Provider             string
-	Filepath             string
-	YamlInline           string
-	Subs                 []string
-	Ignores              []string
-	IgnoreAll            bool
-	Environment          string
-	RecurseUp            bool
-	ShowProviderVersions bool
-	FetchSecret          SecretFetcher
+	Args        []string
+	Provider    string
+	Filepath    string
+	YamlInline  string
+	Subs        []string
+	Ignores     []string
+	IgnoreAll   bool
+	Environment string
+	RecurseUp   bool
+	FetchSecret secretFetcher
 }
 
-const ENV_FILE_MAGIC = "@SUMMONENVFILE"
-const SUMMON_ENV_KEY_NAME = "SUMMON_ENV"
+const envFileMagic = "@SUMMONENVFILE"
+const summonEnvKeyName = "SUMMON_ENV"
 
-// SecretFetcher is function signature for fetching a secret
-type SecretFetcher func(string) ([]byte, error)
+// secretFetcher is function signature for fetching a secret
+type secretFetcher func(string) ([]byte, error)
 
 // RunSubprocess encapsulates the logic of fetching secrets, executing the subprocess with the secrets injected.
 func RunSubprocess(sc *SubprocessConfig) (int, error) {
-	var (
-		secrets secretsyml.SecretsMap
-		err     error
-	)
+	// Prepare substitutions map from command line arguments
+	subs, err := convertSubsToMap(sc.Subs)
+	if err != nil {
+		return 0, err
+	}
 
-	subs := convertSubsToMap(sc.Subs)
-
+	// Optional recursive search for secrets file up the directory tree
 	if sc.RecurseUp {
 		currentDir, err := os.Getwd()
 		if err != nil {
@@ -57,196 +54,63 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 		}
 	}
 
-	switch sc.YamlInline {
-	case "":
-		secrets, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
-	default:
-		secrets, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
-	}
-
-	if err != nil {
-		return 0, err
-	}
-
-	env := make(map[string]string)
-	tempFactory := NewTempFactory("")
-	defer tempFactory.Cleanup()
-
-	var results []prov.Result
-
-	// Filter out non variables
-	filteredResults, filteredSecrets := filterNonVariables(secrets, &tempFactory)
-	results = append(results, filteredResults...)
-
-	// Call provider with no arguments
-	resultsCh, errorsCh, cleanup := prov.CallInteractiveMode(sc.Provider, filteredSecrets)
-	defer cleanup()
-
-	// This extracts the logic of handling results from provider interactive mode
-	resultsFromProvider, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, &tempFactory)
-	results = append(results, resultsFromProvider...)
-
-	if err != nil {
-		results = nonInteractiveProviderFallback(secrets, sc, &tempFactory)
-	}
-
-EnvLoop:
-	for _, envvar := range results {
-		if envvar.Error == nil {
-			env[envvar.Key] = envvar.Value
-		} else {
-			if sc.IgnoreAll {
-				continue EnvLoop
-			}
-
-			for i := range sc.Ignores {
-				if sc.Ignores[i] == fmt.Sprintf("%s=%s", envvar.Key, envvar.Value) {
-					continue EnvLoop
-				}
-			}
-			return 0, fmt.Errorf("Error fetching variable %v: %v", envvar.Key, envvar.Error.Error())
+	// Parse the secrets configuration from a file or inline YAML
+	var config *secretsyml.ParsedConfig
+	if sc.YamlInline == "" {
+		slog.Debug("Loading summon configuration", "filename", sc.Filepath)
+		config, err = secretsyml.ParseFromFile(sc.Filepath, sc.Environment, subs)
+		if err != nil {
+			return 0, fmt.Errorf("Unable to parse configuration from %s: %w", sc.Filepath, err)
+		}
+	} else {
+		slog.Debug("Loading summon configuration from inline YAML")
+		config, err = secretsyml.ParseFromString(sc.YamlInline, sc.Environment, subs)
+		if err != nil {
+			return 0, fmt.Errorf("Unable to parse configuration from inline YAML: %w", err)
 		}
 	}
 
-	// Append environment variable if one is specified
-	if sc.Environment != "" {
-		env[SUMMON_ENV_KEY_NAME] = sc.Environment
+	tempFactory := NewTempFactory("")
+	defer tempFactory.Cleanup()
+
+	// Note: This implementation will cause duplicate calls to the provider if
+	// there are secrets needed for both env and files. We can optimize this in
+	// the future by calling the provider once and then splitting the results
+	// based on whether they're needed for env or files. We can do this by
+	// creating a Set of all the secret paths to fetch, calling the provider
+	// once with that set, and then processing the results to populate both env
+	// and files as needed.
+
+	env := []string{}
+	// Fetch secrets needed for environment variables
+	if config.HasEnvSecrets() {
+		envResults, err := fetchSecrets(config.EnvSecrets, sc, &tempFactory)
+		if err != nil {
+			return 0, err
+		}
+		env, err = processResultsAndSetupEnv(envResults, sc, &tempFactory)
+		if err != nil {
+			return 0, err
+		}
 	}
 
-	setupEnvFile(sc.Args, env, &tempFactory)
-
-	var e []string
-	for k, v := range env {
-		e = append(e, fmt.Sprintf("%s=%s", k, v))
+	if config.HasFileSecrets() {
+		fileResults, err := fetchSecrets(config.FileSecrets(), sc, &tempFactory)
+		if err != nil {
+			return 0, err
+		}
+		err = processResultsAndSetupFiles(fileResults, config.Files, sc, &tempFactory)
+		if err != nil {
+			return 0, err
+		}
 	}
 
-	err = runSubcommand(sc.Args, append(os.Environ(), e...))
+	err = runSubcommand(sc.Args, append(os.Environ(), env...))
 	if err != nil {
 		return returnStatusOfError(err)
 	}
 
 	return 0, nil
-}
-
-func filterNonVariables(secrets secretsyml.SecretsMap, tempFactory *TempFactory) ([]prov.Result, secretsyml.SecretsMap) {
-	filteredSecrets := make(secretsyml.SecretsMap)
-	results := []prov.Result{}
-
-	for key, spec := range secrets {
-		if spec.IsVar() {
-			filteredSecrets[key] = spec
-		} else {
-			k, v := formatForEnv(key, spec.Path, spec, tempFactory)
-			result := prov.Result{k, v, nil}
-			results = append(results, result)
-		}
-	}
-
-	return results, filteredSecrets
-}
-
-func handleResultsFromProvider(resultsCh chan prov.Result, errorsCh chan error,
-	filteredSecrets secretsyml.SecretsMap, tempFactory *TempFactory) (results []prov.Result, err error) {
-	for {
-		select {
-		case result, ok := <-resultsCh:
-			if !ok {
-				return results, nil
-			}
-
-			spec := filteredSecrets[result.Key]
-
-			// Set a default value if the provider didn't return one for the item
-			if result.Value == "" && spec.DefaultValue != "" {
-				result.Value = spec.DefaultValue
-			}
-			k, v := formatForEnv(result.Key, result.Value, spec, tempFactory)
-			result = prov.Result{k, v, nil}
-			results = append(results, result)
-
-		// Fallback to the old implementation if either provider doesn't support interactive mode or an error occured
-		case err = <-errorsCh:
-			return nil, err
-		}
-	}
-}
-
-func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) []prov.Result {
-	results := make(chan prov.Result, len(secrets))
-	var wg sync.WaitGroup
-
-	for key, spec := range secrets {
-		wg.Add(1)
-		go func(key string, spec secretsyml.SecretSpec) {
-			var value string
-			if spec.IsVar() {
-				valueBytes, err := sc.FetchSecret(spec.Path)
-				if err != nil {
-					results <- prov.Result{key, "", err}
-					wg.Done()
-					return
-				}
-				value = string(valueBytes)
-			} else {
-				// If the spec isn't a variable, use its value as-is
-				value = spec.Path
-			}
-
-			// Set a default value if the provider didn't return one for the item
-			if value == "" && spec.DefaultValue != "" {
-				value = spec.DefaultValue
-			}
-
-			k, v := formatForEnv(key, value, spec, tempFactory)
-			results <- prov.Result{k, v, nil}
-			wg.Done()
-		}(key, spec)
-	}
-	wg.Wait()
-	close(results)
-
-	resultsSlice := make([]prov.Result, 0, len(secrets))
-	for result := range results {
-		resultsSlice = append(resultsSlice, result)
-	}
-	return resultsSlice
-}
-
-func returnStatusOfError(err error) (int, error) {
-	if eerr, ok := err.(*exec.ExitError); ok {
-		if ws, ok := eerr.Sys().(syscall.WaitStatus); ok {
-			if ws.Exited() {
-				return ws.ExitStatus(), nil
-			}
-		}
-	}
-	return 0, err
-}
-
-// formatForEnv returns a string in %k=%v format, where %k=namespace of the secret and
-// %v=the secret value or path to a temporary file containing the secret
-func formatForEnv(key string, value string, spec secretsyml.SecretSpec, tempFactory *TempFactory) (string, string) {
-	if spec.IsFile() {
-		fname := tempFactory.Push(value)
-		value = fname
-	}
-
-	return key, value
-}
-
-func joinEnv(env map[string]string) string {
-	var envs []string
-	for k, v := range env {
-		if strings.ContainsAny(v, " \t\n\r\"'\\") {
-			v = strconv.Quote(v)
-		}
-		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	// Sort to ensure predictable results
-	sort.Strings(envs)
-
-	return strings.Join(envs, "\n") + "\n"
 }
 
 // findInParentTree recursively searches for secretsFile starting at leafDir and in the
@@ -286,34 +150,113 @@ func findInParentTree(secretsFile string, leafDir string) (string, error) {
 	}
 }
 
-// scans arguments for the magic string; if found,
-// creates a tempfile to which all the environment mappings are dumped
-// and replaces the magic string with its path.
-// Returns the path if so, returns an empty string otherwise.
-func setupEnvFile(args []string, env map[string]string, tempFactory *TempFactory) string {
-	var envFile = ""
-
-	for i, arg := range args {
-		idx := strings.Index(arg, ENV_FILE_MAGIC)
-		if idx >= 0 {
-			if envFile == "" {
-				envFile = tempFactory.Push(joinEnv(env))
-			}
-			args[i] = strings.Replace(arg, ENV_FILE_MAGIC, envFile, -1)
-		}
-	}
-
-	return envFile
-}
-
 // convertSubsToMap converts the list of substitutions passed in via
 // command line to a map
-func convertSubsToMap(subs []string) map[string]string {
+func convertSubsToMap(subs []string) (map[string]string, error) {
 	out := make(map[string]string)
 	for _, sub := range subs {
 		s := strings.SplitN(sub, "=", 2)
+		if len(s) < 2 {
+			return nil, fmt.Errorf("invalid substitution format: %q (expected key=value)", sub)
+		}
 		key, val := s[0], s[1]
 		out[key] = val
 	}
-	return out
+	return out, nil
+}
+
+// processResultsAndSetupEnv processes provider results, populates the environment map,
+// and sets up the environment file. It handles error cases with ignore logic.
+func processResultsAndSetupEnv(results []prov.Result, sc *SubprocessConfig, tempFactory *TempFactory) ([]string, error) {
+	env := make(map[string]string)
+	// Process results from the provider and add them to the environment
+	for _, envvar := range results {
+		if envvar.Error == nil {
+			env[envvar.Key] = envvar.Value
+			continue
+		}
+
+		if sc.IgnoreAll || slices.Contains(sc.Ignores, envvar.Key) {
+			continue
+		}
+
+		slog.Debug("Error fetching secret", "name", envvar.Key, "error", envvar.Error)
+		return nil, fmt.Errorf("Error fetching secret: %w", envvar.Error)
+	}
+
+	// Append environment variable if one is specified
+	if sc.Environment != "" {
+		env[summonEnvKeyName] = sc.Environment
+	}
+
+	// Setup the environment file
+	_, err := setupEnvFile(sc.Args, env, tempFactory)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating %s: %v", envFileMagic, err)
+	}
+
+	// Convert env map to slice of strings in "key=value" format for exec.Command
+	var e []string
+	for k, v := range env {
+		e = append(e, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	return e, nil
+}
+
+// scans arguments for the magic string; if found,
+// creates a tempfile to which all the environment mappings are dumped
+// and replaces the magic string with its path.
+// Returns the path if so, returns an empty string otherwise. Also
+// returns any error encountered during the process.
+func setupEnvFile(args []string, env map[string]string, tempFactory *TempFactory) (string, error) {
+	var envFile = ""
+	var err error
+
+	for i, arg := range args {
+		found := strings.Contains(arg, envFileMagic)
+		if !found {
+			continue
+		}
+
+		if envFile == "" {
+			envFile, err = tempFactory.Push(joinEnv(env))
+			if err != nil {
+				return "", err
+			}
+		}
+		args[i] = strings.ReplaceAll(arg, envFileMagic, envFile)
+	}
+
+	return envFile, nil
+}
+
+func processResultsAndSetupFiles(results []prov.Result, filesConfig []secretsyml.FileConfig, sc *SubprocessConfig, tempFactory *TempFactory) error {
+	for _, file := range filesConfig {
+		if err := file.Validate(); err != nil {
+			return err
+		}
+
+		err := createFile(file, results, sc, tempFactory)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func createFile(fileConfig secretsyml.FileConfig, results []prov.Result, sc *SubprocessConfig, tempFactory *TempFactory) error {
+	secretFile := pushtofile.SecretFile{
+		FileConfig: fileConfig,
+		Ignores:    sc.Ignores,
+		IgnoreAll:  sc.IgnoreAll,
+	}
+
+	filePath, err := secretFile.Write(results)
+	if err != nil {
+		return fmt.Errorf("error writing secret file for path %s: %v", fileConfig.Path, err)
+	}
+	tempFactory.AddFile(filePath)
+	return nil
 }
