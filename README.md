@@ -179,10 +179,14 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
     summon -D ENV=production --yaml 'SQL_PASSWORD: !var env/$ENV/db-password' deploy.sh
     ```
 
+    *Warning: Never embed plaintext secret values in the subsitution string passed to this flag - command-line arguments are exposed in process listings and shell history.*
+
 * `--yaml <YAML-string>` Passes secrets.yml as a literal string.
 
     This flag is used to pass a literal YAML string to the provider in place
     of the `secrets.yml` file (see example above).
+
+    *Warning: Never embed plaintext secret values in the YAML string passed to this flag - command-line arguments are exposed in process listings and shell history.*
 
 * `-i, --ignore <path-to-provider>` A secret path for which to ignore provider
 errors.
