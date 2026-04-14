@@ -108,7 +108,13 @@ func Call(provider, specPath string) (string, error) {
 		return "", errors.New(errstr)
 	}
 
-	return strings.TrimSpace(stdOut.String()), nil
+	// Extract the result before zeroing the buffer. stdOut.String() copies the
+	// underlying bytes into a new string allocation; clear zeroes the original
+	// buffer bytes to narrow the window during which the raw secret value
+	// sits in the process heap.
+	result := strings.TrimSpace(stdOut.String())
+	clear(stdOut.Bytes())
+	return result, nil
 }
 
 // Result is the outcome of fetching a single secret from the provider.
