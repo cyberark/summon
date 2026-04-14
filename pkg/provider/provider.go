@@ -20,9 +20,38 @@ import (
 	"github.com/cyberark/summon/pkg/secretsyml"
 )
 
-// Resolve resolves a filepath to a provider
-// Checks the CLI arg, environment and then default path
-func Resolve(providerArg string) (string, error) {
+// Provider is the interface for a resolved, initialized secrets provider.
+// Resolve returns a Provider ready to fetch secrets — callers pass FetchSecret
+// directly to summon.SubprocessConfig and use Path for logging and
+// interactive-mode dispatch.
+type Provider interface {
+	// FetchSecret retrieves the secret identified by varID.
+	FetchSecret(varID string) ([]byte, error)
+	// Path returns the provider's canonical identifier: the absolute binary
+	// path for external providers.
+	Path() string
+}
+
+// ExternalProvider wraps an external binary and satisfies the Provider
+// interface. FetchSecret shells out to the binary via Call.
+type ExternalProvider struct {
+	path string
+}
+
+// FetchSecret calls the external provider binary with secretID as the sole
+// argument and returns its stdout as a byte slice.
+func (ep *ExternalProvider) FetchSecret(secretID string) ([]byte, error) {
+	s, err := Call(ep.path, secretID)
+	return []byte(s), err
+}
+
+// Path returns the absolute path to the external provider binary.
+func (ep *ExternalProvider) Path() string { return ep.path }
+
+// Resolve resolves a provider argument to an initialised Provider instance.
+// It validates the binary path and returns an ExternalProvider wrapping that
+// path.
+func Resolve(providerArg string) (Provider, error) {
 	provider := providerArg
 
 	if provider == "" {
@@ -32,30 +61,30 @@ func Resolve(providerArg string) (string, error) {
 	if provider == "" {
 		defaultPath, err := GetDefaultPath()
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		providers, _ := os.ReadDir(defaultPath)
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {
-			return "", fmt.Errorf("More than one provider found in %s, please specify one\n", defaultPath)
+			return nil, fmt.Errorf("More than one provider found in %s, please specify one\n", defaultPath)
 		}
 	}
 
 	if provider == "" {
-		return "", fmt.Errorf("Could not resolve a provider!")
+		return nil, fmt.Errorf("Could not resolve a provider!")
 	}
 
 	provider, err := expandPath(provider)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if _, err = os.Stat(provider); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return provider, nil
+	return &ExternalProvider{path: provider}, nil
 }
 
 // Call shells out to a provider and return its output

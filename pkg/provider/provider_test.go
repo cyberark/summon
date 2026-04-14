@@ -63,6 +63,10 @@ func TestNoProviderReturnsError(t *testing.T) {
 	tempDir, _ := os.MkdirTemp("", "summontest")
 	defer os.RemoveAll(tempDir)
 
+	os.Unsetenv("SUMMON_PROVIDER")
+	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
+	defer os.Unsetenv("SUMMON_PROVIDER_PATH")
+
 	_, err := Resolve("")
 	assert.NotNil(t, err)
 }
@@ -77,7 +81,7 @@ func TestProviderResolutionOfAbsPath(t *testing.T) {
 		return
 	}
 
-	assert.EqualValues(t, provider, expected)
+	assert.Equal(t, expected, provider.Path())
 }
 
 func TestProviderResolutionOfRelPath(t *testing.T) {
@@ -103,7 +107,7 @@ func TestProviderResolutionOfRelPath(t *testing.T) {
 		return
 	}
 
-	assert.EqualValues(t, provider, f.Name())
+	assert.Equal(t, f.Name(), provider.Path())
 }
 
 func TestProviderResolutionViaEnvVarOfAbsPath(t *testing.T) {
@@ -118,7 +122,7 @@ func TestProviderResolutionViaEnvVarOfAbsPath(t *testing.T) {
 		return
 	}
 
-	assert.EqualValues(t, provider, expected)
+	assert.Equal(t, expected, provider.Path())
 }
 
 func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
@@ -147,7 +151,7 @@ func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
 		return
 	}
 
-	assert.EqualValues(t, provider, f.Name())
+	assert.Equal(t, f.Name(), provider.Path())
 }
 
 func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
@@ -158,9 +162,9 @@ func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
 	defer os.RemoveAll(f.Name())
 	f.Chmod(0755)
 
-	// DefaultPath is no longer a global, so use
-	// the env var instead.
 	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
+	defer os.Unsetenv("SUMMON_PROVIDER_PATH")
+	os.Unsetenv("SUMMON_PROVIDER")
 
 	provider, err := Resolve("")
 
@@ -169,7 +173,7 @@ func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
 		return
 	}
 
-	assert.EqualValues(t, provider, f.Name())
+	assert.Equal(t, f.Name(), provider.Path())
 }
 
 func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
@@ -182,6 +186,8 @@ func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
 	f, err := os.CreateTemp(defaultPath, "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(0755)
+
+	os.Unsetenv("SUMMON_PROVIDER")
 	provider, err := Resolve("")
 
 	assert.Nil(t, err)
@@ -189,7 +195,7 @@ func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
 		return
 	}
 
-	assert.EqualValues(t, provider, f.Name())
+	assert.Equal(t, f.Name(), provider.Path())
 }
 
 func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
@@ -202,6 +208,10 @@ func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
 	f2, _ := os.CreateTemp(defaultPath, "")
 	defer os.RemoveAll(f1.Name())
 	defer os.RemoveAll(f2.Name())
+
+	os.Setenv("SUMMON_PROVIDER_PATH", defaultPath)
+	defer os.Unsetenv("SUMMON_PROVIDER_PATH")
+	os.Unsetenv("SUMMON_PROVIDER")
 
 	_, err := Resolve("")
 
@@ -221,9 +231,22 @@ func TestProviderResolutionViaOverrideDefaultPathWithMultipleProviders(t *testin
 	defer os.RemoveAll(f1.Name())
 	defer os.RemoveAll(f2.Name())
 
+	os.Unsetenv("SUMMON_PROVIDER")
 	_, err := Resolve("")
 
 	assert.NotNil(t, err)
+}
+
+// ---- Resolve (provider instance) ----
+
+func TestResolve(t *testing.T) {
+	t.Run("returns ExternalProvider instance for an external provider path", func(t *testing.T) {
+		// Use /bin/ls as a stand-in for any executable external provider.
+		provider, err := Resolve("/bin/ls")
+		assert.NoError(t, err)
+		assert.NotNil(t, provider)
+		assert.Equal(t, "/bin/ls", provider.Path())
+	})
 }
 
 func TestProviderCall(t *testing.T) {
