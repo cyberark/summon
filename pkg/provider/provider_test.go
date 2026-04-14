@@ -58,17 +58,22 @@ func TestDefaultPortableLibProviderPath(t *testing.T) {
 	assert.EqualValues(t, dir, defaultPath)
 }
 
-func TestNoProviderReturnsError(t *testing.T) {
-	// Point to a tempdir to avoid pollution from dev env
-	tempDir, _ := os.MkdirTemp("", "summontest")
-	defer os.RemoveAll(tempDir)
+func TestResolveEmptyProviderFallsBackToBuiltin(t *testing.T) {
+	// No SUMMON_PROVIDER and no binary in the default dir — Resolve falls
+	// back to the built-in Conjur provider. Without Conjur configuration the
+	// init call returns an error, confirming the fallback path was taken.
+	// Skip on machines that have a provider binary installed in the default dir
+	// (e.g. summon-conjur via Homebrew), where Resolve correctly returns success.
+	defaultPath, _ := GetDefaultPath()
+	if entries, _ := os.ReadDir(defaultPath); len(entries) > 0 {
+		t.Skip("default provider dir is non-empty on this machine; skipping fallback-to-builtin test")
+	}
 
-	os.Unsetenv("SUMMON_PROVIDER")
-	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
-	defer os.Unsetenv("SUMMON_PROVIDER_PATH")
-
+	t.Setenv("SUMMON_PROVIDER", "")
+	t.Setenv("CONJUR_APPLIANCE_URL", "")
+	t.Setenv("CONJUR_ACCOUNT", "")
 	_, err := Resolve("")
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestProviderResolutionOfAbsPath(t *testing.T) {
@@ -155,86 +160,45 @@ func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
 }
 
 func TestProviderResolutionViaDefaultPathWithOneProvider(t *testing.T) {
-	// Create tmpdir with single executable file
-	tempDir, _ := os.MkdirTemp("", "summontest")
-	defer os.RemoveAll(tempDir)
-	f, err := os.CreateTemp(tempDir, "")
-	defer os.RemoveAll(f.Name())
-	f.Chmod(0755)
+	// Create a temp dir with a single executable binary and point the default
+	// path override at it. Resolve("") should return that ExternalProvider.
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "summon-conjur")
+	f, err := os.Create(binary)
+	assert.Nil(t, err)
+	f.Close()
+	err = os.Chmod(binary, 0755)
+	assert.Nil(t, err)
 
-	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
-	defer os.Unsetenv("SUMMON_PROVIDER_PATH")
-	os.Unsetenv("SUMMON_PROVIDER")
+	t.Setenv("SUMMON_PROVIDER", "")
+	t.Setenv("SUMMON_PROVIDER_PATH", dir)
 
 	provider, err := Resolve("")
-
 	assert.Nil(t, err)
 	if err != nil {
 		return
 	}
-
-	assert.Equal(t, f.Name(), provider.Path())
-}
-
-func TestProviderResolutionViaOverrideDefaultPathWithOneProvider(t *testing.T) {
-	tempDir, _ := os.MkdirTemp("", "summontest")
-	defer os.RemoveAll(tempDir)
-	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
-	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
-	defaultPath, _ := GetDefaultPath()
-
-	f, err := os.CreateTemp(defaultPath, "")
-	defer os.RemoveAll(f.Name())
-	f.Chmod(0755)
-
-	os.Unsetenv("SUMMON_PROVIDER")
-	provider, err := Resolve("")
-
-	assert.Nil(t, err)
-	if err != nil {
-		return
-	}
-
-	assert.Equal(t, f.Name(), provider.Path())
+	assert.Equal(t, binary, provider.Path())
 }
 
 func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
-	tempDir, _ := os.MkdirTemp("", "summontest")
-	defer os.RemoveAll(tempDir)
-	defaultPath := tempDir
+	// Create a temp dir with two binaries. Resolve("") should return an error
+	// because more than one provider is ambiguous.
+	dir := t.TempDir()
+	for _, name := range []string{"summon-conjur", "summon-aws"} {
+		binary := filepath.Join(dir, name)
+		f, err := os.Create(binary)
+		assert.Nil(t, err)
+		f.Close()
+		os.Chmod(binary, 0755)
+	}
 
-	// Create 2 exes in provider path
-	f1, _ := os.CreateTemp(defaultPath, "")
-	f2, _ := os.CreateTemp(defaultPath, "")
-	defer os.RemoveAll(f1.Name())
-	defer os.RemoveAll(f2.Name())
-
-	os.Setenv("SUMMON_PROVIDER_PATH", defaultPath)
-	defer os.Unsetenv("SUMMON_PROVIDER_PATH")
-	os.Unsetenv("SUMMON_PROVIDER")
+	t.Setenv("SUMMON_PROVIDER", "")
+	t.Setenv("SUMMON_PROVIDER_PATH", dir)
 
 	_, err := Resolve("")
-
-	assert.NotNil(t, err)
-}
-
-func TestProviderResolutionViaOverrideDefaultPathWithMultipleProviders(t *testing.T) {
-	tempDir, _ := os.MkdirTemp("", "summontest")
-	defer os.RemoveAll(tempDir)
-	os.Setenv("SUMMON_PROVIDER_PATH", tempDir)
-	defer os.Setenv("SUMMON_PROVIDER_PATH", "")
-	defaultPath, _ := GetDefaultPath()
-
-	// Create 2 exes in provider path
-	f1, _ := os.CreateTemp(defaultPath, "")
-	f2, _ := os.CreateTemp(defaultPath, "")
-	defer os.RemoveAll(f1.Name())
-	defer os.RemoveAll(f2.Name())
-
-	os.Unsetenv("SUMMON_PROVIDER")
-	_, err := Resolve("")
-
-	assert.NotNil(t, err)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "More than one provider found")
 }
 
 // ---- Resolve (provider instance) ----
@@ -246,6 +210,30 @@ func TestResolve(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, provider)
 		assert.Equal(t, "/bin/ls", provider.Path())
+	})
+
+	t.Run("returns error for builtin when Conjur is not fully configured", func(t *testing.T) {
+		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
+			t.Setenv(envVar, "")
+		}
+		_, err := Resolve("conjur")
+		assert.Error(t, err)
+	})
+
+	t.Run("case-insensitive CONJUR routes to builtin", func(t *testing.T) {
+		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
+			t.Setenv(envVar, "")
+		}
+		_, err := Resolve("CONJUR")
+		assert.Error(t, err)
+	})
+
+	t.Run("mixed-case Conjur routes to builtin", func(t *testing.T) {
+		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
+			t.Setenv(envVar, "")
+		}
+		_, err := Resolve("Conjur")
+		assert.Error(t, err)
 	})
 }
 
@@ -499,6 +487,88 @@ func TestInteractiveModeTimeout(t *testing.T) {
 			os.Setenv(interactiveTimeoutEnvVar, testCase.envValue)
 			defer os.Unsetenv(interactiveTimeoutEnvVar)
 			assert.Equal(t, testCase.expected, interactiveModeTimeout())
+		})
+	}
+}
+
+func TestIsBuiltinTarget(t *testing.T) {
+	tests := []struct {
+		name        string
+		providerArg string
+		envProvider string
+		expected    bool
+	}{
+		// Explicit "conjur" arg (case-insensitive) always routes to built-in.
+		{
+			name:        "providerArg=conjur always routes to built-in",
+			providerArg: "conjur",
+			expected:    true,
+		},
+		{
+			name:        "providerArg=CONJUR routes to built-in (case-insensitive)",
+			providerArg: "CONJUR",
+			expected:    true,
+		},
+		{
+			name:        "providerArg=Conjur routes to built-in (mixed case)",
+			providerArg: "Conjur",
+			expected:    true,
+		},
+
+		// Empty providerArg: only routes to built-in when SUMMON_PROVIDER
+		// explicitly names the built-in. Unset/empty env defers to the
+		// default-directory lookup in Resolve.
+		{
+			name:        "providerArg empty and SUMMON_PROVIDER unset defers to dir lookup",
+			providerArg: "",
+			envProvider: "",
+			expected:    false,
+		},
+		{
+			name:        "providerArg empty and SUMMON_PROVIDER=conjur routes to built-in",
+			providerArg: "",
+			envProvider: "conjur",
+			expected:    true,
+		},
+		{
+			name:        "providerArg empty and SUMMON_PROVIDER=CONJUR routes to built-in (case-insensitive)",
+			providerArg: "",
+			envProvider: "CONJUR",
+			expected:    true,
+		},
+
+		// FR-004: external-provider cases
+		{
+			name:        "providerArg=/path/to/binary routes to external",
+			providerArg: "/path/to/binary",
+			expected:    false,
+		},
+		{
+			name:        "providerArg=summon-conjur routes to external",
+			providerArg: "summon-conjur",
+			expected:    false,
+		},
+		{
+			name:        "providerArg empty and SUMMON_PROVIDER=summon-conjur routes to external",
+			providerArg: "",
+			envProvider: "summon-conjur",
+			expected:    false,
+		},
+		{
+			name:        "providerArg empty and SUMMON_PROVIDER=/abs/path routes to external",
+			providerArg: "",
+			envProvider: "/usr/local/bin/summon-conjur",
+			expected:    false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("SUMMON_PROVIDER", tc.envProvider)
+
+			got := IsBuiltinTarget(tc.providerArg)
+
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }

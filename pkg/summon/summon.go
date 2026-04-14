@@ -105,12 +105,25 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 		}
 	}
 
-	err = runSubcommand(sc.Args, append(os.Environ(), env...))
+	err = runSubcommand(sc.Args, append(filterConjurEnv(os.Environ()), env...))
 	if err != nil {
 		return returnStatusOfError(err)
 	}
 
 	return 0, nil
+}
+
+// filterConjurEnv returns a copy of env with all entries whose key starts with
+// "CONJUR_" removed. This prevents the built-in Conjur provider credentials
+// (e.g. CONJUR_ACCOUNT, CONJUR_AUTHN_TOKEN) from leaking into the child process.
+func filterConjurEnv(env []string) []string {
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		if !strings.HasPrefix(entry, "CONJUR_") {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
 
 // findInParentTree recursively searches for secretsFile starting at leafDir and in the

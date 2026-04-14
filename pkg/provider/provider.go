@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cyberark/summon/pkg/conjurprovider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 )
 
@@ -27,8 +28,8 @@ import (
 type Provider interface {
 	// FetchSecret retrieves the secret identified by varID.
 	FetchSecret(varID string) ([]byte, error)
-	// Path returns the provider's canonical identifier: the absolute binary
-	// path for external providers.
+	// Path returns the provider's canonical identifier: "conjur" for the
+	// built-in provider or the absolute binary path for external providers.
 	Path() string
 }
 
@@ -48,10 +49,42 @@ func (ep *ExternalProvider) FetchSecret(secretID string) ([]byte, error) {
 // Path returns the absolute path to the external provider binary.
 func (ep *ExternalProvider) Path() string { return ep.path }
 
-// Resolve resolves a provider argument to an initialised Provider instance.
-// It validates the binary path and returns an ExternalProvider wrapping that
-// path.
+// IsBuiltinTarget returns true when the given provider argument should route to
+// the built-in Conjur provider rather than an external binary:
+//   - providerArg == "conjur" (case-insensitive)                         (explicit built-in flag)
+//   - providerArg == ""  AND  SUMMON_PROVIDER == "conjur" (case-insensitive)  (env var names built-in)
+//
+// When providerArg is empty and SUMMON_PROVIDER is unset or empty, this returns
+// false so that Resolve can check the default provider directory first and only
+// fall back to the built-in if no external binary is found there.
+func IsBuiltinTarget(providerArg string) bool {
+	if strings.EqualFold(providerArg, conjurprovider.BuiltinProviderName) {
+		return true
+	}
+	if providerArg == "" {
+		envProvider := os.Getenv("SUMMON_PROVIDER")
+		return strings.EqualFold(envProvider, conjurprovider.BuiltinProviderName)
+	}
+	return false
+}
+
+// Resolve resolves a provider argument to an initialized Provider instance.
+//
+// For the built-in Conjur provider it loads Conjur configuration, constructs
+// a ConjurProvider client, and returns it. Configuration or authentication
+// failures are returned as plain errors from conjurprovider.New().
+//
+// For external providers it validates the binary path and returns an
+// ExternalProvider wrapping that path.
 func Resolve(providerArg string) (Provider, error) {
+	if IsBuiltinTarget(providerArg) {
+		cp, err := conjurprovider.New()
+		if err != nil {
+			return nil, err
+		}
+		return cp, nil
+	}
+
 	provider := providerArg
 
 	if provider == "" {
@@ -72,7 +105,13 @@ func Resolve(providerArg string) (Provider, error) {
 	}
 
 	if provider == "" {
-		return nil, fmt.Errorf("Could not resolve a provider!")
+		// No external provider found in the default directory — fall back to the
+		// built-in Conjur provider.
+		cp, err := conjurprovider.New()
+		if err != nil {
+			return nil, err
+		}
+		return cp, nil
 	}
 
 	provider, err := expandPath(provider)

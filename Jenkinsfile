@@ -9,7 +9,7 @@ properties([
   // Include the automated release parameters for the build
   release.addParams(),
   // Dependencies of the project that should trigger builds
-  dependencies([])
+  dependencies(['conjur-enterprise/conjur-api-go'])
 ])
 
 // Performs release promotion.  No other stages will be run
@@ -100,6 +100,18 @@ pipeline {
     stage('Validate changelog and set version') {
       steps {
         updateVersion(infrapool, "CHANGELOG.md", "${BUILD_NUMBER}")
+      }
+    }
+
+    stage('Get latest upstream dependencies') {
+      steps {
+        script {
+          updatePrivateGoDependencies("${WORKSPACE}/go.mod")
+          // Copy the vendor directory onto infrapool
+          infrapool.agentPut from: "vendor", to: "${WORKSPACE}"
+          infrapool.agentPut from: "go.*", to: "${WORKSPACE}"
+          infrapool.agentPut from: "/root/go", to: "/var/lib/jenkins/"
+        }
       }
     }
 

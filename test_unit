@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-TEST_CMD='go test -coverprofile=output/c.out -v ./... | tee junit.output && cat junit.output | go-junit-report > output/junit.xml'
+TEST_CMD='go test -mod=vendor -coverprofile=output/c.out -v ./... | tee junit.output && cat junit.output | go-junit-report > output/junit.xml'
 
 echo "Running unit tests"
 docker build --pull -t summon-builder .
