@@ -6,7 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.11.0] - 2026-04-12
+## [0.11.1] - 2026-04-14
+
+### Fixed
+- Fix regression to continue to support empty environment sections in `secrets.yml` (CNJR-13617)
+
+## [0.11.0] - 2026-03-12
 
 ### Added
 - Add support for writing secrets to files (CNJR-12226)

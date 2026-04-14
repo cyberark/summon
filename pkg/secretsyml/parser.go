@@ -243,12 +243,16 @@ func processFileConfigWithNode(fc *FileConfig, env string, subs map[string]strin
 
 // isEnvironmentBasedNode returns true if all top-level values are mappings
 // (indicating environment sections like "production:", "staging:", etc.).
+// Allows for empty, null value nodes as valid environment sections that
+// functionally act as aliases to common sections.
 func isEnvironmentBasedNode(node *yaml.Node) bool {
 	if node.Kind != yaml.MappingNode || len(node.Content) == 0 {
 		return false
 	}
 	for i := 1; i < len(node.Content); i += 2 {
-		if node.Content[i].Kind != yaml.MappingNode {
+		v := node.Content[i]
+		isNull := v.Kind == yaml.ScalarNode && v.Tag == "!!null"
+		if v.Kind != yaml.MappingNode && !isNull {
 			return false
 		}
 	}
