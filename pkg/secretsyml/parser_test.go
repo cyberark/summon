@@ -232,6 +232,65 @@ TestEnvironment:
 			})
 		}
 	})
+
+	t.Run("Empty environment section", func(t *testing.T) {
+		// Regression: an empty environment section (null value in YAML) must not
+		// cause a "No such environment" error; it should be treated as a valid
+		// environment that contributes no secrets of its own.
+		input := `
+common:
+  KEY: value
+  KEY2: value2
+
+emptyEnv:
+
+populatedEnv:
+  nestedNull:
+  KEY3: value3
+`
+
+		t.Run("Empty env returns common section secrets", func(t *testing.T) {
+			config, err := ParseFromString(input, "emptyEnv", nil)
+			assert.NoError(t, err)
+			assert.Len(t, config.EnvSecrets, 2)
+
+			spec := config.EnvSecrets["KEY"]
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "value", spec.Path)
+
+			spec = config.EnvSecrets["KEY2"]
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "value2", spec.Path)
+		})
+
+		t.Run("Populated env returns its own secrets merged with common", func(t *testing.T) {
+			config, err := ParseFromString(input, "populatedEnv", nil)
+			assert.NoError(t, err)
+			assert.Len(t, config.EnvSecrets, 4)
+
+			spec := config.EnvSecrets["KEY"]
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "value", spec.Path)
+
+			spec = config.EnvSecrets["KEY3"]
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "value3", spec.Path)
+		})
+
+		t.Run("Requesting a missing environment still errors", func(t *testing.T) {
+			_, err := ParseFromString(input, "missingEnv", nil)
+			assert.EqualError(t, err, "No such environment 'missingEnv' found in secrets file")
+		})
+
+		t.Run("Nested null-value keys do not introduce errors", func(t *testing.T) {
+			config, err := ParseFromString(input, "populatedEnv", nil)
+			assert.NoError(t, err)
+
+			spec := config.EnvSecrets["nestedNull"]
+			assert.True(t, spec.IsLiteral())
+			assert.Equal(t, "", spec.Path)
+		})
+	})
 }
 
 func validateTestCases(t *testing.T, testCases []testCase, parsed SecretsMap) {
