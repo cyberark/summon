@@ -39,19 +39,19 @@ func configureDebugLogging(w io.Writer) error {
 var Action = func(c *cli.Context) {
 	if c.Bool("debug") {
 		if err := configureDebugLogging(os.Stderr); err != nil {
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(127)
 		}
 	}
 
 	if !c.Args().Present() && !c.Bool("all-provider-versions") {
-		fmt.Println("Enter a subprocess to run!")
+		fmt.Fprintln(os.Stderr, "Enter a subprocess to run!")
 		os.Exit(127)
 	}
 
 	if c.Bool("all-provider-versions") {
 		if err := runPrintProviderVersions(); err != nil {
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(127)
 		}
 		return
@@ -61,7 +61,7 @@ var Action = func(c *cli.Context) {
 
 	providerInstance, err := prov.Resolve(providerArg)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(127)
 	}
 
@@ -81,7 +81,7 @@ var Action = func(c *cli.Context) {
 	})
 
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(127)
 	}
 
