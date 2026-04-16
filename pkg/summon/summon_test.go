@@ -13,6 +13,7 @@ import (
 	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRunSubprocess(t *testing.T) {
@@ -520,4 +521,163 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 			tc.assertFunc(t, results)
 		})
 	}
+}
+
+func TestFilterConjurEnv(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []string
+	}{
+		{
+			name:     "removes CONJUR_ prefixed entries",
+			input:    []string{"CONJUR_ACCOUNT=myorg", "CONJUR_AUTHN_TOKEN=secret", "HOME=/root", "PATH=/usr/bin"},
+			expected: []string{"HOME=/root", "PATH=/usr/bin"},
+		},
+		{
+			name:     "keeps entries without CONJUR_ prefix",
+			input:    []string{"HOME=/root", "PATH=/usr/bin", "FOO=bar"},
+			expected: []string{"HOME=/root", "PATH=/usr/bin", "FOO=bar"},
+		},
+		{
+			name:     "returns empty slice when all entries are CONJUR_",
+			input:    []string{"CONJUR_ACCOUNT=myorg", "CONJUR_APPLIANCE_URL=https://conjur.example.com"},
+			expected: []string{},
+		},
+		{
+			name:     "handles empty input",
+			input:    []string{},
+			expected: []string{},
+		},
+		{
+			name:     "does not remove entries that merely contain CONJUR_ as a substring of the value",
+			input:    []string{"SOME_VAR=CONJUR_token_here", "CONJUR_ACCOUNT=myorg"},
+			expected: []string{"SOME_VAR=CONJUR_token_here"},
+		},
+		{
+			name:     "case-sensitive: lowercase conjur_ prefix is not removed",
+			input:    []string{"conjur_account=myorg", "CONJUR_ACCOUNT=myorg"},
+			expected: []string{"conjur_account=myorg"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := filterConjurEnv(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func TestRunSubprocessFiltersConjurEnv(t *testing.T) {
+	t.Run("CONJUR_ vars from parent env are not visible in the child process", func(t *testing.T) {
+		t.Setenv("CONJUR_ACCOUNT", "should-be-filtered")
+		t.Setenv("CONJUR_AUTHN_TOKEN", "super-secret-token")
+		t.Setenv("SAFE_VAR", "keep-me")
+
+		dir := t.TempDir()
+		outFile := filepath.Join(dir, "env_dump.txt")
+
+		// The child echoes the value of CONJUR_ACCOUNT (empty if filtered) and SAFE_VAR.
+		code, err := RunSubprocess(&SubprocessConfig{
+			Args:       []string{"bash", "-c", fmt.Sprintf(`echo -n "CONJUR_ACCOUNT=${CONJUR_ACCOUNT}|SAFE_VAR=${SAFE_VAR}" > %s`, outFile)},
+			YamlInline: "DUMMY: !str dummy",
+		})
+
+		assert.NoError(t, err)
+		assert.Equal(t, 0, code)
+
+		content, readErr := os.ReadFile(outFile)
+		assert.NoError(t, readErr)
+
+		// CONJUR_ACCOUNT should be absent (empty); SAFE_VAR should be present.
+		assert.Equal(t, "CONJUR_ACCOUNT=|SAFE_VAR=keep-me", string(content))
+	})
+}
+func TestFetchSecretsBuiltin(t *testing.T) {
+	varSecrets := func(m map[string]string) secretsyml.SecretsMap {
+		result := make(secretsyml.SecretsMap, len(m))
+		for key, path := range m {
+			result[key] = secretsyml.SecretSpec{Path: path, Tags: []secretsyml.YamlTag{secretsyml.Var}}
+		}
+		return result
+	}
+
+	t.Run("returns all results when every fetch succeeds", func(t *testing.T) {
+		secrets := varSecrets(map[string]string{
+			"SECRET_A": "path/to/a",
+			"SECRET_B": "path/to/b",
+		})
+		sc := &SubprocessConfig{
+			FetchSecret: func(varID string) ([]byte, error) {
+				return []byte("val-" + varID), nil
+			},
+		}
+
+		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+
+		require.NoError(t, err)
+		assert.Len(t, results, 2)
+	})
+
+	t.Run("short-circuits on first error and returns no results", func(t *testing.T) {
+		fetchCount := 0
+		secrets := varSecrets(map[string]string{
+			"SECRET_A": "path/to/a",
+			"SECRET_B": "path/to/b",
+		})
+		sc := &SubprocessConfig{
+			FetchSecret: func(varID string) ([]byte, error) {
+				fetchCount++
+				return nil, errors.New("retrieval failed")
+			},
+		}
+
+		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+
+		require.Error(t, err)
+		assert.Nil(t, results)
+		assert.Equal(t, 1, fetchCount)
+	})
+
+	t.Run("skips error for key in Ignores list and continues", func(t *testing.T) {
+		secrets := varSecrets(map[string]string{
+			"SECRET_A": "path/to/a",
+			"SECRET_B": "path/to/b",
+		})
+		sc := &SubprocessConfig{
+			Ignores: []string{"SECRET_A"},
+			FetchSecret: func(varID string) ([]byte, error) {
+				if varID == "path/to/a" {
+					return nil, errors.New("not found")
+				}
+				return []byte("b-value"), nil
+			},
+		}
+
+		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		assert.Equal(t, "SECRET_B", results[0].Key)
+		assert.Equal(t, "b-value", results[0].Value)
+	})
+
+	t.Run("IgnoreAll skips all errors and returns empty results", func(t *testing.T) {
+		secrets := varSecrets(map[string]string{
+			"SECRET_A": "path/to/a",
+			"SECRET_B": "path/to/b",
+		})
+		sc := &SubprocessConfig{
+			IgnoreAll: true,
+			FetchSecret: func(varID string) ([]byte, error) {
+				return nil, errors.New("all fail")
+			},
+		}
+
+		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+
+		require.NoError(t, err)
+		assert.Empty(t, results)
+	})
 }

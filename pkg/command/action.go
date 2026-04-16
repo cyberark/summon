@@ -39,32 +39,33 @@ func configureDebugLogging(w io.Writer) error {
 var Action = func(c *cli.Context) {
 	if c.Bool("debug") {
 		if err := configureDebugLogging(os.Stderr); err != nil {
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(127)
 		}
 	}
 
 	if !c.Args().Present() && !c.Bool("all-provider-versions") {
-		fmt.Println("Enter a subprocess to run!")
-		os.Exit(127)
-	}
-
-	provider, err := prov.Resolve(c.String("provider"))
-	// It's okay to not throw this error here, because `Resolve()` throws an
-	// error if there are multiple unspecified providers. `all-provider-versions`
-	// doesn't care about this and just looks in the default provider dir
-	if err != nil && !c.Bool("all-provider-versions") {
-		fmt.Println(err.Error())
+		fmt.Fprintln(os.Stderr, "Enter a subprocess to run!")
 		os.Exit(127)
 	}
 
 	if c.Bool("all-provider-versions") {
 		if err := runPrintProviderVersions(); err != nil {
-			fmt.Println(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
 			os.Exit(127)
 		}
 		return
 	}
+
+	providerArg := c.String("provider")
+
+	providerInstance, err := prov.Resolve(providerArg)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(127)
+	}
+
+	slog.Debug("Using provider", "provider", providerInstance.Path())
 
 	code, err := summon.RunSubprocess(&summon.SubprocessConfig{
 		Args:        c.Args(),
@@ -75,15 +76,12 @@ var Action = func(c *cli.Context) {
 		IgnoreAll:   c.Bool("ignore-all"),
 		RecurseUp:   c.Bool("up"),
 		Subs:        c.StringSlice("D"),
-		Provider:    provider,
-		FetchSecret: func(secretId string) ([]byte, error) {
-			s, err := prov.Call(provider, secretId)
-			return []byte(s), err
-		},
+		Provider:    providerInstance.Path(),
+		FetchSecret: providerInstance.FetchSecret,
 	})
 
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(127)
 	}
 

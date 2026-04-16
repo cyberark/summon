@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 
+	"github.com/cyberark/summon/pkg/conjurprovider"
 	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 )
@@ -17,19 +19,27 @@ import (
 // fetchSecrets encapsulates the logic of fetching secrets from the provider, including filtering non-variable secrets,
 // handling results from the provider, and falling back to non-interactive mode if necessary.
 func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) ([]prov.Result, error) {
-	var results []prov.Result
-
 	slog.Debug("Fetching secrets", "count", len(secrets), "provider", sc.Provider)
 
-	// Filter out non variables
+	// Filter out non-variable secrets (literals, file specs, etc.).
 	filteredResults, filteredSecrets := filterNonVariables(secrets, tempFactory)
-	results = append(results, filteredResults...)
+	results := filteredResults
 
-	// Call provider with no arguments
+	if sc.Provider == conjurprovider.BuiltinProviderName {
+		// Built-in Conjur provider: fetch sequentially with short-circuit on the
+		// first error. Skip interactive mode entirely — "conjur" is a reserved
+		// name in this context, not an external binary.
+		builtinResults, err := fetchSecretsBuiltin(filteredSecrets, sc, tempFactory)
+		if err != nil {
+			return nil, err
+		}
+		return append(results, builtinResults...), nil
+	}
+
+	// External provider: try interactive mode first, fall back to non-interactive.
 	resultsCh, errorsCh, cleanup := prov.CallInteractiveMode(sc.Provider, filteredSecrets)
 	defer cleanup()
 
-	// This extracts the logic of handling results from provider interactive mode
 	resultsFromProvider, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, tempFactory)
 	results = append(results, resultsFromProvider...)
 
@@ -37,6 +47,51 @@ func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFacto
 		results = nonInteractiveProviderFallback(secrets, sc, tempFactory)
 	}
 
+	return results, nil
+}
+
+// fetchSecretsBuiltin fetches secrets one at a time using the built-in Conjur
+// provider and short-circuits on the first error, leaving remaining secrets
+// unfetched. The ignore list (sc.Ignores / sc.IgnoreAll) is respected.
+func fetchSecretsBuiltin(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) ([]prov.Result, error) {
+	// Sort keys for deterministic ordering.
+	keys := make([]string, 0, len(secrets))
+	for key := range secrets {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	results := make([]prov.Result, 0, len(secrets))
+	for _, key := range keys {
+		spec := secrets[key]
+
+		slog.Debug("Fetching secret", "name", key, "provider", sc.Provider)
+		secretBytes, err := sc.FetchSecret(spec.Path)
+		if err != nil {
+			if sc.IgnoreAll || slices.Contains(sc.Ignores, key) {
+				slog.Debug("Ignoring fetch error", "name", key, "error", err)
+				continue
+			}
+			// Short-circuit: return immediately without fetching remaining secrets.
+			return nil, err
+		}
+
+		var value string
+		if len(secretBytes) > 0 {
+			value = string(secretBytes)
+			clear(secretBytes) // zero secret bytes immediately after string conversion
+		}
+
+		if value == "" && spec.DefaultValue != "" {
+			value = spec.DefaultValue
+		}
+
+		kFormatted, valueFormatted, formatErr := formatForEnv(key, value, spec, tempFactory)
+		if formatErr != nil {
+			return nil, formatErr
+		}
+		results = append(results, prov.Result{Key: kFormatted, Value: valueFormatted})
+	}
 	return results, nil
 }
 

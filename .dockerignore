@@ -5,7 +5,6 @@ _site
 .vagrant
 Vagrantfile
 summon
-vendor/
 Godeps/
 
 # Vim editor tempfiles
