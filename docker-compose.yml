@@ -72,3 +72,6 @@ services:
       AZURE_SUBSCRIPTION_ID:
       AZURE_RESOURCE_GROUP:
       AZURE_TENANT_ID:
+      TEST_GCP:
+      GCP_PROJECT_ID:
+      GCP_ID_TOKEN:

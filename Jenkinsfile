@@ -56,14 +56,15 @@ pipeline {
 
   triggers {
     parameterizedCron("""
-      ${getWeeklyCronString("H(0,6)", "%TEST_AZURE=true")}
-      ${getWeeklyCronString("H(1-5)", "%MODE=RELEASE;TEST_AZURE=true")}
+      ${getWeeklyCronString("H(0,6)", "%TEST_AZURE=true;TEST_GCP=true")}
+      ${getWeeklyCronString("H(1-5)", "%MODE=RELEASE;TEST_AZURE=true;TEST_GCP=true")}
     """)
   }
 
   parameters {
     booleanParam(name: 'TEST_AWS', defaultValue: true, description: 'Run integration tests against AWS IAM')
     booleanParam(name: 'TEST_AZURE', defaultValue: false, description: 'Run integration tests against Azure')
+    booleanParam(name: 'TEST_GCP', defaultValue: false, description: 'Run integration tests against GCP')
   }
 
   stages {
@@ -100,6 +101,9 @@ pipeline {
           if (params.TEST_AZURE) {
             INFRAPOOL_AZURE_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "AzureExecutorV2", quantity: 1, duration: 1)[0]
           }
+          if (params.TEST_GCP) {
+            INFRAPOOL_GCP_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "GcpExecutorV2", quantity: 1, duration: 1)[0]
+          }
         }
       }
     }
@@ -116,6 +120,9 @@ pipeline {
 
           if (params.TEST_AZURE) {
             updateVersion(INFRAPOOL_AZURE_EXECUTORV2_AGENT_0, "CHANGELOG.md", "${BUILD_NUMBER}")
+          }
+          if (params.TEST_GCP) {
+            updateVersion(INFRAPOOL_GCP_EXECUTORV2_AGENT_0, "CHANGELOG.md", "${BUILD_NUMBER}")
           }
         }
       }
@@ -224,6 +231,26 @@ pipeline {
             script {
               INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh './build --snapshot'
               INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh 'summon -e azure ./bin/test.sh'
+            }
+          }
+        }
+
+        stage('Run GCP tests') {
+          when {
+            expression { params.TEST_GCP }
+          }
+          environment {
+            INFRAPOOL_TEST_GCP = true
+          }
+          steps {
+            script {
+              INFRAPOOL_GCP_EXECUTORV2_AGENT_0.agentSh "./bin/get_gcp_token.sh host/test-app cucumber gcp"
+              INFRAPOOL_GCP_EXECUTORV2_AGENT_0.agentStash name: 'token-out', includes: "gcp/*"
+              infrapool.agentUnstash name: 'token-out'
+              infrapool.agentSh 'cp -r gcp ./pristine-checkout/'
+              infrapool.agentDir('./pristine-checkout') {
+                infrapool.agentSh './bin/test.sh'
+              }
             }
           }
         }
