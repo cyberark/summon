@@ -8,7 +8,6 @@ import (
 	"github.com/cyberark/conjur-api-go/conjurapi/response"
 )
 
-
 // BuiltinProviderName is the canonical routing key for the built-in Conjur
 // provider. When --provider=conjur (exact match) or when SUMMON_PROVIDER is
 // unset/empty, provider routing dispatches to this package instead of an
@@ -81,5 +80,3 @@ func (p *ConjurProvider) FetchSecret(varID string) ([]byte, error) {
 func (p *ConjurProvider) Path() string {
 	return "conjur (built-in)"
 }
-
-

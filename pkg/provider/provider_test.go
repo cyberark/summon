@@ -198,7 +198,7 @@ func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
 
 	_, err := Resolve("")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "More than one provider found")
+	assert.Contains(t, err.Error(), "more than one provider found")
 }
 
 // ---- Resolve (provider instance) ----
