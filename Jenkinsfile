@@ -55,12 +55,15 @@ pipeline {
   }
 
   triggers {
-    cron(getDailyCronString())
-    parameterizedCron(getWeeklyCronString("H(1-5)","%MODE=RELEASE"))
+    parameterizedCron("""
+      ${getWeeklyCronString("H(0,6)", "%TEST_AZURE=true")}
+      ${getWeeklyCronString("H(1-5)", "%MODE=RELEASE;TEST_AZURE=true")}
+    """)
   }
 
   parameters {
     booleanParam(name: 'TEST_AWS', defaultValue: true, description: 'Run integration tests against AWS IAM')
+    booleanParam(name: 'TEST_AZURE', defaultValue: false, description: 'Run integration tests against Azure')
   }
 
   stages {
@@ -92,6 +95,11 @@ pipeline {
         script {
           // Request ExecutorV2 agents for 1 hour(s)
           infrapool = getInfraPoolAgent.connected(type: "ExecutorV2", quantity: 1, duration: 1)[0]
+
+          // Request additional executors for cloud specific tests
+          if (params.TEST_AZURE) {
+            INFRAPOOL_AZURE_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "AzureExecutorV2", quantity: 1, duration: 1)[0]
+          }
         }
       }
     }
@@ -103,7 +111,13 @@ pipeline {
     // Generates a VERSION file based on the current build number and latest version in CHANGELOG.md
     stage('Validate changelog and set version') {
       steps {
-        updateVersion(infrapool, "CHANGELOG.md", "${BUILD_NUMBER}")
+        script {
+          updateVersion(infrapool, "CHANGELOG.md", "${BUILD_NUMBER}")
+
+          if (params.TEST_AZURE) {
+            updateVersion(INFRAPOOL_AZURE_EXECUTORV2_AGENT_0, "CHANGELOG.md", "${BUILD_NUMBER}")
+          }
+        }
       }
     }
 
@@ -197,20 +211,39 @@ pipeline {
       }
     }
 
-    stage('Run acceptance tests') {
-      steps {
-        script {
-          // Use the artifacts from the previous stage
-          infrapool.agentDir('./pristine-checkout') {
-            infrapool.agentSh './test_acceptance'
-            infrapool.agentStash name: 'acceptance-output', includes: 'output/acceptance/*.xml'
+    stage('Run cloud and acceptance tests') {
+      parallel {
+        stage('Run Azure tests') {
+          when {
+            expression { params.TEST_AZURE }
+          }
+          environment {
+            INFRAPOOL_TEST_AZURE = true
+          }
+          steps {
+            script {
+              INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh './build --snapshot'
+              INFRAPOOL_AZURE_EXECUTORV2_AGENT_0.agentSh 'summon -e azure ./bin/test.sh'
+            }
           }
         }
-      }
-      post {
-        always {
-          unstash 'acceptance-output'
-          junit 'output/acceptance/*.xml'
+
+        stage('Run acceptance tests') {
+          steps {
+            script {
+              // Use the artifacts from the previous stage
+              infrapool.agentDir('./pristine-checkout') {
+                infrapool.agentSh './test_acceptance'
+                infrapool.agentStash name: 'acceptance-output', includes: 'output/acceptance/*.xml'
+              }
+            }
+          }
+          post {
+            always {
+              unstash 'acceptance-output'
+              junit 'output/acceptance/*.xml'
+            }
+          }
         }
       }
     }

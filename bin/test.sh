@@ -55,6 +55,7 @@ function runTests() {
 
   # Map Jenkinsfile infra env vars to test-level env vars
   export TEST_AWS="${INFRAPOOL_TEST_AWS:-}"
+  export TEST_AZURE="${INFRAPOOL_TEST_AZURE:-}"
 
   mkdir -p output/integration
 
@@ -71,6 +72,10 @@ function runTests() {
     -e CONJUR_ADMIN_LOGIN \
     -e CONJUR_ADMIN_API_KEY \
     -e TEST_AWS \
+    -e TEST_AZURE \
+    -e AZURE_SUBSCRIPTION_ID \
+    -e AZURE_RESOURCE_GROUP \
+    -e AZURE_TENANT_ID \
     -e CONJUR_AWS_ACCOUNT_ID \
     -e CONJUR_AWS_ROLE_NAME \
     "$service" || failed
