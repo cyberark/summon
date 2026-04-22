@@ -25,7 +25,18 @@ function failed {
 function main() {
   startConjur
   initEnvironment
+  prepareAWS
   runTests
+}
+
+function prepareAWS() {
+  if [[ "${TEST_AWS}" == "true" ]]; then
+    if [[ -z "${CONJUR_AWS_ACCOUNT_ID:-}" ]] || [[ -z "${CONJUR_AWS_ROLE_NAME:-}" ]]; then
+      echo "ERROR: CONJUR_AWS_ACCOUNT_ID and CONJUR_AWS_ROLE_NAME must be set when TEST_AWS=true."
+      echo "  These are expected to be provided by summon via secrets.yml (ci/aws/account and ci/aws/instance-read-jenkins-executor-username)."
+      exit 1
+    fi
+  fi
 }
 
 function runTests() {
@@ -42,6 +53,9 @@ function runTests() {
     exit 1
   fi
 
+  # Map Jenkinsfile infra env vars to test-level env vars
+  export TEST_AWS="${INFRAPOOL_TEST_AWS:-}"
+
   mkdir -p output/integration
 
   docker compose build --pull \
@@ -56,6 +70,9 @@ function runTests() {
     -e CONJUR_AUTHN_API_KEY \
     -e CONJUR_ADMIN_LOGIN \
     -e CONJUR_ADMIN_API_KEY \
+    -e TEST_AWS \
+    -e CONJUR_AWS_ACCOUNT_ID \
+    -e CONJUR_AWS_ROLE_NAME \
     "$service" || failed
 }
 

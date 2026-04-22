@@ -59,6 +59,10 @@ pipeline {
     parameterizedCron(getWeeklyCronString("H(1-5)","%MODE=RELEASE"))
   }
 
+  parameters {
+    booleanParam(name: 'TEST_AWS', defaultValue: true, description: 'Run integration tests against AWS IAM')
+  }
+
   stages {
     // Aborts any builds triggered by another project that wouldn't include any changes
     stage ("Skip build if triggering job didn't create a release") {
@@ -163,10 +167,17 @@ pipeline {
     }
 
     stage('Run integration tests') {
+      environment {
+        INFRAPOOL_TEST_AWS = "${params.TEST_AWS}"
+      }
       steps {
         script {
           infrapool.agentDir('./pristine-checkout') {
-            infrapool.agentSh './bin/test.sh'
+            if (params.TEST_AWS) {
+              infrapool.agentSh 'summon -e aws ./bin/test.sh'
+            } else {
+              infrapool.agentSh './bin/test.sh'
+            }
             infrapool.agentStash name: 'integration-output', includes: 'output/integration/*.xml'
           }
         }
