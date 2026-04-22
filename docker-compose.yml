@@ -1,0 +1,67 @@
+services:
+  conjur:
+    image: ${REGISTRY_URL:-docker.io}/cyberark/conjur:edge
+    command: server -a cucumber
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres/postgres
+      CONJUR_DATA_KEY: ${CONJUR_DATA_KEY}
+    depends_on:
+      - postgres
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    cap_drop:
+      - ALL
+    cap_add: # kics-scan ignore-line
+      - CHOWN
+      - FOWNER
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    image: summon-tester
+    entrypoint: /bin/bash
+    command: './bin/test-entrypoint.sh'
+    cap_drop:
+      - ALL
+    cap_add: # kics-scan ignore-line # kics-scan ignore-block
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "echo", "healthy"]
+      interval: 5s
+      timeout: 5s
+      retries: 1
+    volumes:
+      - ./output/integration:/summon/output/integration
+    environment:
+      CONJUR_IGNORE_UNTRUSTED_SSL: "true"
+      CONJUR_ACCOUNT:
+      CONJUR_APPLIANCE_URL:
+      CONJUR_AUTHN_LOGIN:
+      CONJUR_AUTHN_API_KEY:
+      CONJUR_ADMIN_LOGIN:
+      CONJUR_ADMIN_API_KEY:

@@ -162,6 +162,30 @@ pipeline {
       }
     }
 
+    stage('Run integration tests') {
+      steps {
+        script {
+          infrapool.agentDir('./pristine-checkout') {
+            infrapool.agentSh './bin/test.sh'
+            infrapool.agentStash name: 'integration-output', includes: 'output/integration/*.xml'
+          }
+        }
+      }
+      post {
+        always {
+          catchError(message: 'integration-output stash not found', buildResult: 'SUCCESS') {
+            unstash 'integration-output'
+          }
+          script {
+            if (!fileExists('output/integration/junit.xml')) {
+              error('Integration test output not found — possible infrastructure failure')
+            }
+          }
+          junit allowEmptyResults: true, testResults: 'output/integration/*.xml'
+        }
+      }
+    }
+
     stage('Run acceptance tests') {
       steps {
         script {
