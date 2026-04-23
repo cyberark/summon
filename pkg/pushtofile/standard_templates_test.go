@@ -338,7 +338,7 @@ func TestStandardTemplate_ValidateAlias(t *testing.T) {
 	t.Run("validateAlias function is called when not nil", func(t *testing.T) {
 		expectedError := fmt.Errorf("validation failed")
 		template := standardTemplate{
-			template:   "test template",
+			template: "test template",
 			validateAlias: func(alias string) error {
 				if alias == "invalid" {
 					return expectedError

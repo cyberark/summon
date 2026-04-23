@@ -1,0 +1,5 @@
+#!/bin/sh
+# Minimal fake provider for integration testing.
+# When invoked with any variable path argument, prints a known value
+# and exits 0. Used to verify external provider override routing.
+echo "FAKE_PROVIDER"

@@ -1,0 +1,19 @@
+FROM golang:1.26
+
+LABEL maintainer="CyberArk Software Ltd."
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends bash curl git jq && \
+    go install github.com/jstemmer/go-junit-report/v2@v2.1.0 && \
+    mkdir -p /summon/output/integration && \
+    mkdir -p /usr/local/lib/summon
+
+WORKDIR /summon
+
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+
+ARG TARGETARCH=amd64_v1
+ARG BINARYPATH=dist/goreleaser/summon-linux_linux_amd64_v1/summon
+COPY ${BINARYPATH} /usr/local/bin/summon

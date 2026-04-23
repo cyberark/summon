@@ -100,7 +100,7 @@ func Resolve(providerArg string) (Provider, error) {
 		if len(providers) == 1 {
 			provider = providers[0].Name()
 		} else if len(providers) > 1 {
-			return nil, fmt.Errorf("More than one provider found in %s, please specify one\n", defaultPath)
+			return nil, fmt.Errorf("more than one provider found in %s, please specify one with --provider or $SUMMON_PROVIDER", defaultPath)
 		}
 	}
 
