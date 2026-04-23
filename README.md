@@ -7,6 +7,9 @@
   </a>
 </div>
 
+> **Note:** The cyberark.github.io/summon documentation site is no longer maintained.
+> This README is the authoritative source for configuration and usage information.
+
 [![GitHub release](https://img.shields.io/github/release/cyberark/summon.svg)](https://github.com/cyberark/summon/releases/latest)
 
 [![Github commits (since latest release)](https://img.shields.io/github/commits-since/cyberark/summon/latest.svg)](https://github.com/cyberark/summon/commits/main)
@@ -25,21 +28,131 @@ It provides an interface for
 ## Install
 
 Note installing `summon` alone is not sufficient; you need to also install
-a [provider of your choice](http://cyberark.github.io/summon/#providers) before it's ready for use.
+a [provider of your choice](#providers) before it's ready for use.
 
 Pre-built binaries and packages are available from GitHub releases
 [here](https://github.com/cyberark/summon/releases).
 
-### Using Summon with Conjur Open Source 
+### Using Summon with CyberArk Secrets Manager
 
-Are you using this project with [Conjur Open Source](https://github.com/cyberark/conjur)? Then we 
-**strongly** recommend choosing the version of this project to use from the latest [Conjur OSS 
-suite release](https://docs.conjur.org/Latest/en/Content/Overview/Conjur-OSS-Suite-Overview.html). 
-Conjur maintainers perform additional testing on the suite release versions to ensure 
-compatibility. When possible, upgrade your Conjur version to match the 
-[latest suite release](https://docs.conjur.org/Latest/en/Content/ReleaseNotes/ConjurOSS-suite-RN.htm); 
-when using integrations, choose the latest suite release that matches your Conjur version. For any 
+Summon ships with a **built-in Conjur provider**. No separate binary install is needed; it activates automatically when the provider directory has no other binaries, or explicitly when you pass `--provider conjur`.
+
+> **Note:** If the provider directory contains exactly one binary, Summon uses that binary automatically. If it contains two or more, Summon exits with an error and prompts you to specify one with `--provider`. The built-in Conjur provider is only used as the automatic fallback when the directory is empty.
+
+Are you using this project with [Conjur Open Source](https://github.com/cyberark/conjur)? Then we
+**strongly** recommend choosing the version of this project to use from the latest [Conjur OSS
+suite release](https://docs.conjur.org/Latest/en/Content/Overview/Conjur-OSS-Suite-Overview.html).
+Conjur maintainers perform additional testing on the suite release versions to ensure
+compatibility. When possible, upgrade your Conjur version to match the
+[latest suite release](https://docs.conjur.org/Latest/en/Content/ReleaseNotes/ConjurOSS-suite-RN.htm);
+when using integrations, choose the latest suite release that matches your Conjur version. For any
 questions, please contact us on [Discourse](https://discuss.cyberarkcommons.org/c/conjur/5).
+
+#### Quick Start
+
+Define a `secrets.yml` file:
+
+```yaml
+DB_PASSWORD: !var production/db/password
+API_KEY: !var production/api/key
+```
+
+Set the required environment variables and run your command:
+
+```sh
+export CONJUR_APPLIANCE_URL=https://conjur.example.com
+export CONJUR_ACCOUNT=myorg
+export CONJUR_AUTHN_LOGIN=host/myapp
+export CONJUR_AUTHN_API_KEY=<api-key>
+
+summon -f secrets.yml env | grep -E 'DB_PASSWORD|API_KEY'
+```
+
+No `--provider` flag is needed; Summon detects the built-in Conjur provider automatically.
+
+For other authentication methods, see [Supported Authentication Methods](#supported-authentication-methods) below.
+
+#### Supported Authentication Methods
+
+The built-in provider supports the following authentication methods via `CONJUR_AUTHN_TYPE`:
+
+| Auth method | `CONJUR_AUTHN_TYPE` | Required additional env vars |
+|---|---|---|
+| API key (default) | *(unset)* | `CONJUR_AUTHN_LOGIN`, `CONJUR_AUTHN_API_KEY` |
+| Existing token | *(unset)* | `CONJUR_AUTHN_TOKEN` or `CONJUR_AUTHN_TOKEN_FILE` |
+| JWT | `jwt` | `CONJUR_AUTHN_JWT_SERVICE_ID`, `JWT_TOKEN_PATH` or `CONJUR_AUTHN_JWT_TOKEN`, `CONJUR_AUTHN_JWT_HOST_ID` (required if token-app-property not configured) |
+| AWS IAM | `iam` | `CONJUR_SERVICE_ID`, `CONJUR_AUTHN_JWT_HOST_ID` |
+| Azure | `azure` | `CONJUR_SERVICE_ID`, `CONJUR_AUTHN_JWT_HOST_ID`, `CONJUR_AUTHN_AZURE_CLIENT_ID` (optional) |
+| GCP | `gcp` | `CONJUR_AUTHN_JWT_HOST_ID` (required when auto-fetching token from GCP metadata service) |
+
+#### Configuration
+
+The provider loads configuration from:
+
+- `.conjurrc` in the home directory, current directory, or the path set in `CONJUR_RC`
+- `/etc/conjur.conf` on Linux/macOS; `C:\Windows\conjur.conf` on Windows
+- Environment variables (take precedence over file-based config)
+
+##### Connection
+
+| Variable | Description |
+|---|---|
+| `CONJUR_APPLIANCE_URL` | URL of the Conjur appliance |
+| `CONJUR_ACCOUNT` | Conjur organization account |
+| `CONJUR_CERT_FILE` | Path to the Conjur SSL certificate file |
+| `CONJUR_SSL_CERTIFICATE` | PEM-encoded SSL certificate (inline) |
+
+##### Authentication
+
+| Variable | Description |
+|---|---|
+| `CONJUR_AUTHN_LOGIN` | Conjur identity (user or host) |
+| `CONJUR_AUTHN_API_KEY` | API key for the identity |
+| `CONJUR_AUTHN_TOKEN` | Pre-fetched Conjur auth token (inline) |
+| `CONJUR_AUTHN_TOKEN_FILE` | Path to a file containing the auth token |
+| `CONJUR_AUTHN_JWT_SERVICE_ID` | JWT authenticator service ID (e.g. `kubernetes`) |
+| `JWT_TOKEN_PATH` | Path to the JWT token file (default: `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
+| `CONJUR_AUTHN_TYPE` | Auth backend: `iam`, `azure`, or `gcp` |
+| `CONJUR_SERVICE_ID` | Authenticator service ID for IAM and Azure |
+| `CONJUR_AUTHN_JWT_HOST_ID` | Conjur host identity for IAM, Azure, and JWT auth; for GCP, required only when auto-fetching the token from the GCP metadata service |
+| `CONJUR_AUTHN_AZURE_CLIENT_ID` | Azure managed identity client ID (optional; selects a specific identity on multi-identity hosts) |
+| `CONJUR_AUTHN_JWT_TOKEN` | Inline JWT token string (alternative to `JWT_TOKEN_PATH`; use when the token is available as a value rather than a file) |
+
+##### Credential storage
+
+| Variable | Description |
+|---|---|
+| `CONJUR_CREDENTIAL_STORAGE` | Storage backend: `keyring` (default), `file`, or `none` |
+| `CONJUR_NETRC_PATH` | Custom `.netrc` path when using `file` storage |
+
+#### Credential Storage Options
+
+The provider caches authentication credentials using one of three backends:
+
+| Backend | When to use |
+|---|---|
+| `keyring` (default) | OS credential stores: macOS Keychain, Windows Credential Manager, Linux Secret Service. |
+| `file` | Stores credentials in `~/.netrc`. Used as fallback when keyring is unavailable, or set explicitly for compatibility. |
+| `none` | Disables caching entirely. Use in ephemeral environments, restricted containers, or read-only filesystems where credential files cannot be written. |
+
+Configure in `.conjurrc`:
+
+```yaml
+credential_storage: "none"
+```
+
+#### Migration from standalone summon-conjur
+
+If you previously installed `summon-conjur` as a provider binary in your provider directory
+and relied on Summon's automatic provider detection (no `--provider` flag), follow these steps:
+
+1. Remove the `summon-conjur` binary from your provider directory
+   (typically `/usr/local/lib/summon/`).
+2. Summon will use the built-in Conjur provider automatically.
+
+If the binary cannot be removed (for example, it is managed by a system package manager), pass `--provider conjur` explicitly to select the built-in provider regardless of what is in the provider directory.
+
+If you were passing `--provider conjur` explicitly, the flag still works. You can also drop it; the built-in provider is now the default.
 
 ### Homebrew
 
@@ -153,6 +266,7 @@ VARIABLE_WITH_DEFAULT: !var:default='defaultvalue' path/to/variable
 [provider](pkg/provider/README.md) summon should use.
 
     If you do not provide Summon with the full path to the provider, Summon will look for providers in the following order:
+    * Environment Variable: `SUMMON_PROVIDER` : set to `conjur` to explicitly select the built-in Conjur provider, or to a provider binary name to select an installed external provider
     * Environment Variable: `SUMMON_PROVIDER_PATH`
     * `/usr/local/lib/summon` on Linux / Mac
     * `%ProgramW6432%\Cyberark Conjur\Summon\Providers` on Windows.
@@ -254,12 +368,12 @@ configured permissions. The file will be removed when the summon process exits.
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `path` | string | Yes | — | Destination file path (absolute or relative to working directory) |
+| `path` | string | Yes | : | Destination file path (absolute or relative to working directory) |
 | `format` | string | No | `yaml` | Output format; see table below |
-| `template` | string | No | — | Inline Go `text/template` string; required when `format: template` |
+| `template` | string | No | : | Inline Go `text/template` string; required when `format: template` |
 | `permissions` | octal | No | `0600` | File permission bits |
 | `overwrite` | bool | No | `false` | Overwrite the file if it already exists |
-| `secrets` | mapping | Yes | — | Map of alias → `!var` / `!str` secret references |
+| `secrets` | mapping | Yes | : | Map of alias → `!var` / `!str` secret references |
 
 ### Supported `format:` values
 
@@ -282,8 +396,8 @@ When `format: template` is used, the following functions and variables are avail
 | `b64enc` | Base64-encodes a string |
 | `b64dec` | Base64-decodes a string; errors if the input is not valid base64 |
 | `htmlenc` | HTML-encodes a string |
-| `.SecretsArray` | `[]Secret` — all secrets sorted lexicographically by alias |
-| `.SecretsMap` | `map[string]Secret` — all secrets keyed by alias |
+| `.SecretsArray` | `[]Secret` : all secrets sorted lexicographically by alias |
+| `.SecretsMap` | `map[string]Secret` : all secrets keyed by alias |
 
 All built-in Go `text/template` functions (e.g. `html`, `urlquery`, `printf`) are also
 available.
@@ -348,6 +462,21 @@ If the provider does not support stream mode, Summon uses the legacy mode.
 By default, Summon will wait up to 60 seconds for a provider to respond when using stream mode.
 You can change this timeout by setting the `CONJUR_HTTP_TIMEOUT` environment variable to
 the desired number of seconds.
+
+## Providers
+
+Summon fetches secrets through a provider binary. The built-in Conjur provider is included
+with Summon and requires no separate installation — see
+[Using Summon with CyberArk Secrets Manager](#using-summon-with-cyberark-secrets-manager) above.
+
+Additional community providers are available:
+
+- [AWS S3](https://github.com/conjurinc/summon-s3)
+- [AWS Secrets Manager](https://github.com/cyberark/summon-aws-secrets)
+- [Chef encrypted data bags](https://github.com/conjurinc/summon-chefapi)
+- [keyring](https://github.com/conjurinc/summon-keyring)
+- [Keepass kdbx](https://github.com/mskarbek/summon-keepass)
+- [Gopass](https://github.com/gopasspw/gopass-summon-provider)
 
 ## Contributing
 
