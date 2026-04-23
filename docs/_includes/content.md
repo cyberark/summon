@@ -192,10 +192,43 @@ Here are some specific examples of how you can use summon with your current tool
 
 <h1 id="providers">providers</h1>
 
+## Built-in Conjur provider
+
+Summon includes a built-in Conjur provider. No separate installation is required.
+
+If the built-in provider is the only provider available in the default provider
+path, Summon uses it automatically without needing the `--provider` flag. Use
+`--provider conjur` to select it explicitly when multiple providers are
+installed.
+
+To get started with API key authentication, set the following environment
+variables and run summon as usual:
+
+```bash
+export CONJUR_APPLIANCE_URL="https://conjur.example.com"
+export CONJUR_ACCOUNT="myorg"
+export CONJUR_AUTHN_LOGIN="host/myapp"
+export CONJUR_AUTHN_API_KEY="<api-key>"
+
+summon -f secrets.yml <command>
+```
+
+For all supported authentication methods, environment variables, and credential
+storage options, see the
+[built-in provider documentation in the README](https://github.com/cyberark/summon#using-summon-with-cyberark-secrets-manager).
+
+### Migration from standalone summon-conjur
+
+If you previously installed the standalone `summon-conjur` binary in
+`/usr/local/lib/summon/` and ran Summon without a `--provider` flag, migrate
+to the built-in provider by removing the `summon-conjur` binary from that
+directory. The built-in Conjur provider will be used automatically.
+
+---
+
 Developed by Cyberark:
 
 * [AWS S3](https://github.com/conjurinc/summon-s3)
-* [Conjur](https://github.com/cyberark/summon-conjur)
 * [Chef encrypted data bags](https://github.com/conjurinc/summon-chefapi)
 * [keyring](https://github.com/conjurinc/summon-keyring)
 * [AWS Secrets Manager](https://github.com/cyberark/summon-aws-secrets)
