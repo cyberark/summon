@@ -14,6 +14,7 @@ keychain
 .godeps
 vendor/
 Godeps/
+.idea
 
 # Vim editor tempfiles
 *.sw[po]
@@ -54,4 +55,4 @@ Temporary Items
 *.test
 *.prof
 
-VERSION
+/VERSION
