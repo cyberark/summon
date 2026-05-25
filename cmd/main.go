@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/cyberark/summon/pkg/command"
-	"github.com/cyberark/summon/pkg/summon"
+	"github.com/cyberark/summon/pkg/version"
 	"github.com/urfave/cli"
 )
 
@@ -22,7 +22,7 @@ func RunCLI() error {
 	app := cli.NewApp()
 	app.Name = "summon"
 	app.Usage = "Parse secrets.yml and export environment variables"
-	app.Version = summon.FullVersionName
+	app.Version = version.FullVersionName
 	app.Writer = CLIWriter
 	app.Flags = command.Flags
 	app.Action = command.Action

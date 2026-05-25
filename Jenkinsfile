@@ -146,7 +146,11 @@ pipeline {
           infrapool.agentSh './test_unit'
           infrapool.agentSh 'mv output/c.out .'
           infrapool.agentStash name: 'output-xml', includes: 'output/*.xml'
-          unstash 'output-xml'
+          try {
+            unstash 'output-xml'
+          } catch (err) {
+            echo "Skipping unit test report unstash in steps: ${err.message}"
+          }
           codacy action: 'reportCoverage', filePath: "output/coverage.xml"
         }
       }
