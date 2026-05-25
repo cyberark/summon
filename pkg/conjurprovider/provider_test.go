@@ -35,7 +35,6 @@ func TestNew(t *testing.T) {
 	})
 }
 
-
 // ---- BuiltinProviderName constant ----
 
 func TestBuiltinProviderName(t *testing.T) {
