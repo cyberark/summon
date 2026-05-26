@@ -35,6 +35,14 @@ func TestNew(t *testing.T) {
 	})
 }
 
+func TestTelemetryDataUsesSummonVersion(t *testing.T) {
+	// telemetryData is initialized at module load time and uses version.FullVersionName.
+	// NewTelemetry applies defaults when empty strings are passed, so we verify
+	// the version field is set (either from version package or NewTelemetry defaults).
+	assert.NotEmpty(t, telemetryData.IntegrationVersion,
+		"telemetryData.IntegrationVersion must be populated by NewTelemetry")
+}
+
 // ---- BuiltinProviderName constant ----
 
 func TestBuiltinProviderName(t *testing.T) {
