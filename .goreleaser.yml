@@ -22,8 +22,8 @@ builds:
   - amd64
   ldflags:
     - -s -w
-    - -X "github.com/cyberark/summon/pkg/summon.Tag={{ .ShortCommit }}"
-    - -X "github.com/cyberark/summon/pkg/summon.Version={{ .Env.VERSION }}"
+    - -X "github.com/cyberark/summon/pkg/version.Tag={{ .ShortCommit }}"
+    - -X "github.com/cyberark/summon/pkg/version.Version={{ .Env.VERSION }}"
   main: ./cmd/main.go
   hooks:
     post:
@@ -51,8 +51,8 @@ builds:
   - arm64
   ldflags:
     - -s -w
-    - -X "github.com/cyberark/summon/pkg/summon.Tag={{ .ShortCommit }}"
-    - -X "github.com/cyberark/summon/pkg/summon.Version={{ .Env.VERSION }}"
+    - -X "github.com/cyberark/summon/pkg/version.Tag={{ .ShortCommit }}"
+    - -X "github.com/cyberark/summon/pkg/version.Version={{ .Env.VERSION }}"
   main: ./cmd/main.go
   hooks:
     post:
@@ -79,8 +79,8 @@ builds:
   - amd64
   ldflags:
     - -s -w
-    - -X "github.com/cyberark/summon/pkg/summon.Tag={{ .ShortCommit }}"
-    - -X "github.com/cyberark/summon/pkg/summon.Version={{ .Env.VERSION }}"
+    - -X "github.com/cyberark/summon/pkg/version.Tag={{ .ShortCommit }}"
+    - -X "github.com/cyberark/summon/pkg/version.Version={{ .Env.VERSION }}"
     - -linkmode external -extldflags "-static"
   main: ./cmd/main.go
   hooks:

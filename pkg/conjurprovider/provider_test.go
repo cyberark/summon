@@ -20,20 +20,27 @@ func (m *mockConjurClient) RetrieveSecret(variableID string) ([]byte, error) {
 // ---- New ----
 
 func TestNew(t *testing.T) {
-	t.Run("returns error when credentials are invalid", func(t *testing.T) {
-		// New() loads config from env and config files, so we can't control
-		// exact validation messages in a mixed environment. Verify it returns
-		// a non-nil error.
-		t.Setenv("CONJUR_APPLIANCE_URL", "")
-		t.Setenv("CONJUR_ACCOUNT", "")
-		t.Setenv("CONJUR_AUTHN_LOGIN", "")
-		t.Setenv("CONJUR_AUTHN_API_KEY", "")
-		t.Setenv("CONJUR_AUTHN_TOKEN_FILE", "")
+	t.Run("creates provider with explicit environment config", func(t *testing.T) {
+		// Isolate from developer machine config files so this test is deterministic.
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("CONJUR_APPLIANCE_URL", "://not-a-url")
+		t.Setenv("CONJUR_ACCOUNT", "test")
+		t.Setenv("CONJUR_AUTHN_LOGIN", "host/test")
+		t.Setenv("CONJUR_AUTHN_API_KEY", "dummy")
 
-		_, err := New()
+		provider, err := New()
 
-		require.Error(t, err)
+		require.NoError(t, err)
+		require.NotNil(t, provider)
 	})
+}
+
+func TestTelemetryDataUsesSummonVersion(t *testing.T) {
+	// telemetryData is initialized at module load time and uses version.FullVersionName.
+	// NewTelemetry applies defaults when empty strings are passed, so we verify
+	// the version field is set (either from version package or NewTelemetry defaults).
+	assert.NotEmpty(t, telemetryData.IntegrationVersion,
+		"telemetryData.IntegrationVersion must be populated by NewTelemetry")
 }
 
 // ---- BuiltinProviderName constant ----

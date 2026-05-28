@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 
-	conjurapi "github.com/cyberark/conjur-api-go/conjurapi"
+	"github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/cyberark/conjur-api-go/conjurapi/response"
 )
+
+var telemetryData = conjurapi.NewTelemetry("Summon", "", "", "Idira", "")
 
 // BuiltinProviderName is the canonical routing key for the built-in Conjur
 // provider. When --provider=conjur (exact match) or when SUMMON_PROVIDER is
@@ -34,7 +36,7 @@ func New() (*ConjurProvider, error) {
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: failed to load Conjur configuration: %w", err)
 	}
-	client, err := conjurapi.NewClientFromEnvironment(cfg)
+	client, err := conjurapi.NewClientFromEnvironment(cfg, telemetryData)
 	if err != nil {
 		// Security: propagating err.Error() here does not risk leaking secret
 		// material. conjur-api-go validates config before any auth attempt,
