@@ -143,9 +143,12 @@ pipeline {
     stage('Run unit tests') {
       steps {
         script {
-          infrapool.agentSh './test_unit'
-          infrapool.agentSh 'mv output/c.out .'
-          infrapool.agentStash name: 'output-xml', includes: 'output/*.xml'
+          try {
+            infrapool.agentSh './test_unit'
+          } finally {
+            infrapool.agentSh 'mv output/c.out . || true'
+            infrapool.agentStash name: 'output-xml', includes: 'output/*.xml', allowEmpty: true
+          }
           unstash 'output-xml'
           codacy action: 'reportCoverage', filePath: "output/coverage.xml"
         }
@@ -197,7 +200,7 @@ pipeline {
             infrapool.agentSh "cp ../VERSION ./VERSION"
 
             infrapool.agentSh './build --snapshot'
-            infrapool.agentArchiveArtifacts artifacts: 'dist/goreleaser/'
+            infrapool.agentArchiveArtifacts artifacts: 'pristine-checkout/dist/goreleaser/'
           }
         }
       }
@@ -210,12 +213,15 @@ pipeline {
       steps {
         script {
           infrapool.agentDir('./pristine-checkout') {
-            if (params.TEST_AWS) {
-              infrapool.agentSh 'summon -e aws ./bin/test.sh'
-            } else {
-              infrapool.agentSh './bin/test.sh'
+            try {
+              if (params.TEST_AWS) {
+                infrapool.agentSh 'summon -e aws ./bin/test.sh'
+              } else {
+                infrapool.agentSh './bin/test.sh'
+              }
+            } finally {
+              infrapool.agentStash name: 'integration-output', includes: 'output/integration/*.xml', allowEmpty: true
             }
-            infrapool.agentStash name: 'integration-output', includes: 'output/integration/*.xml'
           }
         }
       }
@@ -280,8 +286,11 @@ pipeline {
             script {
               // Use the artifacts from the previous stage
               infrapool.agentDir('./pristine-checkout') {
-                infrapool.agentSh './test_acceptance'
-                infrapool.agentStash name: 'acceptance-output', includes: 'output/acceptance/*.xml'
+                try {
+                  infrapool.agentSh './test_acceptance'
+                } finally {
+                  infrapool.agentStash name: 'acceptance-output', includes: 'output/acceptance/*.xml', allowEmpty: true
+                }
               }
             }
           }

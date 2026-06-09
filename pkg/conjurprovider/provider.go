@@ -8,7 +8,7 @@ import (
 	"github.com/cyberark/conjur-api-go/conjurapi/response"
 )
 
-var telemetryData = conjurapi.NewTelemetry("Summon", "", "", "Idira", "")
+var telemetryData = conjurapi.NewTelemetry("Summon", "idira-secretsmanager", "", "Idira", "")
 
 // BuiltinProviderName is the canonical routing key for the built-in Conjur
 // provider. When --provider=conjur (exact match) or when SUMMON_PROVIDER is
