@@ -28,11 +28,22 @@ type ConjurProvider struct {
 	client ConjurClient
 }
 
+// loadConjurConfig applies summon built-in provider defaults and loads Conjur
+// configuration from the environment. Credential storage mode defaults to
+// ReadOnly unless the operator sets CONJUR_CREDENTIAL_STORAGE_MODE.
+func loadConjurConfig() (conjurapi.Config, error) {
+	// conjur-api-go's WithDefaultCredentialStorageMode is a package-level setter
+	// (no return value), not a functional option. LoadConfig reads the default
+	// when CONJUR_CREDENTIAL_STORAGE_MODE is unset.
+	conjurapi.WithDefaultCredentialStorageMode(conjurapi.CredentialStorageModeReadOnly)
+	return conjurapi.LoadConfig()
+}
+
 // New loads Conjur configuration from the environment and creates a
 // ConjurProvider. Configuration loading, validation, and auth setup are
 // handled by conjur-api-go.
 func New() (*ConjurProvider, error) {
-	cfg, err := conjurapi.LoadConfig()
+	cfg, err := loadConjurConfig()
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: failed to load Conjur configuration: %w", err)
 	}
