@@ -17,6 +17,14 @@ services:
       timeout: 5s
       retries: 20
 
+  mock-jwt-server:
+    image: ${REGISTRY_URL:-docker.io}/cyberark/mock-jwt-server:latest
+    environment:
+      ISSUER: "jwt-server"
+      AUDIENCE: "conjur"
+      SUBJECT: "test-workload"
+      EMAIL: "workload@example.com"
+
   postgres:
     image: postgres:15
     environment:
@@ -83,6 +91,9 @@ services:
       CONJUR_AUTHN_CERT_FILE:
       CONJUR_AUTHN_CERT_KEY_FILE:
       TEST_CERT_CA_CERT:
+      TEST_SAAS:
+      JWT:
+      PUBLIC_KEYS:
     networks:
       - default
       - conjur

@@ -59,8 +59,8 @@ pipeline {
 
   triggers {
     parameterizedCron("""
-      ${getWeeklyCronString("H(0,6)", "%TEST_AZURE=true;TEST_GCP=true")}
-      ${getWeeklyCronString("H(1-5)", "%MODE=RELEASE;TEST_AZURE=true;TEST_GCP=true")}
+      ${getWeeklyCronString("H(0,6)", "%TEST_AZURE=true;TEST_GCP=true;TEST_SAAS=true")}
+      ${getWeeklyCronString("H(1-5)", "%MODE=RELEASE;TEST_AZURE=true;TEST_GCP=true;TEST_SAAS=true")}
     """)
   }
 
@@ -69,6 +69,7 @@ pipeline {
     booleanParam(name: 'TEST_AZURE', defaultValue: false, description: 'Run integration tests against Azure')
     booleanParam(name: 'TEST_GCP', defaultValue: false, description: 'Run integration tests against GCP')
     booleanParam(name: 'TEST_CERT', defaultValue: false, description: 'Run authn-cert integration tests against Conjur Enterprise (auto-enabled on main/master)')
+    booleanParam(name: 'TEST_SAAS', defaultValue: false, description: 'Run Secrets Manager SaaS JWT tests')
   }
 
   stages {
@@ -220,13 +221,10 @@ pipeline {
           def runCert = mainline || params.TEST_CERT
           env.INFRAPOOL_TEST_CERT = "${runCert}"
           env.TEST_CERT = "${runCert}"
+          def testCmd = params.TEST_AWS ? 'summon -e aws ./bin/test.sh' : './bin/test.sh'
           infrapool.agentDir('./pristine-checkout') {
             try {
-              if (params.TEST_AWS) {
-                infrapool.agentSh 'summon -e aws ./bin/test.sh'
-              } else {
-                infrapool.agentSh './bin/test.sh'
-              }
+              infrapool.agentSh testCmd
             } finally {
               infrapool.agentStash name: 'integration-output', includes: 'output/integration/*.xml', allowEmpty: true
             }
@@ -247,6 +245,74 @@ pipeline {
             } else {
               echo 'Skipping integration junit publication: output/integration/junit.xml not found'
             }
+          }
+        }
+      }
+    }
+
+    stage('Run Secrets Manager SaaS tests') {
+      when {
+        expression {
+          return params.TEST_SAAS
+        }
+      }
+      stages {
+        stage('Create a Tenant') {
+          steps {
+            script {
+              TENANT = getConjurCloudTenant()
+            }
+          }
+        }
+        stage('Authenticate') {
+          steps {
+            script {
+              def id_token = getConjurCloudTenant.tokens(
+                infrapool: infrapool,
+                identity_url: "${TENANT.identity_information.idaptive_tenant_fqdn}",
+                username: "${TENANT.login_name}"
+              )
+
+              def conj_token = getConjurCloudTenant.tokens(
+                infrapool: infrapool,
+                conjur_url: "${TENANT.conjur_cloud_url}",
+                identity_token: "${id_token}"
+              )
+
+              env.identity_token = id_token
+              env.conj_token = conj_token
+            }
+          }
+        }
+        stage('Run JWT tests against Tenant') {
+          environment {
+            INFRAPOOL_CONJUR_APPLIANCE_URL = "${TENANT.conjur_cloud_url}"
+            INFRAPOOL_CONJUR_AUTHN_LOGIN = "${TENANT.login_name}"
+            INFRAPOOL_CONJUR_AUTHN_TOKEN = "${env.conj_token}"
+            INFRAPOOL_IDENTITY_TOKEN = "${env.identity_token}"
+            INFRAPOOL_TEST_SAAS = true
+          }
+          steps {
+            script {
+              infrapool.agentDir('./pristine-checkout') {
+                try {
+                  infrapool.agentSh './bin/test.sh'
+                } finally {
+                  infrapool.agentStash name: 'saas-integration-output', includes: 'output/integration/*.xml', allowEmpty: true
+                }
+              }
+            }
+          }
+        }
+      }
+      post {
+        always {
+          catchError(message: 'saas-integration-output stash not found', buildResult: 'SUCCESS') {
+            unstash 'saas-integration-output'
+          }
+          junit allowEmptyResults: true, testResults: 'output/integration/*.xml'
+          script {
+            deleteConjurCloudTenant("${TENANT.id}")
           }
         }
       }
