@@ -357,6 +357,16 @@ This file is created on demand - only when `@SUMMONENVFILE` appears in the
 arguments of the command summon is wrapping. This feature is not Docker-specific; if you have another tools that reads variables in `VAR=VAL` format
 you can use `@SUMMONENVFILE` just the same.
 
+## Trust Model
+
+Summon's responsibilities - fetching secrets from a provider, and either
+injecting those secrets into a subprocess' environment or writing them
+temporarily to the filesystem - are security critical, and therefore editing the
+contents of a `secrets.yml` and the invocation of it via Summon must be
+considered privileged behavior. Changes to `secrets.yml` must not be made
+without extremely scrupulous security review, and Summon should not be allowed
+to be invoked by untrusted parties or in untrusted environments.
+
 ## Push-to-File
 
 `summon.files` lets you write resolved secrets directly to files rather than environment
