@@ -42,8 +42,9 @@ func GetTemplate(name string, secretsMap map[string]*Secret) *template.Template 
 			// when the template is executed.
 			panic(fmt.Sprintf("secret alias %q not present in specified secrets for file", alias))
 		},
-		"b64enc":  b64encTemplateFunc,
-		"b64dec":  b64decTemplateFunc,
-		"htmlenc": htmlencTemplateFunc,
+		"b64enc":        b64encTemplateFunc,
+		"b64dec":        b64decTemplateFunc,
+		"htmlenc":       htmlencTemplateFunc,
+		"propertiesenc": propertiesencTemplateFunc,
 	})
 }
