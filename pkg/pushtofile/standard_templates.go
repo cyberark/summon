@@ -23,7 +23,7 @@ var standardTemplates = map[string]standardTemplate{
 	"yaml":       {template: yamlTemplate, validateAlias: validateYAMLKey},
 	"json":       {template: jsonTemplate, validateAlias: validateJSONKey},
 	"dotenv":     {template: dotenvTemplate, validateAlias: validateBashVarName},
-	"properties": {template: dotenvTemplate, validateAlias: validatePropertyVarName},
+	"properties": {template: propertiesTemplate, validateAlias: validatePropertyVarName},
 	"bash":       {template: bashTemplate, validateAlias: validateBashVarName},
 }
 
