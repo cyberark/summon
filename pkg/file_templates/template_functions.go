@@ -56,6 +56,8 @@ func propertiesencTemplateFunc(value string) string {
 			b.WriteString(`\r`)
 		case '\t':
 			b.WriteString(`\t`)
+		case '\f':
+			b.WriteString(`\f`)
 		case ' ':
 			if i == 0 {
 				b.WriteByte('\\')

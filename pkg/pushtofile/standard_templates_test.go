@@ -163,6 +163,14 @@ db.port=5432`),
 			},
 			assert: assertGoodOutput(`multiline=line1\nline2`),
 		},
+		{
+			description: "escapes form feeds",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "formfeed", Value: "\fstarts"},
+			},
+			assert: assertGoodOutput(`formfeed=\fstarts`),
+		},
 	}
 
 	for _, tc := range testCases {
