@@ -42,11 +42,16 @@ func htmlencTemplateFunc(value string) string {
 // The properties format does not use quotes as value delimiters, so literal
 // double quotes are preserved. Characters that Java properties treats as
 // syntactically meaningful or escape sequences are backslash-escaped.
+//
+// Non-ASCII characters are written as UTF-8 runes. Consumers should read the
+// file as UTF-8 (for example via Properties.load(Reader) or Spring Boot
+// config import), not via the legacy Properties.load(InputStream) path.
 func propertiesencTemplateFunc(value string) string {
 	var b strings.Builder
 	b.Grow(len(value))
 
-	for i, r := range value {
+	first := true
+	for _, r := range value {
 		switch r {
 		case '\\':
 			b.WriteString(`\\`)
@@ -59,7 +64,7 @@ func propertiesencTemplateFunc(value string) string {
 		case '\f':
 			b.WriteString(`\f`)
 		case ' ':
-			if i == 0 {
+			if first {
 				b.WriteByte('\\')
 			}
 			b.WriteRune(r)
@@ -69,6 +74,7 @@ func propertiesencTemplateFunc(value string) string {
 		default:
 			b.WriteRune(r)
 		}
+		first = false
 	}
 
 	return b.String()

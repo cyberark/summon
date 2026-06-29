@@ -145,7 +145,7 @@ db.port=5432`),
 			secrets: []*filetemplates.Secret{
 				{Alias: "path", Value: `C:\secrets\value`},
 			},
-			assert: assertGoodOutput(`path=C:\\secrets\\value`),
+			assert: assertGoodOutput(`path=C\:\\secrets\\value`),
 		},
 		{
 			description: "escapes value separators and comment markers",
@@ -170,6 +170,22 @@ db.port=5432`),
 				{Alias: "formfeed", Value: "\fstarts"},
 			},
 			assert: assertGoodOutput(`formfeed=\fstarts`),
+		},
+		{
+			description: "preserves unicode values",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "greeting", Value: "café"},
+			},
+			assert: assertGoodOutput(`greeting=café`),
+		},
+		{
+			description: "preserves trailing spaces",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "trail", Value: "value   "},
+			},
+			assert: assertGoodOutput(`trail=value   `),
 		},
 	}
 

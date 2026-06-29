@@ -449,6 +449,7 @@ When `format: template` is used, the following functions and variables are avail
 | `b64enc` | Base64-encodes a string |
 | `b64dec` | Base64-decodes a string; errors if the input is not valid base64 |
 | `htmlenc` | HTML-encodes a string |
+| `propertiesenc` | Escapes a string for Java `.properties` value syntax |
 | `.SecretsArray` | `[]Secret` : all secrets sorted lexicographically by alias |
 | `.SecretsMap` | `map[string]Secret` : all secrets keyed by alias |
 
