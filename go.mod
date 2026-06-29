@@ -3,7 +3,7 @@ module github.com/cyberark/summon
 go 1.26.0
 
 require (
-	github.com/cyberark/conjur-api-go v0.14.1
+	github.com/cyberark/conjur-api-go v0.15.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli v1.22.17
 	gopkg.in/yaml.v3 v3.0.1

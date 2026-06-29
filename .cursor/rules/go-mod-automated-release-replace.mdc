@@ -1,0 +1,13 @@
+---
+description: Keep summon go.mod automated-release replace as `latest`; pin conjur-api-go in require only
+globs: go.mod
+alwaysApply: false
+---
+
+# Automated-release `replace` in `go.mod`
+
+The `DO NOT EDIT` block at the bottom of `go.mod` must keep `replace ... conjur-api-go latest` — never a concrete version like `v0.15.0`.
+
+- Bump conjur-api-go in **`require`**, not in that `replace`.
+- **`go mod tidy` rewrites `latest` → `v0.x.y`** — revert the replace line before committing.
+- PR-stack replaces are temporary; remove before merge and restore `latest`.

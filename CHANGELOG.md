@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+- Built-in Conjur provider defaults to read-only credential storage mode so new invocations do not write to shared keychain or netrc; set `CONJUR_CREDENTIAL_STORAGE_MODE=readwrite` to restore write caching (CNJR-13619)
+
 ## [0.13.0] - 2026-04-20
 
 ## [0.12.0] - 2026-04-14

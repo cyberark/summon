@@ -122,24 +122,67 @@ The provider loads configuration from:
 
 | Variable | Description |
 |---|---|
+| `CONJUR_CREDENTIAL_STORAGE_MODE` | Read/write policy: `readonly` (built-in provider default) or `readwrite`. Case-insensitive. |
 | `CONJUR_CREDENTIAL_STORAGE` | Storage backend: `keyring` (default), `file`, or `none` |
 | `CONJUR_NETRC_PATH` | Custom `.netrc` path when using `file` storage |
 
-#### Credential Storage Options
+#### Credential storage
 
-The provider caches authentication credentials using one of three backends:
+The built-in provider uses [conjur-api-go](https://github.com/cyberark/conjur-api-go) credential caching. Two settings work together:
+
+1. **Storage mode** — whether the configured backend may **write** cached credentials.
+2. **Storage backend** — where cached credentials are stored (`keyring`, `file`, or `none`).
+
+##### Storage mode (read/write policy)
+
+By default, the built-in provider runs in **read-only** mode: it may read existing cached credentials from the configured backend but does **not** write new ones to the OS keychain or `~/.netrc`. This reduces cross-talk when multiple summon processes run concurrently.
+
+| Mode | Behavior |
+|---|---|
+| `readonly` (default) | Read cached credentials; suppress writes to keychain/netrc. |
+| `readwrite` | Read and write cached credentials (previous default behavior). |
+
+Set the mode with `CONJUR_CREDENTIAL_STORAGE_MODE`:
+
+```sh
+export CONJUR_CREDENTIAL_STORAGE_MODE=readwrite
+```
+
+##### Storage backends
+
+When mode is `readwrite`, credentials are cached using one of three backends:
 
 | Backend | When to use |
 |---|---|
 | `keyring` (default) | OS credential stores: macOS Keychain, Windows Credential Manager, Linux Secret Service. |
-| `file` | Stores credentials in `~/.netrc`. Used as fallback when keyring is unavailable, or set explicitly for compatibility. |
-| `none` | Disables caching entirely. Use in ephemeral environments, restricted containers, or read-only filesystems where credential files cannot be written. |
+| `file` | Stores credentials in `~/.netrc` (or `CONJUR_NETRC_PATH`). Used as fallback when keyring is unavailable, or set explicitly for compatibility. |
+| `none` | Disables the storage backend entirely. Use when no credential cache is desired. |
 
-Configure in `.conjurrc`:
+Configure the backend in `.conjurrc`:
 
 ```yaml
-credential_storage: "none"
+credential_storage: file
+netrc_path: /path/to/.netrc
 ```
+
+Or via environment variables:
+
+```sh
+export CONJUR_CREDENTIAL_STORAGE=file
+export CONJUR_NETRC_PATH=/path/to/.netrc
+```
+
+##### Enable credential writes to disk
+
+To restore write caching (for example, a single long-lived host identity that should reuse credentials across invocations):
+
+```sh
+export CONJUR_CREDENTIAL_STORAGE_MODE=readwrite
+export CONJUR_CREDENTIAL_STORAGE=file          # optional; keyring is the default backend
+export CONJUR_NETRC_PATH="$HOME/.summon-netrc" # optional; defaults to ~/.netrc
+```
+
+With `readonly` mode (the default), summon still authenticates using credentials supplied in the environment (`CONJUR_AUTHN_API_KEY`, `CONJUR_AUTHN_TOKEN`, and so on) and may read an existing cache, but it will not update keychain or netrc files.
 
 #### Migration from standalone summon-conjur
 

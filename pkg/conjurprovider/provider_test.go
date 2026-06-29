@@ -3,6 +3,7 @@ package conjurprovider
 import (
 	"testing"
 
+	conjurapi "github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/cyberark/conjur-api-go/conjurapi/response"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,6 +16,43 @@ type mockConjurClient struct {
 
 func (m *mockConjurClient) RetrieveSecret(variableID string) ([]byte, error) {
 	return m.retrieveSecret(variableID)
+}
+
+// ---- loadConjurConfig credential storage mode ----
+
+func TestLoadConjurConfigCredentialStorageMode(t *testing.T) {
+	t.Run("defaults to ReadOnly when CONJUR_CREDENTIAL_STORAGE_MODE is unset", func(t *testing.T) {
+		t.Setenv("CONJUR_CREDENTIAL_STORAGE_MODE", "")
+
+		cfg, err := loadConjurConfig()
+
+		require.NoError(t, err)
+		assert.Equal(t, conjurapi.CredentialStorageModeReadOnly, cfg.CredentialStorageMode)
+	})
+
+	t.Run("honors explicit CONJUR_CREDENTIAL_STORAGE_MODE", func(t *testing.T) {
+		cases := []struct {
+			name string
+			env  string
+			want conjurapi.CredentialStorageMode
+		}{
+			{name: "readwrite lowercase", env: "readwrite", want: conjurapi.CredentialStorageModeReadWrite},
+			{name: "readwrite uppercase", env: "READWRITE", want: conjurapi.CredentialStorageModeReadWrite},
+			{name: "readonly lowercase", env: "readonly", want: conjurapi.CredentialStorageModeReadOnly},
+			{name: "readonly mixed case", env: "ReadOnly", want: conjurapi.CredentialStorageModeReadOnly},
+		}
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Setenv("CONJUR_CREDENTIAL_STORAGE_MODE", tc.env)
+
+				cfg, err := loadConjurConfig()
+
+				require.NoError(t, err)
+				assert.Equal(t, tc.want, cfg.CredentialStorageMode)
+			})
+		}
+	})
 }
 
 // ---- New ----
