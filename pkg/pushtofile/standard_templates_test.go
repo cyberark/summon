@@ -72,8 +72,8 @@ alias2="secret value 2"`),
 			{Alias: "alias.1", Value: "secret value 1"},
 			{Alias: "alias2", Value: "secret value 2"},
 		},
-		assert: assertGoodOutput(`alias.1="secret value 1"
-alias2="secret value 2"`),
+		assert: assertGoodOutput(`alias.1=secret value 1
+alias2=secret value 2`),
 	},
 	{
 		description: "bash",
@@ -91,6 +91,118 @@ func Test_standardTemplates(t *testing.T) {
 	for _, tc := range standardTemplateTestCases {
 		tc.Run(t)
 	}
+}
+
+func TestPropertiesTemplateJavaCompatibleOutput(t *testing.T) {
+	testCases := []pushToWriterTestCase{
+		{
+			description: "simple scalar value is unquoted",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "db.host", Value: "myhost.example.com"},
+			},
+			assert: assertGoodOutput("db.host=myhost.example.com"),
+		},
+		{
+			description: "does not wrap values in quotes",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "plain", Value: "value"},
+				{Alias: "quoted", Value: `"value"`},
+			},
+			assert: assertGoodOutput(`plain=value
+quoted="value"`),
+		},
+		{
+			description: "aliases with dots are valid",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "db.host", Value: "myhost.example.com"},
+				{Alias: "db.port", Value: "5432"},
+			},
+			assert: assertGoodOutput(`db.host=myhost.example.com
+db.port=5432`),
+		},
+		{
+			description: "preserves literal double quotes",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "quoted", Value: `"value"`},
+			},
+			assert: assertGoodOutput(`quoted="value"`),
+		},
+		{
+			description: "escapes leading spaces only",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "space", Value: " leading and inner spaces"},
+			},
+			assert: assertGoodOutput(`space=\ leading and inner spaces`),
+		},
+		{
+			description: "escapes backslashes",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "path", Value: `C:\secrets\value`},
+			},
+			assert: assertGoodOutput(`path=C\:\\secrets\\value`),
+		},
+		{
+			description: "escapes value separators and comment markers",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "syntax", Value: `a=b:c#!`},
+			},
+			assert: assertGoodOutput(`syntax=a\=b\:c\#\!`),
+		},
+		{
+			description: "escapes newlines",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "multiline", Value: "line1\nline2"},
+			},
+			assert: assertGoodOutput(`multiline=line1\nline2`),
+		},
+		{
+			description: "escapes form feeds",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "formfeed", Value: "\fstarts"},
+			},
+			assert: assertGoodOutput(`formfeed=\fstarts`),
+		},
+		{
+			description: "preserves unicode values",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "greeting", Value: "café"},
+			},
+			assert: assertGoodOutput(`greeting=café`),
+		},
+		{
+			description: "preserves trailing spaces",
+			template:    standardTemplates["properties"].template,
+			secrets: []*filetemplates.Secret{
+				{Alias: "trail", Value: "value   "},
+			},
+			assert: assertGoodOutput(`trail=value   `),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc.Run(t)
+	}
+}
+
+func TestDotenvTemplateKeepsQuotedOutput(t *testing.T) {
+	pushToWriterTestCase{
+		description: "dotenv output remains Go-quoted",
+		template:    standardTemplates["dotenv"].template,
+		secrets: []*filetemplates.Secret{
+			{Alias: "DB_HOST", Value: "myhost.example.com"},
+		},
+		assert: assertGoodOutput(`DB_HOST="myhost.example.com"`),
+	}.Run(t)
 }
 
 type aliasCharTestCase struct {

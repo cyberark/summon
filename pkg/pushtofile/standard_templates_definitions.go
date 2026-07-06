@@ -18,6 +18,12 @@ const dotenvTemplate = `
 {{- $secret.Alias }}={{ printf "%q" $secret.Value }}
 {{- end -}}
 `
+const propertiesTemplate = `
+{{- range $index, $secret := .SecretsArray -}}
+{{- if $index }}{{ "\n" }}{{ end }}
+{{- $secret.Alias }}={{ $secret.Value | propertiesenc }}
+{{- end -}}
+`
 const bashTemplate = `
 {{- range $index, $secret := .SecretsArray -}}
 {{- if $index }}{{ "\n" }}{{ end }}

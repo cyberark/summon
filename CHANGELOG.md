@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 - Built-in Conjur provider defaults to read-only credential storage mode so new invocations do not write to shared keychain or netrc; set `CONJUR_CREDENTIAL_STORAGE_MODE=readwrite` to restore write caching (CNJR-13619)
 
+### Fixed
+- Fix `format: properties` to emit Java-compatible unquoted values instead of Go `%q` quoting
+  ([cyberark/summon#264](https://github.com/cyberark/summon/issues/264), CNJR-14251)
+
 ## [0.13.0] - 2026-04-20
 
 ## [0.12.0] - 2026-04-14
