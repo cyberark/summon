@@ -1,3 +1,4 @@
+// Package conjurprovider implements Summon's built-in Conjur secrets provider.
 package conjurprovider
 
 import (
@@ -46,6 +47,9 @@ func New() (*ConjurProvider, error) {
 	cfg, err := loadConjurConfig()
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: failed to load Conjur configuration: %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("configuration error: %w", err)
 	}
 	client, err := conjurapi.NewClientFromEnvironment(cfg, telemetryData)
 	if err != nil {

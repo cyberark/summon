@@ -71,6 +71,26 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, provider)
 	})
+
+	t.Run("returns configuration error for missing authn-cert files", func(t *testing.T) {
+		// Detailed cert/key validation cases (missing key file, permission denied,
+		// readable file pair, inline-PEM path skip, conflicting inline+file paths)
+		// live in conjur-api-go TestConfig_Validate (merged in PR #155, v0.15.3).
+		// Summon keeps one contract test: New() must surface Validate() failures as
+		// configuration errors, not authentication failures.
+		t.Setenv("HOME", t.TempDir())
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
+		t.Setenv("CONJUR_AUTHN_CERT_FILE", "/missing/cert.pem")
+		t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example")
+		t.Setenv("CONJUR_ACCOUNT", "conjur")
+
+		_, err := New()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error:")
+		assert.Contains(t, err.Error(), "client certificate file not found")
+		assert.NotContains(t, err.Error(), "authentication failed")
+	})
 }
 
 func TestTelemetryDataUsesSummonVersion(t *testing.T) {
