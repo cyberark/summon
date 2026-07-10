@@ -75,3 +75,43 @@ services:
       TEST_GCP:
       GCP_PROJECT_ID:
       GCP_ID_TOKEN:
+      TEST_CERT:
+      CONJUR_CERT_APPLIANCE_URL:
+      CONJUR_CERT_AUTHN_LOGIN:
+      CONJUR_CERT_AUTHN_API_KEY:
+      CONJUR_CERT_SSL_CERTIFICATE:
+      CONJUR_AUTHN_CERT_FILE:
+      CONJUR_AUTHN_CERT_KEY_FILE:
+      TEST_CERT_CA_CERT:
+    networks:
+      - default
+      - conjur
+
+  # Enterprise appliance for authn-cert integration tests (TEST_CERT=true).
+  # registry.tld is the standard CyberArk private registry hostname.
+  conjur-leader:
+    image: ${REGISTRY_URL:-registry.tld}/conjur-appliance:${APPLIANCE_TAG:-5.0-stable}
+    hostname: conjur-leader-1.mycompany.local
+    restart: unless-stopped
+    security_opt:
+      # Enterprise appliance needs keyctl for its session keyring; Docker's default seccomp blocks it.
+      # kics-scan ignore-line
+      - seccomp:unconfined
+      - no-new-privileges:true
+    environment:
+      CONJUR_LOG_LEVEL: debug
+      CONJUR_HOSTNAME: conjur-leader-1.mycompany.local
+      CONJUR_ACCOUNT: conjur
+      # Test-only default for local/CI appliance bootstrap; override via CONJUR_ADMIN_PASSWORD.
+      # kics-scan ignore-line
+      CONJUR_ADMIN_PASSWORD: ${CONJUR_ADMIN_PASSWORD:-MySecretP@ss1}
+    networks:
+      conjur:
+        aliases:
+          - conjur-leader-1.mycompany.local
+    profiles:
+      - cert
+
+networks:
+  conjur:
+    driver: bridge

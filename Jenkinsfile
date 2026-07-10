@@ -52,6 +52,9 @@ pipeline {
   environment {
     // Sets the MODE to the specified or autocalculated value as appropriate
     MODE = release.canonicalizeMode()
+    // CI pulls Conjur images from the internal registry (not Docker Hub). bin/test.sh
+    // maps INFRAPOOL_REGISTRY_URL → REGISTRY_URL on infrapool agents (SendEnv=INFRAPOOL_*).
+    INFRAPOOL_REGISTRY_URL = 'registry.tld'
   }
 
   triggers {
@@ -65,6 +68,7 @@ pipeline {
     booleanParam(name: 'TEST_AWS', defaultValue: true, description: 'Run integration tests against AWS IAM')
     booleanParam(name: 'TEST_AZURE', defaultValue: false, description: 'Run integration tests against Azure')
     booleanParam(name: 'TEST_GCP', defaultValue: false, description: 'Run integration tests against GCP')
+    booleanParam(name: 'TEST_CERT', defaultValue: false, description: 'Run authn-cert integration tests against Conjur Enterprise (auto-enabled on main/master)')
   }
 
   stages {
@@ -212,6 +216,10 @@ pipeline {
       }
       steps {
         script {
+          def mainline = env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master'
+          def runCert = mainline || params.TEST_CERT
+          env.INFRAPOOL_TEST_CERT = "${runCert}"
+          env.TEST_CERT = "${runCert}"
           infrapool.agentDir('./pristine-checkout') {
             try {
               if (params.TEST_AWS) {
@@ -252,6 +260,7 @@ pipeline {
           }
           environment {
             INFRAPOOL_TEST_AZURE = true
+            INFRAPOOL_REGISTRY_URL = 'registry.tld'
           }
           steps {
             script {
@@ -267,6 +276,7 @@ pipeline {
           }
           environment {
             INFRAPOOL_TEST_GCP = true
+            INFRAPOOL_REGISTRY_URL = 'registry.tld'
           }
           steps {
             script {
