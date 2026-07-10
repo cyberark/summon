@@ -2,13 +2,21 @@
 
 export CONJUR_ACCOUNT=cucumber
 
-export REGISTRY_URL=${INFRAPOOL_REGISTRY_URL:-"docker.io"}
+export REGISTRY_URL="${REGISTRY_URL:-${INFRAPOOL_REGISTRY_URL:-docker.io}}"
 
 source ./bin/functions.sh
 
 function finish {
   echo 'Removing environment'
   echo '-----'
+  if docker compose ps -q conjur 2>/dev/null | grep -q .; then
+    mkdir -p output/integration
+    docker compose logs conjur > output/integration/conjur-logs.txt 2>&1 || true
+  fi
+  if [[ "${TEST_CERT:-false}" == "true" ]]; then
+    docker compose --profile cert logs conjur-leader >> output/integration/conjur-leader-logs.txt 2>&1 || true
+    docker compose --profile cert down -v --remove-orphans || true
+  fi
   docker compose down -v
 }
 trap finish EXIT
@@ -18,6 +26,10 @@ function failed {
   echo '-----'
   echo 'Conjur logs:'
   docker compose logs conjur || true
+  if [[ "${TEST_CERT:-false}" == "true" ]]; then
+    echo 'Conjur Enterprise logs:'
+    docker compose --profile cert logs conjur-leader || true
+  fi
   echo '-----'
   exit 1
 }
@@ -27,7 +39,16 @@ function main() {
   initEnvironment
   prepareAWS
   prepareGCP
+  prepareCertIfNeeded
   runTests
+}
+
+function prepareCertIfNeeded() {
+  if [[ "${INFRAPOOL_TEST_CERT}" == "true" || "${TEST_CERT}" == "true" ]]; then
+    export TEST_CERT=true
+    # shellcheck source=bin/setup-cert-auth.sh
+    source ./bin/setup-cert-auth.sh
+  fi
 }
 
 function prepareAWS() {
@@ -76,8 +97,22 @@ function runTests() {
   export TEST_AWS="${INFRAPOOL_TEST_AWS:-}"
   export TEST_AZURE="${INFRAPOOL_TEST_AZURE:-}"
   export TEST_GCP="${INFRAPOOL_TEST_GCP:-}"
+  export TEST_CERT="${TEST_CERT:-${INFRAPOOL_TEST_CERT:-false}}"
 
   mkdir -p output/integration
+
+  if [[ "$TEST_CERT" == "true" ]]; then
+    if [[ -z "${CERT_TMPDIR:-}" || ! -d "${CERT_TMPDIR}" ]]; then
+      echo "ERROR: TEST_CERT=true but CERT_TMPDIR is missing or not a directory (PKI setup failed?)"
+      exit 1
+    fi
+  fi
+
+  # Mount generated client certs into the summon test container only (not conjur-leader).
+  CERT_EXTRA_ARGS=()
+  if [[ "$TEST_CERT" == "true" ]]; then
+    CERT_EXTRA_ARGS+=("-v" "$CERT_TMPDIR:/certs:ro")
+  fi
 
   docker compose build --pull \
     --build-arg TARGETARCH="${TARGETARCH:-amd64_v1}" \
@@ -85,6 +120,7 @@ function runTests() {
     $service
 
   docker compose run --rm \
+    "${CERT_EXTRA_ARGS[@]}" \
     -e CONJUR_ACCOUNT \
     -e CONJUR_APPLIANCE_URL \
     -e CONJUR_AUTHN_LOGIN \
@@ -101,6 +137,15 @@ function runTests() {
     -e AZURE_TENANT_ID \
     -e CONJUR_AWS_ACCOUNT_ID \
     -e CONJUR_AWS_ROLE_NAME \
+    -e TEST_CERT \
+    -e CONJUR_CERT_APPLIANCE_URL \
+    -e CONJUR_CERT_AUTHN_LOGIN \
+    -e CONJUR_CERT_AUTHN_API_KEY \
+    -e CONJUR_CERT_SSL_CERTIFICATE \
+    -e CONJUR_AUTHN_CERT_FILE \
+    -e CONJUR_AUTHN_CERT_KEY_FILE \
+    -e TEST_CERT_CA_CERT \
+    -e CONJUR_SSL_CERTIFICATE \
     "$service" || failed
 }
 
