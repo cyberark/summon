@@ -124,7 +124,8 @@ The provider loads configuration from:
 |---|---|
 | `CONJUR_CREDENTIAL_STORAGE_MODE` | Read/write policy: `readonly` (built-in provider default) or `readwrite`. Case-insensitive. |
 | `CONJUR_CREDENTIAL_STORAGE` | Storage backend: `keyring` (default), `file`, or `none` |
-| `CONJUR_NETRC_PATH` | Custom `.netrc` path when using `file` storage |
+| `CONJUR_NETRC_PATH` | Path to a readable `.netrc` file when using `file` storage. When set, conjur-api-go reads credentials from that path instead of the default location; when unset, the default netrc location is used. |
+| `CONJUR_KEYCHAIN_NAMESPACE` | Optional keyring service namespace for concurrent invocations. Non-empty string without `/`, `\`, `:`, or null bytes. When set, the keyring service name becomes `machineName:namespace`; when unset, the existing machine name is used (no namespace isolation). Also configurable as `keychain_namespace` in `.conjurrc`. |
 
 #### Credential storage
 
@@ -154,11 +155,16 @@ When mode is `readwrite`, credentials are cached using one of three backends:
 
 | Backend | When to use |
 |---|---|
-| `keyring` (default) | OS credential stores: macOS Keychain, Windows Credential Manager, Linux Secret Service. |
-| `file` | Stores credentials in `~/.netrc` (or `CONJUR_NETRC_PATH`). Used as fallback when keyring is unavailable, or set explicitly for compatibility. |
+| `keyring` (default) | OS credential stores: macOS Keychain, Windows Credential Manager, Linux Secret Service. For concurrent invocations that share a host keyring, set `CONJUR_KEYCHAIN_NAMESPACE` (or `keychain_namespace` in `.conjurrc`) so each process uses a distinct service name (`machineName:namespace`). Leave unset to keep the existing machine-name service (no namespace isolation). Namespace values must be non-empty and must not contain `/`, `\`, `:`, or null bytes. |
+| `file` | Stores credentials in `~/.netrc` by default, or in the readable file path given by `CONJUR_NETRC_PATH` / `netrc_path` when set. Use a per-invocation path to isolate netrc files across processes. Used as fallback when keyring is unavailable, or set explicitly for compatibility. |
 | `none` | Disables the storage backend entirely. Use when no credential cache is desired. |
 
 Configure the backend in `.conjurrc`:
+
+```yaml
+credential_storage: keyring
+keychain_namespace: service-a
+```
 
 ```yaml
 credential_storage: file
@@ -168,6 +174,9 @@ netrc_path: /path/to/.netrc
 Or via environment variables:
 
 ```sh
+export CONJUR_CREDENTIAL_STORAGE=keyring
+export CONJUR_KEYCHAIN_NAMESPACE=service-a
+
 export CONJUR_CREDENTIAL_STORAGE=file
 export CONJUR_NETRC_PATH=/path/to/.netrc
 ```
