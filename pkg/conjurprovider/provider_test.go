@@ -190,5 +190,5 @@ func TestConjurProviderPath(t *testing.T) {
 		retrieveSecret: func(_ string) ([]byte, error) { return nil, nil },
 	})
 
-	assert.Equal(t, "conjur (built-in)", provider.Path())
+	assert.Equal(t, BuiltinProviderPath, provider.Path())
 }

@@ -17,6 +17,10 @@ var telemetryData = conjurapi.NewTelemetry("Summon", "idira-secretsmanager", "",
 // external binary.
 const BuiltinProviderName = "conjur"
 
+// BuiltinProviderPath is the identifier returned by ConjurProvider.Path and
+// stored on SubprocessConfig.Provider for logging and built-in fetch dispatch.
+const BuiltinProviderPath = "conjur (built-in)"
+
 // ConjurClient is a test seam that wraps the conjurapi.Client. Declaring this
 // interface allows unit tests to inject mocks so no real network calls are made.
 type ConjurClient interface {
@@ -91,9 +95,10 @@ func (p *ConjurProvider) FetchSecret(varID string) ([]byte, error) {
 	return value, nil
 }
 
-// Path returns the human-readable display name used to identify the built-in
-// Conjur provider. It satisfies the provider.Provider interface and is used
-// for logging and interactive-mode dispatch in the summon package.
+// Path returns the built-in Conjur provider identifier (BuiltinProviderPath).
+// It satisfies the provider.Provider interface and is used for logging and for
+// dispatch in the summon package (fetchSecrets compares Provider to
+// BuiltinProviderPath).
 func (p *ConjurProvider) Path() string {
-	return "conjur (built-in)"
+	return BuiltinProviderPath
 }
