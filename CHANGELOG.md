@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fix `format: properties` to emit Java-compatible unquoted values instead of Go `%q` quoting
   ([cyberark/summon#264](https://github.com/cyberark/summon/issues/264), CNJR-14251)
 - Fix built-in Conjur provider dispatch so fetch matches `Path()` (`conjur (built-in)`) and uses the short-circuit path (CNJR-13496)
+- Unset `CONJUR_*` credentials in Summon's process space before exec (CNJR-13496)
 
 ## [0.12.0] - 2026-04-14
 
