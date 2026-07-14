@@ -25,10 +25,10 @@ func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFacto
 	filteredResults, filteredSecrets := filterNonVariables(secrets, tempFactory)
 	results := filteredResults
 
-	if sc.Provider == conjurprovider.BuiltinProviderName {
+	if sc.Provider == conjurprovider.BuiltinProviderPath {
 		// Built-in Conjur provider: fetch sequentially with short-circuit on the
-		// first error. Skip interactive mode entirely — "conjur" is a reserved
-		// name in this context, not an external binary.
+		// first error. Skip interactive mode entirely — this Path value is not
+		// an external binary.
 		builtinResults, err := fetchSecretsBuiltin(filteredSecrets, sc, tempFactory)
 		if err != nil {
 			return nil, err

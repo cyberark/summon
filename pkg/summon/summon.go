@@ -36,6 +36,11 @@ type secretFetcher func(string) ([]byte, error)
 
 // RunSubprocess encapsulates the logic of fetching secrets, executing the subprocess with the secrets injected.
 func RunSubprocess(sc *SubprocessConfig) (int, error) {
+	// Scrub CONJUR_* from this process on every return path (including fetch
+	// errors). An explicit clear also runs immediately before exec so
+	// credentials are gone while the child is running, not only after Wait.
+	defer clearConjurEnvFromProcess()
+
 	// Prepare substitutions map from command line arguments
 	subs, err := convertSubsToMap(sc.Subs)
 	if err != nil {
@@ -105,12 +110,29 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 		}
 	}
 
+	// Clear before exec so CONJUR_* are gone while the child runs.
+	// filterConjurEnv remains defense in depth for the child env slice.
+	clearConjurEnvFromProcess()
 	err = runSubcommand(sc.Args, append(filterConjurEnv(os.Environ()), env...))
 	if err != nil {
 		return returnStatusOfError(err)
 	}
 
 	return 0, nil
+}
+
+// clearConjurEnvFromProcess unsets every environment variable whose key starts
+// with "CONJUR_" in the current process. Safe to call more than once.
+func clearConjurEnvFromProcess() {
+	for _, entry := range os.Environ() {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		if strings.HasPrefix(key, "CONJUR_") {
+			_ = os.Unsetenv(key)
+		}
+	}
 }
 
 // filterConjurEnv returns a copy of env with all entries whose key starts with

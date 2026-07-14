@@ -28,7 +28,7 @@ import (
 type Provider interface {
 	// FetchSecret retrieves the secret identified by varID.
 	FetchSecret(varID string) ([]byte, error)
-	// Path returns the provider's canonical identifier: "conjur" for the
+	// Path returns the provider's identifier: "conjur (built-in)" for the
 	// built-in provider or the absolute binary path for external providers.
 	Path() string
 }

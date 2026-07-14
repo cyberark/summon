@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/cyberark/summon/pkg/conjurprovider"
 	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 	"github.com/stretchr/testify/assert"
@@ -592,8 +594,102 @@ func TestRunSubprocessFiltersConjurEnv(t *testing.T) {
 
 		// CONJUR_ACCOUNT should be absent (empty); SAFE_VAR should be present.
 		assert.Equal(t, "CONJUR_ACCOUNT=|SAFE_VAR=keep-me", string(content))
+
+		// Summon also clears CONJUR_* from its own process space before exec.
+		assert.Empty(t, os.Getenv("CONJUR_ACCOUNT"))
+		assert.Empty(t, os.Getenv("CONJUR_AUTHN_TOKEN"))
+		assert.Equal(t, "keep-me", os.Getenv("SAFE_VAR"))
+	})
+
+	t.Run("CONJUR_ vars are cleared from parent even when fetch fails", func(t *testing.T) {
+		t.Setenv("CONJUR_ACCOUNT", "should-be-cleared")
+		t.Setenv("CONJUR_AUTHN_TOKEN", "super-secret-token")
+		t.Setenv("SAFE_VAR", "keep-me")
+
+		_, err := RunSubprocess(&SubprocessConfig{
+			Args:       []string{"true"},
+			YamlInline: "SECRET: !var path/to/secret",
+			Provider:   conjurprovider.BuiltinProviderPath,
+			FetchSecret: func(string) ([]byte, error) {
+				return nil, errors.New("retrieval failed")
+			},
+		})
+
+		require.Error(t, err)
+		assert.Empty(t, os.Getenv("CONJUR_ACCOUNT"))
+		assert.Empty(t, os.Getenv("CONJUR_AUTHN_TOKEN"))
+		assert.Equal(t, "keep-me", os.Getenv("SAFE_VAR"))
 	})
 }
+
+func TestClearConjurEnvFromProcess(t *testing.T) {
+	t.Setenv("CONJUR_ACCOUNT", "acct")
+	t.Setenv("CONJUR_AUTHN_API_KEY", "secret-key")
+	t.Setenv("SAFE_VAR", "keep-me")
+	t.Setenv("conjur_lowercase", "not-cleared")
+
+	clearConjurEnvFromProcess()
+
+	assert.Empty(t, os.Getenv("CONJUR_ACCOUNT"))
+	assert.Empty(t, os.Getenv("CONJUR_AUTHN_API_KEY"))
+	assert.Equal(t, "keep-me", os.Getenv("SAFE_VAR"))
+	assert.Equal(t, "not-cleared", os.Getenv("conjur_lowercase"))
+}
+
+func TestFetchSecretsDispatch(t *testing.T) {
+	varSecrets := func(m map[string]string) secretsyml.SecretsMap {
+		result := make(secretsyml.SecretsMap, len(m))
+		for key, path := range m {
+			result[key] = secretsyml.SecretSpec{Path: path, Tags: []secretsyml.YamlTag{secretsyml.Var}}
+		}
+		return result
+	}
+
+	t.Run("Provider conjur uses built-in short-circuit on first error", func(t *testing.T) {
+		fetchCount := 0
+		secrets := varSecrets(map[string]string{
+			"SECRET_A": "path/to/a",
+			"SECRET_B": "path/to/b",
+		})
+		sc := &SubprocessConfig{
+			Provider: conjurprovider.BuiltinProviderPath,
+			FetchSecret: func(varID string) ([]byte, error) {
+				fetchCount++
+				return nil, errors.New("retrieval failed")
+			},
+		}
+
+		results, err := fetchSecrets(secrets, sc, &TempFactory{})
+
+		require.Error(t, err)
+		assert.Nil(t, results)
+		assert.Equal(t, 1, fetchCount)
+	})
+
+	t.Run("external Provider path does not use built-in short-circuit", func(t *testing.T) {
+		var fetchCount atomic.Int32
+		secrets := varSecrets(map[string]string{
+			"SECRET_A": "path/to/a",
+			"SECRET_B": "path/to/b",
+		})
+		sc := &SubprocessConfig{
+			// Non-existent binary: interactive mode fails, non-interactive
+			// fallback fetches all keys (no short-circuit).
+			Provider: filepath.Join(t.TempDir(), "not-a-real-provider"),
+			FetchSecret: func(varID string) ([]byte, error) {
+				fetchCount.Add(1)
+				return nil, errors.New("retrieval failed")
+			},
+		}
+
+		results, err := fetchSecrets(secrets, sc, &TempFactory{})
+
+		require.NoError(t, err)
+		assert.Len(t, results, 2)
+		assert.Equal(t, int32(2), fetchCount.Load())
+	})
+}
+
 func TestFetchSecretsBuiltin(t *testing.T) {
 	varSecrets := func(m map[string]string) secretsyml.SecretsMap {
 		result := make(secretsyml.SecretsMap, len(m))
