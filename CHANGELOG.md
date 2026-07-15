@@ -9,9 +9,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [0.13.0] - 2026-07-13
 
 ### Added
+- External provider binaries time out via `SUMMON_PROVIDER_TIMEOUT` (Go duration,
+  default 60s) on both one-shot and stream invocation paths (CNJR-13727)
 - Built-in Conjur provider validates authn-cert client certificate file paths at startup and surfaces configuration errors before authentication (CNJR-14097)
 
 ### Changed
+- Stream/interactive mode prefers `SUMMON_PROVIDER_TIMEOUT`; `CONJUR_HTTP_TIMEOUT`
+  (integer seconds) remains a deprecated stream-only fallback for provider binary
+  deadlines and is unchanged as the built-in Conjur HTTP timeout (CNJR-13727)
 - Built-in Conjur provider defaults to read-only credential storage mode so new invocations do not write to shared keychain or netrc; set `CONJUR_CREDENTIAL_STORAGE_MODE=readwrite` to restore write caching (CNJR-13619)
 
 ### Fixed

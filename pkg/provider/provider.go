@@ -134,12 +134,19 @@ func Call(provider, specPath string) (string, error) {
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer
 	)
-	cmd := exec.Command(provider, specPath)
+	timeout := callTimeout()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, provider, specPath)
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
 	err := cmd.Run()
 
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", providerTimeoutError(provider, timeout)
+		}
 		errstr := err.Error()
 		if stdErr.Len() > 0 {
 			errstr += ": " + strings.TrimSpace(stdErr.String())
@@ -171,27 +178,72 @@ type Result struct {
 var ErrInteractiveModeNotSupported = errors.New("interactive mode not supported")
 
 const (
-	// defaultInteractiveTimeout is the fallback timeout for interactive mode
-	defaultInteractiveTimeout = 60
-	// Even though summon can be used for non-Conjur providers, the environment
-	// variable name is kept the same as the Conjur provider to avoid confusion.
-	interactiveTimeoutEnvVar = "CONJUR_HTTP_TIMEOUT"
+	// defaultProviderTimeout is the fallback deadline for external provider
+	// binary invocations (both Call and CallInteractiveMode).
+	defaultProviderTimeout = 60 * time.Second
+
+	// providerTimeoutEnvVar is the canonical timeout for external provider
+	// binaries. It is unrelated to CONJUR_HTTP_TIMEOUT, which conjur-api-go
+	// uses as an HTTP client timeout for the built-in Conjur provider.
+	providerTimeoutEnvVar = "SUMMON_PROVIDER_TIMEOUT"
+
+	// legacyInteractiveTimeoutEnvVar is the deprecated stream-mode fallback
+	// for provider binary timeouts (integer seconds). Prefer SUMMON_PROVIDER_TIMEOUT.
+	legacyInteractiveTimeoutEnvVar = "CONJUR_HTTP_TIMEOUT"
 )
 
-// interactiveModeTimeout returns the timeout for interactive provider calls.
-// It can be overridden via CONJUR_HTTP_TIMEOUT which must be a positive
-// integer number of seconds.
-func interactiveModeTimeout() time.Duration {
-	timeoutStr, ok := os.LookupEnv(interactiveTimeoutEnvVar)
-	if !ok || timeoutStr == "" {
-		return defaultInteractiveTimeout * time.Second
-	}
+// callTimeout returns the deadline for one-shot provider.Call invocations.
+// Only SUMMON_PROVIDER_TIMEOUT is consulted (Go duration); otherwise 60s.
+// Call never reads CONJUR_HTTP_TIMEOUT (that path previously had no timeout).
+func callTimeout() time.Duration {
+	return resolveProviderTimeout(false)
+}
 
+// streamTimeout returns the whole-session deadline for CallInteractiveMode.
+// Prefer SUMMON_PROVIDER_TIMEOUT (Go duration); else CONJUR_HTTP_TIMEOUT
+// (positive integer seconds, deprecated); else 60s.
+func streamTimeout() time.Duration {
+	return resolveProviderTimeout(true)
+}
+
+func resolveProviderTimeout(forStream bool) time.Duration {
+	if d, ok := parseSummonProviderTimeout(); ok {
+		return d
+	}
+	if forStream {
+		if d, ok := parseLegacyStreamTimeout(); ok {
+			return d
+		}
+	}
+	return defaultProviderTimeout
+}
+
+func parseSummonProviderTimeout() (time.Duration, bool) {
+	timeoutStr, ok := os.LookupEnv(providerTimeoutEnvVar)
+	if !ok || timeoutStr == "" {
+		return 0, false
+	}
+	d, err := time.ParseDuration(timeoutStr)
+	if err != nil || d <= 0 {
+		return 0, false
+	}
+	return d, true
+}
+
+func parseLegacyStreamTimeout() (time.Duration, bool) {
+	timeoutStr, ok := os.LookupEnv(legacyInteractiveTimeoutEnvVar)
+	if !ok || timeoutStr == "" {
+		return 0, false
+	}
 	secs, err := strconv.Atoi(timeoutStr)
 	if err != nil || secs <= 0 {
-		secs = defaultInteractiveTimeout
+		return 0, false
 	}
-	return time.Duration(secs) * time.Second
+	return time.Duration(secs) * time.Second, true
+}
+
+func providerTimeoutError(provider string, timeout time.Duration) error {
+	return fmt.Errorf("provider %q timed out after %s", provider, timeout)
 }
 
 // CallInteractiveMode calls a provider without passing any arguments. It then constantly fetches
@@ -199,7 +251,8 @@ func interactiveModeTimeout() time.Duration {
 func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func()) {
 	resultsCh := make(chan Result)
 	errorsCh := make(chan error, 1)
-	ctxTimeout, ctxCancel := context.WithTimeout(context.Background(), interactiveModeTimeout())
+	timeout := streamTimeout()
+	ctxTimeout, ctxCancel := context.WithTimeout(context.Background(), timeout)
 
 	cmd := exec.CommandContext(ctxTimeout, provider)
 
@@ -267,6 +320,10 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
+				if ctxTimeout.Err() == context.DeadlineExceeded {
+					errorsCh <- providerTimeoutError(provider, timeout)
+					break
+				}
 				if err == io.EOF {
 					break
 				}
@@ -282,10 +339,18 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 			}
 
 			keyVal := <-secretEnvVarCh
-			resultsCh <- Result{
+			select {
+			case resultsCh <- Result{
 				Key:   keyVal,
 				Value: string(decoded),
 				Error: nil,
+			}:
+			case <-ctxTimeout.Done():
+				if ctxTimeout.Err() == context.DeadlineExceeded {
+					errorsCh <- providerTimeoutError(provider, timeout)
+				}
+				clear(decoded)
+				return
 			}
 			clear(decoded)
 			index++
@@ -294,7 +359,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 			}
 
 		}
-		if index == 0 {
+		if index == 0 && ctxTimeout.Err() != context.DeadlineExceeded {
 			errorsCh <- ErrInteractiveModeNotSupported
 		}
 
