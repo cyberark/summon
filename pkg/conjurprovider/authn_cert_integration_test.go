@@ -159,18 +159,21 @@ func setupCertAuthenticator(conjur *conjurapi.Client, authenticatorPolicy, roles
 
 func setupCertSummonEnvironment(t *testing.T, applianceURL, sslCert, certFile, keyFile string) *envSnapshot {
 	t.Helper()
+	// Use os.Setenv (not t.Setenv) with ClearEnv/RestoreEnv. t.Setenv registers
+	// cleanups that restore post-ClearEnv empty values after defer RestoreEnv,
+	// which poisons PATH/CONJUR_* for later tests in the same package.
 	savedPath := os.Getenv("PATH")
 	snap := ClearEnv()
-	t.Setenv("PATH", savedPath)
-	t.Setenv("CONJUR_APPLIANCE_URL", applianceURL)
-	t.Setenv("CONJUR_ACCOUNT", "conjur")
-	t.Setenv("CONJUR_SSL_CERTIFICATE", sslCert)
-	t.Setenv("CONJUR_IGNORE_UNTRUSTED_SSL", "true")
-	t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", certServiceID)
-	t.Setenv("CONJUR_AUTHN_CERT_FILE", certFile)
-	t.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", keyFile)
-	t.Setenv("CONJUR_AUTHN_CERT_HOST_ID", "data/test/cert-apps/vm-01")
-	t.Setenv("HOME", t.TempDir())
+	os.Setenv("PATH", savedPath)
+	os.Setenv("CONJUR_APPLIANCE_URL", applianceURL)
+	os.Setenv("CONJUR_ACCOUNT", "conjur")
+	os.Setenv("CONJUR_SSL_CERTIFICATE", sslCert)
+	os.Setenv("CONJUR_IGNORE_UNTRUSTED_SSL", "true")
+	os.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", certServiceID)
+	os.Setenv("CONJUR_AUTHN_CERT_FILE", certFile)
+	os.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", keyFile)
+	os.Setenv("CONJUR_AUTHN_CERT_HOST_ID", "data/test/cert-apps/vm-01")
+	os.Setenv("HOME", t.TempDir())
 	return snap
 }
 

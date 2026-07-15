@@ -34,8 +34,10 @@ func setupFileCredentialStorage(t *testing.T) string {
 	netrcPath := filepath.Join(t.TempDir(), ".netrc")
 	require.NoError(t, os.WriteFile(netrcPath, nil, 0o600))
 
-	t.Setenv("CONJUR_CREDENTIAL_STORAGE", "file")
-	t.Setenv("CONJUR_NETRC_PATH", netrcPath)
+	// os.Setenv — callers pair this with ClearEnv/RestoreEnv; t.Setenv cleanups
+	// would run after RestoreEnv and undo restored CONJUR_* values.
+	os.Setenv("CONJUR_CREDENTIAL_STORAGE", "file")
+	os.Setenv("CONJUR_NETRC_PATH", netrcPath)
 
 	return netrcPath
 }
