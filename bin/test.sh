@@ -2,7 +2,8 @@
 
 export CONJUR_ACCOUNT=cucumber
 
-export REGISTRY_URL="${REGISTRY_URL:-${INFRAPOOL_REGISTRY_URL:-docker.io}}"
+# Conjur images only (see docker-compose.yml). Public images do not use this.
+export REGISTRY_URL="${REGISTRY_URL:-${INFRAPOOL_REGISTRY_URL:-registry.tld}}"
 
 source ./bin/functions.sh
 

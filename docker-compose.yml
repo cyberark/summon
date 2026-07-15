@@ -1,6 +1,8 @@
+# REGISTRY_URL is for Conjur images only (defaults to the CyberArk private
+# registry). Public images (postgres, mock-jwt-server) stay on Docker Hub.
 services:
   conjur:
-    image: ${REGISTRY_URL:-docker.io}/cyberark/conjur:edge
+    image: ${REGISTRY_URL:-registry.tld}/cyberark/conjur:edge
     command: server -a cucumber
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres/postgres
@@ -17,8 +19,9 @@ services:
       timeout: 5s
       retries: 20
 
+  # Public image — do not prefix with REGISTRY_URL (not mirrored to registry.tld).
   mock-jwt-server:
-    image: ${REGISTRY_URL:-docker.io}/cyberark/mock-jwt-server:latest
+    image: docker.io/cyberark/mock-jwt-server:latest
     environment:
       ISSUER: "jwt-server"
       AUDIENCE: "conjur"
@@ -99,7 +102,6 @@ services:
       - conjur
 
   # Enterprise appliance for authn-cert integration tests (TEST_CERT=true).
-  # registry.tld is the standard CyberArk private registry hostname.
   conjur-leader:
     image: ${REGISTRY_URL:-registry.tld}/conjur-appliance:${APPLIANCE_TAG:-5.0-stable}
     hostname: conjur-leader-1.mycompany.local
