@@ -522,9 +522,17 @@ If the provider does not support stream mode, Summon uses the legacy mode.
 
 ### Timeout
 
-By default, Summon will wait up to 60 seconds for a provider to respond when using stream mode.
-You can change this timeout by setting the `CONJUR_HTTP_TIMEOUT` environment variable to
-the desired number of seconds.
+By default, Summon waits up to 60 seconds for an external provider binary to
+finish (both legacy one-shot `Call` and stream/interactive mode). Override with
+`SUMMON_PROVIDER_TIMEOUT` using a Go duration string (for example `30s` or `2m`).
+
+This limit applies to provider **binaries** only. It is separate from
+`CONJUR_HTTP_TIMEOUT`, which the built-in Conjur provider uses (via conjur-api-go)
+as an HTTP client timeout.
+
+For stream/interactive mode only, if `SUMMON_PROVIDER_TIMEOUT` is unset, Summon
+still honors `CONJUR_HTTP_TIMEOUT` as a deprecated fallback (positive integer
+seconds). Prefer `SUMMON_PROVIDER_TIMEOUT` for new configurations.
 
 ## Providers
 

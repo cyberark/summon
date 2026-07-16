@@ -213,6 +213,8 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("returns error for builtin when Conjur is not fully configured", func(t *testing.T) {
+		// Isolate from ~/.conjurrc so LoadConfig cannot succeed via file.
+		t.Setenv("HOME", t.TempDir())
 		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
 			t.Setenv(envVar, "")
 		}
@@ -221,6 +223,7 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("case-insensitive CONJUR routes to builtin", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
 		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
 			t.Setenv(envVar, "")
 		}
@@ -229,6 +232,7 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("mixed-case Conjur routes to builtin", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
 		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
 			t.Setenv(envVar, "")
 		}
@@ -468,27 +472,181 @@ func generateRandomString(n int) string {
 	return string(ret)
 }
 
-func TestInteractiveModeTimeout(t *testing.T) {
-	defaultTimeout := time.Duration(defaultInteractiveTimeout) * time.Second
+func TestProviderTimeoutResolution(t *testing.T) {
+	defaultTimeout := defaultProviderTimeout
 
-	tests := []struct {
-		envValue string
-		expected time.Duration
-	}{
-		{"", defaultTimeout},
-		{"30", 30 * time.Second},
-		{"0", defaultTimeout},
-		{"-10", defaultTimeout},
-		{"abc", defaultTimeout},
-	}
+	t.Run("call ignores CONJUR_HTTP_TIMEOUT", func(t *testing.T) {
+		t.Setenv(legacyInteractiveTimeoutEnvVar, "10")
+		t.Setenv(providerTimeoutEnvVar, "")
+		assert.Equal(t, defaultTimeout, callTimeout())
+	})
 
-	for _, testCase := range tests {
-		t.Run(testCase.envValue, func(t *testing.T) {
-			os.Setenv(interactiveTimeoutEnvVar, testCase.envValue)
-			defer os.Unsetenv(interactiveTimeoutEnvVar)
-			assert.Equal(t, testCase.expected, interactiveModeTimeout())
-		})
+	t.Run("call uses SUMMON_PROVIDER_TIMEOUT", func(t *testing.T) {
+		t.Setenv(providerTimeoutEnvVar, "2s")
+		assert.Equal(t, 2*time.Second, callTimeout())
+	})
+
+	t.Run("call invalid SUMMON falls back to default", func(t *testing.T) {
+		t.Setenv(providerTimeoutEnvVar, "nope")
+		assert.Equal(t, defaultTimeout, callTimeout())
+	})
+
+	t.Run("stream prefers SUMMON over CONJUR", func(t *testing.T) {
+		t.Setenv(providerTimeoutEnvVar, "3s")
+		t.Setenv(legacyInteractiveTimeoutEnvVar, "10")
+		assert.Equal(t, 3*time.Second, streamTimeout())
+	})
+
+	t.Run("stream falls back to CONJUR_HTTP_TIMEOUT seconds", func(t *testing.T) {
+		t.Setenv(providerTimeoutEnvVar, "")
+		t.Setenv(legacyInteractiveTimeoutEnvVar, "15")
+		assert.Equal(t, 15*time.Second, streamTimeout())
+	})
+
+	t.Run("stream invalid CONJUR falls back to default", func(t *testing.T) {
+		t.Setenv(providerTimeoutEnvVar, "")
+		t.Setenv(legacyInteractiveTimeoutEnvVar, "abc")
+		assert.Equal(t, defaultTimeout, streamTimeout())
+	})
+
+	t.Run("stream empty uses default", func(t *testing.T) {
+		t.Setenv(providerTimeoutEnvVar, "")
+		t.Setenv(legacyInteractiveTimeoutEnvVar, "")
+		assert.Equal(t, defaultTimeout, streamTimeout())
+	})
+}
+
+func TestCallTimeout(t *testing.T) {
+	t.Setenv(providerTimeoutEnvVar, "200ms")
+	provider, err := createSleepingProvider(2 * time.Second)
+	assert.NoError(t, err)
+	defer os.Remove(provider)
+
+	out, err := Call(provider, "ignored")
+	assert.Empty(t, out)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "timed out after")
+	assert.Contains(t, err.Error(), provider)
+	assert.NotContains(t, err.Error(), "secret")
+}
+
+func TestCallCompletesWithinTimeout(t *testing.T) {
+	t.Setenv(providerTimeoutEnvVar, "5s")
+	out, err := Call("ls", "provider.go")
+	assert.NoError(t, err)
+	assert.Equal(t, "provider.go", out)
+}
+
+func TestCallInteractiveModeTimeout(t *testing.T) {
+	t.Setenv(providerTimeoutEnvVar, "200ms")
+	provider, err := createSleepingProvider(2 * time.Second)
+	assert.NoError(t, err)
+	defer os.Remove(provider)
+
+	secrets := secretsyml.SecretsMap{
+		"key1": secretsyml.SecretSpec{Path: "some/secret"},
 	}
+	_, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+	defer cleanup()
+
+	select {
+	case err := <-errorsCh:
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "timed out after")
+		assert.Contains(t, err.Error(), provider)
+		assert.NotContains(t, strings.ToLower(err.Error()), "some/secret")
+	case <-time.After(3 * time.Second):
+		t.Fatal("expected timeout error")
+	}
+}
+
+func TestCallInteractiveModeTimeoutAfterPartialOutput(t *testing.T) {
+	t.Setenv(providerTimeoutEnvVar, "200ms")
+
+	tmpfile, err := os.CreateTemp("", "partialsleepprovider")
+	assert.NoError(t, err)
+	provider := tmpfile.Name()
+	defer os.Remove(provider)
+
+	// Emit one secret value, then hang so the session deadline expires mid-stream.
+	script := `#!/bin/bash
+read -r line
+echo $(echo -n "$line" | base64 -w 0)
+exec sleep 30
+`
+	_, err = tmpfile.Write([]byte(script))
+	assert.NoError(t, err)
+	assert.NoError(t, tmpfile.Close())
+	assert.NoError(t, os.Chmod(provider, 0755))
+
+	secrets := secretsyml.SecretsMap{
+		"key1": secretsyml.SecretSpec{Path: "first/secret"},
+		"key2": secretsyml.SecretSpec{Path: "second/secret"},
+	}
+	resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+	defer cleanup()
+
+	// Drain partial results so the reader is not stuck on an unbuffered send
+	// while we wait for the session deadline.
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case _, ok := <-resultsCh:
+			if !ok {
+				t.Fatal("results closed without timeout error")
+			}
+		case err := <-errorsCh:
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "timed out after")
+			assert.Contains(t, err.Error(), provider)
+			return
+		case <-deadline:
+			t.Fatal("expected timeout error after partial provider output")
+		}
+	}
+}
+
+func TestCallInteractiveModeLegacyTimeoutEnv(t *testing.T) {
+	t.Setenv(providerTimeoutEnvVar, "")
+	t.Setenv(legacyInteractiveTimeoutEnvVar, "1") // 1 second
+	provider, err := createSleepingProvider(5 * time.Second)
+	assert.NoError(t, err)
+	defer os.Remove(provider)
+
+	secrets := secretsyml.SecretsMap{
+		"key1": secretsyml.SecretSpec{Path: "path"},
+	}
+	_, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+	defer cleanup()
+
+	select {
+	case err := <-errorsCh:
+		assert.Contains(t, err.Error(), "timed out after")
+	case <-time.After(4 * time.Second):
+		t.Fatal("expected legacy timeout")
+	}
+}
+
+func createSleepingProvider(d time.Duration) (string, error) {
+	tmpfile, err := os.CreateTemp("", "sleepprovider")
+	if err != nil {
+		return "", err
+	}
+	secs := int(d.Seconds())
+	if secs < 1 {
+		secs = 1
+	}
+	script := fmt.Sprintf("#!/bin/bash\nexec sleep %d\n", secs)
+	if _, err := tmpfile.Write([]byte(script)); err != nil {
+		return "", err
+	}
+	if err := tmpfile.Close(); err != nil {
+		return "", err
+	}
+	if err := os.Chmod(tmpfile.Name(), 0755); err != nil {
+		return "", err
+	}
+	return tmpfile.Name(), nil
 }
 
 func TestIsBuiltinTarget(t *testing.T) {
