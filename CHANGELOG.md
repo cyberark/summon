@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [0.13.0] - 2026-07-13
 
 ### Added
+- Suppress Linux core dumps at startup via `Setrlimit(RLIMIT_CORE)` (CNJR-13728)
 - External provider binaries time out via `SUMMON_PROVIDER_TIMEOUT` (Go duration,
   default 60s) on both one-shot and stream invocation paths (CNJR-13727)
 - Built-in Conjur provider validates authn-cert client certificate file paths at startup and surfaces configuration errors before authentication (CNJR-14097)

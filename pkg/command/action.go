@@ -17,6 +17,9 @@ import (
 	"github.com/urfave/cli"
 )
 
+// osExit is replaced in tests so Action can be exercised without ending the process.
+var osExit = os.Exit
+
 // configureDebugLogging sets up slog to output debug-level messages to the given writer.
 // It returns an error if the initial log write fails.
 func configureDebugLogging(w io.Writer) error {
@@ -40,19 +43,22 @@ var Action = func(c *cli.Context) {
 	if c.Bool("debug") {
 		if err := configureDebugLogging(os.Stderr); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(127)
+			osExit(127)
 		}
 	}
 
+	// Suppress core dumps before secrets enter process memory.
+	suppressCoreDumps()
+
 	if !c.Args().Present() && !c.Bool("all-provider-versions") {
 		fmt.Fprintln(os.Stderr, "Enter a subprocess to run!")
-		os.Exit(127)
+		osExit(127)
 	}
 
 	if c.Bool("all-provider-versions") {
 		if err := runPrintProviderVersions(); err != nil {
 			fmt.Fprintln(os.Stderr, err.Error())
-			os.Exit(127)
+			osExit(127)
 		}
 		return
 	}
@@ -62,7 +68,7 @@ var Action = func(c *cli.Context) {
 	providerInstance, err := prov.Resolve(providerArg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(127)
+		osExit(127)
 	}
 
 	slog.Debug("Using provider", "provider", providerInstance.Path())
@@ -82,10 +88,10 @@ var Action = func(c *cli.Context) {
 
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(127)
+		osExit(127)
 	}
 
-	os.Exit(code)
+	osExit(code)
 }
 
 func runPrintProviderVersions() error {

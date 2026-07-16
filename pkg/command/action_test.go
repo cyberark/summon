@@ -2,6 +2,7 @@ package command
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/urfave/cli"
 )
 
 func TestPrintProviderVersions(t *testing.T) {
@@ -27,11 +29,11 @@ func TestPrintProviderVersions(t *testing.T) {
 		output, err := printProviderVersions(pathToTest)
 		assert.NoError(t, err)
 
-		expected := `Provider versions in /summon/pkg/command/testversions:
+		expected := fmt.Sprintf(`Provider versions in %s:
 testprovider version 1.2.3
 testprovider-noversionsupport: unknown version
 testprovider-trailingnewline version 3.2.1
-`
+`, pathToTest)
 
 		assert.Equal(t, expected, output)
 	})
@@ -78,4 +80,41 @@ type failWriter struct{}
 
 func (fw *failWriter) Write(p []byte) (int, error) {
 	return 0, fmt.Errorf("write failed")
+}
+
+func TestAction_CallsSuppressCoreDumpsBeforeArgCheck(t *testing.T) {
+	originalApply := applyCoreDumpLimit
+	originalExit := osExit
+	defer func() {
+		applyCoreDumpLimit = originalApply
+		osExit = originalExit
+	}()
+
+	called := false
+	applyCoreDumpLimit = func() error {
+		called = true
+		return nil
+	}
+
+	exitCode := -1
+	// Production osExit is os.Exit (does not return). Panic here so Action can
+	// return control to the test after the missing-args path.
+	osExit = func(code int) {
+		exitCode = code
+		panic("osExit")
+	}
+
+	app := cli.NewApp()
+	app.Flags = Flags
+	set := flag.NewFlagSet("test", 0)
+	for _, f := range Flags {
+		f.Apply(set)
+	}
+	ctx := cli.NewContext(app, set, nil)
+
+	assert.PanicsWithValue(t, "osExit", func() {
+		Action(ctx)
+	})
+	assert.True(t, called, "suppressCoreDumps should run before the missing-args exit")
+	assert.Equal(t, 127, exitCode)
 }
