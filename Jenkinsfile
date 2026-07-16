@@ -58,8 +58,9 @@ pipeline {
   }
 
   triggers {
+    // H(1-5) staggers the release build to a single pseudo-random weekday (Mon-Fri) each week.
     parameterizedCron("""
-      ${getWeeklyCronString("H(0,6)", "%TEST_AZURE=true;TEST_GCP=true;TEST_SAAS=true")}
+      ${getDailyCronString("%TEST_AZURE=true;TEST_GCP=true;TEST_SAAS=true")}
       ${getWeeklyCronString("H(1-5)", "%MODE=RELEASE;TEST_AZURE=true;TEST_GCP=true;TEST_SAAS=true")}
     """)
   }
