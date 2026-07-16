@@ -72,3 +72,40 @@ function initEnvironment() {
 function getAdminApiKey() {
   exec_on conjur conjurctl role retrieve-key cucumber:user:admin
 }
+
+# prepareJWT starts mock-jwt-server and exports JWT + PUBLIC_KEYS for authn-jwt tests.
+# Curls from a one-off conjur container on the compose network (conjur server need not be up).
+function prepareJWT() {
+  docker compose up -d mock-jwt-server
+
+  local jwt=""
+  local attempts=0
+  while [[ -z "$jwt" && "$attempts" -lt 30 ]]; do
+    jwt="$(docker compose run -T --rm --no-deps --entrypoint curl conjur \
+      -sf "http://mock-jwt-server:8080/token" 2>/dev/null | jq -r .token 2>/dev/null || true)"
+    if [[ -z "$jwt" || "$jwt" == "null" ]]; then
+      jwt=""
+      echo "Waiting for mock JWT server to be ready..."
+      sleep 1
+      attempts=$((attempts + 1))
+    fi
+  done
+
+  if [[ -z "$jwt" ]]; then
+    echo "ERROR: mock-jwt-server did not return a token"
+    exit 1
+  fi
+
+  export JWT="$jwt"
+
+  local public_keys
+  public_keys="$(docker compose run -T --rm --no-deps --entrypoint curl conjur \
+    -sf "http://mock-jwt-server:8080/.well-known/jwks.json" || true)"
+  if [[ -z "$public_keys" ]] || ! printf '%s' "$public_keys" | jq -e . >/dev/null 2>&1; then
+    echo "ERROR: mock-jwt-server did not return valid JWKS JSON"
+    exit 1
+  fi
+  export PUBLIC_KEYS="$public_keys"
+
+  docker compose stop mock-jwt-server >/dev/null 2>&1 || true
+}

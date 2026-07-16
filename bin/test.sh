@@ -2,13 +2,16 @@
 
 export CONJUR_ACCOUNT=cucumber
 
-export REGISTRY_URL="${REGISTRY_URL:-${INFRAPOOL_REGISTRY_URL:-docker.io}}"
+# Conjur images only (see docker-compose.yml). Public images do not use this.
+export REGISTRY_URL="${REGISTRY_URL:-${INFRAPOOL_REGISTRY_URL:-registry.tld}}"
 
 source ./bin/functions.sh
 
 function finish {
   echo 'Removing environment'
   echo '-----'
+  # Drop decoded credentials even if prepareJWT / compose fails mid-run.
+  unset -v CONJUR_AUTHN_TOKEN JWT PUBLIC_KEYS 2>/dev/null || true
   if docker compose ps -q conjur 2>/dev/null | grep -q .; then
     mkdir -p output/integration
     docker compose logs conjur > output/integration/conjur-logs.txt 2>&1 || true
@@ -35,11 +38,17 @@ function failed {
 }
 
 function main() {
+  if [[ "${INFRAPOOL_TEST_SAAS}" == "true" ]]; then
+    runSaaSTests
+    return
+  fi
+
   startConjur
   initEnvironment
   prepareAWS
   prepareGCP
   prepareCertIfNeeded
+  prepareJWT
   runTests
 }
 
@@ -77,6 +86,46 @@ function prepareGCP() {
     export GCP_PROJECT_ID
     export GCP_ID_TOKEN
   fi
+}
+
+function runSaaSTests() {
+  export CONJUR_APPLIANCE_URL="${INFRAPOOL_CONJUR_APPLIANCE_URL}/api"
+  export CONJUR_ACCOUNT=conjur
+  export CONJUR_AUTHN_LOGIN="${INFRAPOOL_CONJUR_AUTHN_LOGIN}"
+  # printf avoids echo's trailing newline; strip any newline from the decoded token.
+  export CONJUR_AUTHN_TOKEN="$(printf '%s' "${INFRAPOOL_CONJUR_AUTHN_TOKEN}" | base64 --decode | tr -d '\n')"
+  export TEST_SAAS=true
+
+  prepareJWT
+
+  local arch="${TARGETARCH:-amd64_v1}"
+  local binarypath="dist/goreleaser/summon-linux_linux_${arch}/summon"
+
+  if [[ ! -f "${binarypath}" ]]; then
+    echo "ERROR: Pre-built summon binary not found at ${binarypath}"
+    echo "Build it first with: ./build --snapshot"
+    exit 1
+  fi
+
+  mkdir -p output/integration
+
+  docker compose build --pull \
+    --build-arg TARGETARCH="${TARGETARCH:-amd64_v1}" \
+    --build-arg BINARYPATH="${binarypath}" \
+    test
+
+  docker compose run --rm --no-deps \
+    -e CONJUR_APPLIANCE_URL \
+    -e CONJUR_ACCOUNT \
+    -e CONJUR_AUTHN_LOGIN \
+    -e CONJUR_AUTHN_TOKEN \
+    -e CONJUR_IGNORE_UNTRUSTED_SSL=true \
+    -e TEST_SAAS \
+    -e JWT \
+    -e PUBLIC_KEYS \
+    test ./bin/test-entrypoint.sh || failed
+
+  unset -v CONJUR_AUTHN_TOKEN JWT PUBLIC_KEYS
 }
 
 function runTests() {
@@ -146,6 +195,9 @@ function runTests() {
     -e CONJUR_AUTHN_CERT_KEY_FILE \
     -e TEST_CERT_CA_CERT \
     -e CONJUR_SSL_CERTIFICATE \
+    -e TEST_SAAS \
+    -e JWT \
+    -e PUBLIC_KEYS \
     "$service" || failed
 }
 

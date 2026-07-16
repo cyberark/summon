@@ -31,6 +31,7 @@ docker pull "${GORELEASER_IMAGE}"
 docker run --rm -t \
   --env GITHUB_TOKEN \
   --env GOTOOLCHAIN=auto \
+  --env GOFLAGS=-mod=mod \
   --env VERSION="${VERSION}" \
   --entrypoint "/sbin/tini" \
   -v "$CURRENT_DIR:$MOUNT_DIR" \
