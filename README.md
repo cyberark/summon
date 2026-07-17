@@ -419,6 +419,17 @@ considered privileged behavior. Changes to `secrets.yml` must not be made
 without extremely scrupulous security review, and Summon should not be allowed
 to be invoked by untrusted parties or in untrusted environments.
 
+### Core dumps (Linux)
+
+Core dumps can expose secret values and access tokens held in process memory.
+For production environments, disable core dumps at the deployment layer
+(for example `ulimit -c 0` in the shell, or `LimitCORE=0` in a systemd unit).
+
+On Linux, Summon also calls `Setrlimit(RLIMIT_CORE, 0)` at startup as
+defense-in-depth. If that call fails (for example `EPERM` in a rootless
+container), Summon logs a debug-level warning when `-d` / `--debug` is set and
+continues normally.
+
 ## Push-to-File
 
 `summon.files` lets you write resolved secrets directly to files rather than environment
