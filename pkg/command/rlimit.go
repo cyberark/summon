@@ -8,9 +8,10 @@ import "log/slog"
 var applyCoreDumpLimit = defaultApplyCoreDumpLimit
 
 // suppressCoreDumps attempts to disable core dumps for this process.
-// On failure it logs at debug level and continues; startup must not abort.
+// On failure it logs at Info level and continues; startup must not abort.
+// EPERM is normal in containers that restrict Setrlimit at the host level.
 func suppressCoreDumps() {
 	if err := applyCoreDumpLimit(); err != nil {
-		slog.Debug("Failed to suppress core dumps via Setrlimit; continuing", "error", err)
+		slog.Info("Failed to suppress core dumps via Setrlimit; continuing", "error", err)
 	}
 }

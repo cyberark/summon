@@ -22,13 +22,13 @@ func TestSuppressCoreDumps(t *testing.T) {
 			wantLog:  false,
 		},
 		{
-			name:     "failure logs at debug and continues",
+			name:     "failure logs at info and continues",
 			limitErr: errors.New("operation not permitted"),
 			wantLog:  true,
 			wantSubstr: []string{
 				"Failed to suppress core dumps via Setrlimit; continuing",
 				"operation not permitted",
-				"level=DEBUG",
+				"level=INFO",
 			},
 		},
 	}
@@ -42,7 +42,7 @@ func TestSuppressCoreDumps(t *testing.T) {
 			defer slog.SetDefault(slog.New(originalHandler))
 
 			var buf bytes.Buffer
-			slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug})))
+			slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
 			applyCoreDumpLimit = func() error {
 				return tc.limitErr
