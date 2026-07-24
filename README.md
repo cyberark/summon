@@ -102,6 +102,10 @@ The provider loads configuration from:
 | `CONJUR_CERT_FILE` | Path to the Conjur SSL certificate file |
 | `CONJUR_SSL_CERTIFICATE` | PEM-encoded SSL certificate (inline) |
 
+> **SSL certificate precedence:** when both `CONJUR_SSL_CERTIFICATE` and `CONJUR_CERT_FILE` are set,
+> `CONJUR_SSL_CERTIFICATE` (inline PEM) takes precedence over `CONJUR_CERT_FILE`. Only set one to
+> avoid confusion.
+
 ##### Authentication
 
 | Variable | Description |
