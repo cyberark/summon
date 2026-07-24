@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Skip provider invocation when all secrets.yml entries are literals; previously summon would start the provider binary with no secrets to fetch, hanging indefinitely on providers that wait for stdin input (CNJR-14597)
 - Emit `slog.Warn` when a double-quoted YAML literal contains an embedded newline from a `\n` escape (CNJR-14597)
 - Return "authentication failed: authenticator not found" instead of "variable not found" when a 404 comes from an auth endpoint (e.g. JWT webservice not configured in Conjur policy) (CNJR-14597)
+- Apply `DefaultValue` for literal specs with an empty path so `!str:default='fallback'` entries inject the fallback value instead of an empty string (CNJR-14597)
 
 ## [0.12.0] - 2026-04-14
 

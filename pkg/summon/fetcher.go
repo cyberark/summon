@@ -111,7 +111,11 @@ func filterNonVariables(secrets secretsyml.SecretsMap, tempFactory *TempFactory)
 		if spec.IsVar() {
 			filteredSecrets[key] = spec
 		} else {
-			k, v, err := formatForEnv(key, spec.Path, spec, tempFactory)
+			value := spec.Path
+			if value == "" && spec.DefaultValue != "" {
+				value = spec.DefaultValue
+			}
+			k, v, err := formatForEnv(key, value, spec, tempFactory)
 			var result prov.Result
 			if err != nil {
 				result = prov.Result{Key: key, Value: "", Error: err}
