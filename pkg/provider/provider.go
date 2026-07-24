@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cyberark/summon/pkg/conjurprovider"
@@ -96,9 +97,9 @@ func Resolve(providerArg string) (Provider, error) {
 		if err != nil {
 			return nil, err
 		}
-		providers, _ := os.ReadDir(defaultPath)
+		providers, _ := GetAllProviders(defaultPath)
 		if len(providers) == 1 {
-			provider = providers[0].Name()
+			provider = providers[0]
 		} else if len(providers) > 1 {
 			return nil, fmt.Errorf("more than one provider found in %s, please specify one with --provider or $SUMMON_PROVIDER", defaultPath)
 		}
@@ -141,10 +142,15 @@ func Call(provider, specPath string) (string, error) {
 	cmd := exec.CommandContext(ctx, provider, specPath)
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
+	setCallProcessGroup(cmd, timeout)
 	err := cmd.Run()
 
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded {
+		if ctx.Err() == context.DeadlineExceeded || errors.Is(err, exec.ErrWaitDelay) {
+			// Either the context deadline fired (direct child was killed but a
+			// grandchild may still be running) or WaitDelay force-closed the pipe
+			// because a grandchild outlived the direct child. Both cases mean the
+			// provider exceeded its wall-clock budget.
 			return "", providerTimeoutError(provider, timeout)
 		}
 		errstr := err.Error()
@@ -255,6 +261,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	ctxTimeout, ctxCancel := context.WithTimeout(context.Background(), timeout)
 
 	cmd := exec.CommandContext(ctxTimeout, provider)
+	setCallProcessGroup(cmd, timeout)
 
 	// Get a pipe to the command's stdinPipe
 	stdinPipe, err := cmd.StdinPipe()
@@ -281,11 +288,28 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 		}
 	}
 
+	// doWait calls cmd.Wait() exactly once across both cleanup and the
+	// context-watching goroutine below. cmd.Wait() is required for WaitDelay
+	// to activate: without it the Go runtime never force-closes the I/O
+	// pipes, so a grandchild holding the stdout pipe open causes the reader
+	// goroutine to block indefinitely past the deadline.
+	//
+	// cmd.Wait() returns "exec: not started" when Process is nil (Start
+	// failed), which is harmless — we discard the error. This ensures Wait
+	// is always attempted regardless of call-site ordering.
+	var waitOnce sync.Once
+	doWait := func() {
+		waitOnce.Do(func() {
+			_ = cmd.Wait()
+		})
+	}
+
 	cleanup := func() {
 		stdinPipe.Close()
 		stdoutPipe.Close()
 		stderrPipe.Close()
 		ctxCancel()
+		doWait()
 	}
 
 	err = cmd.Start()
@@ -294,6 +318,17 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 		errorsCh <- err
 		return resultsCh, errorsCh, cleanup
 	}
+
+	// When the context deadline fires, exec.CommandContext kills the direct
+	// child but not grandchildren in the same process group. Call cmd.Wait()
+	// immediately so WaitDelay can force-close the stdout pipe if a
+	// grandchild holds it open — otherwise the reader goroutine below blocks
+	// indefinitely, preventing handleResultsFromProvider from returning and
+	// cleanup() from ever being reached.
+	go func() {
+		<-ctxTimeout.Done()
+		doWait()
+	}()
 
 	secretEnvVarCh := make(chan string, len(secrets))
 
@@ -459,8 +494,11 @@ func GetDefaultPath() (string, error) {
 		"	C:\\Program Files\\Cyberark Conjur\\Summon\\Providers")
 }
 
-// GetAllProviders returns the names of executable files in providerDir.
-// Directories and files without any execute bit set are silently skipped.
+// GetAllProviders returns the names of provider files in providerDir.
+// Directories are always skipped. Whether a non-directory entry qualifies as a
+// provider is determined by isProviderFile, which is platform-specific:
+// on Unix it requires at least one execute bit; on Windows all regular files
+// qualify because Windows does not expose execute bits via FileMode.
 func GetAllProviders(providerDir string) ([]string, error) {
 	entries, err := os.ReadDir(providerDir)
 	if err != nil {
@@ -470,13 +508,23 @@ func GetAllProviders(providerDir string) ([]string, error) {
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if entry.Type().IsDir() {
+			slog.Debug("Skipping provider directory entry", "name", entry.Name(), "reason", "is a directory")
 			continue
 		}
-		info, err := entry.Info()
+		// Use os.Stat (follows symlinks) so a symlink to a directory or
+		// non-executable target is correctly excluded rather than passing
+		// the Lstat-mode check that always returns 0777 for symlinks.
+		info, err := os.Stat(filepath.Join(providerDir, entry.Name()))
 		if err != nil {
+			slog.Debug("Skipping provider directory entry", "name", entry.Name(), "reason", "not readable", "error", err)
 			continue
 		}
-		if info.Mode()&0111 == 0 {
+		if info.IsDir() {
+			slog.Debug("Skipping provider directory entry", "name", entry.Name(), "reason", "resolves to a directory")
+			continue
+		}
+		if !isProviderFile(info) {
+			slog.Debug("Skipping provider directory entry", "name", entry.Name(), "reason", "not executable")
 			continue
 		}
 		names = append(names, entry.Name())

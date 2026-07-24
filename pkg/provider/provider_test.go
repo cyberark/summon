@@ -647,6 +647,68 @@ func TestCallInteractiveModeLegacyTimeoutEnv(t *testing.T) {
 	}
 }
 
+func TestCall_WallClockEnforcedWithForkingProvider(t *testing.T) {
+	// Verify that SUMMON_PROVIDER_TIMEOUT bounds wall-clock time even when the
+	// provider forks a grandchild that keeps the stdout pipe open.
+	// Without Setpgid + WaitDelay, exec.CommandContext sends SIGKILL only to
+	// the direct child; the grandchild holds the pipe and cmd.Wait blocks.
+	t.Setenv(providerTimeoutEnvVar, "500ms")
+
+	providerDir := t.TempDir()
+	providerPath := filepath.Join(providerDir, "forking-provider")
+	// The provider forks a long-running grandchild then exits without writing.
+	// The grandchild inherits the stdout pipe reference; without process-group
+	// kill, the pipe would stay open and Call would hang past the deadline.
+	script := "#!/bin/bash\nsleep 60 &\n"
+	require.NoError(t, os.WriteFile(providerPath, []byte(script), 0o755))
+
+	start := time.Now()
+	_, err := Call(providerPath, "any-secret")
+	elapsed := time.Since(start)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "timed out after")
+	// Allow generous headroom for scheduling jitter, but enforce that we do
+	// return and do not block indefinitely.
+	assert.Less(t, elapsed, 5*time.Second,
+		"Call should not block indefinitely when a grandchild holds the pipe")
+}
+
+func TestCallInteractiveMode_WallClockEnforcedWithForkingProvider(t *testing.T) {
+	// Verify that SUMMON_PROVIDER_TIMEOUT bounds wall-clock time in interactive
+	// mode even when the provider forks a grandchild that keeps the stdout pipe
+	// open after the direct child exits.
+	// Without cmd.Wait() being called from the context-watching goroutine,
+	// WaitDelay never activates — the grandchild holds the pipe and the reader
+	// goroutine blocks indefinitely, preventing cleanup from ever being reached.
+	t.Setenv(providerTimeoutEnvVar, "500ms")
+
+	providerDir := t.TempDir()
+	providerPath := filepath.Join(providerDir, "forking-provider")
+	// Provider forks a long-running grandchild then exits without writing to
+	// stdout. The grandchild inherits the stdout write-end; without WaitDelay
+	// the reader goroutine blocks for the full grandchild lifetime.
+	script := "#!/bin/bash\nsleep 60 &\n"
+	require.NoError(t, os.WriteFile(providerPath, []byte(script), 0o755))
+
+	secrets := secretsyml.SecretsMap{
+		"ANY": {Tags: []secretsyml.YamlTag{secretsyml.Var}, Path: "some/secret"},
+	}
+
+	start := time.Now()
+	resultsCh, errorsCh, cleanup := CallInteractiveMode(providerPath, secrets)
+	defer cleanup()
+
+	select {
+	case <-resultsCh:
+	case <-errorsCh:
+	}
+	elapsed := time.Since(start)
+
+	assert.Less(t, elapsed, 5*time.Second,
+		"CallInteractiveMode should not block indefinitely when a grandchild holds the pipe")
+}
+
 func createSleepingProvider(d time.Duration) (string, error) {
 	tmpfile, err := os.CreateTemp("", "sleepprovider")
 	if err != nil {
