@@ -561,6 +561,16 @@ func TestFilterConjurEnv(t *testing.T) {
 			input:    []string{"conjur_account=myorg", "CONJUR_ACCOUNT=myorg"},
 			expected: []string{"conjur_account=myorg"},
 		},
+		{
+			name:     "removes JWT_TOKEN_PATH (deny-list entry without CONJUR_ prefix)",
+			input:    []string{"JWT_TOKEN_PATH=/var/run/secrets/token", "HOME=/root", "CONJUR_ACCOUNT=org"},
+			expected: []string{"HOME=/root"},
+		},
+		{
+			name:     "does not remove partial match JWT_TOKEN_PATH_EXTRA",
+			input:    []string{"JWT_TOKEN_PATH_EXTRA=/foo", "JWT_TOKEN_PATH=/bar"},
+			expected: []string{"JWT_TOKEN_PATH_EXTRA=/foo"},
+		},
 	}
 
 	for _, tc := range tests {
