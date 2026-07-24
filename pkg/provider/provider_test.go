@@ -12,6 +12,7 @@ import (
 
 	"github.com/cyberark/summon/pkg/secretsyml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultPortableProviderPath(t *testing.T) {
@@ -301,6 +302,25 @@ func TestGetAllProviders(t *testing.T) {
 	expected[2] = "testprovider-trailingnewline"
 
 	assert.EqualValues(t, output, expected)
+}
+
+func TestGetAllProviders_FiltersNonExecutables(t *testing.T) {
+	dir := t.TempDir()
+
+	writeFile := func(name string, mode os.FileMode) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"), mode))
+	}
+
+	writeFile("executable-provider", 0o755)
+	writeFile("also-executable", 0o111)
+	writeFile("not-executable.txt", 0o644)
+	writeFile("no-perms", 0o000)
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "a-directory"), 0o755))
+
+	names, err := GetAllProviders(dir)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"executable-provider", "also-executable"}, names)
 }
 
 func TestGetAllProvidersWithBadPath(t *testing.T) {

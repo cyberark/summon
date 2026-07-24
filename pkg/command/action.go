@@ -108,6 +108,22 @@ func runPrintProviderVersions() error {
 	return nil
 }
 
+// providerVersionTimeout returns the deadline applied to each binary invoked
+// during --all-provider-versions. It reads SUMMON_PROVIDER_VERSION_TIMEOUT
+// (a Go duration string); invalid or unset values fall back to 5s.
+func providerVersionTimeout() time.Duration {
+	const defaultVersionTimeout = 5 * time.Second
+	s := os.Getenv("SUMMON_PROVIDER_VERSION_TIMEOUT")
+	if s == "" {
+		return defaultVersionTimeout
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil || d <= 0 {
+		return defaultVersionTimeout
+	}
+	return d
+}
+
 // printProviderVersions returns a string of all provider versions
 func printProviderVersions(providerPath string) (string, error) {
 	var providerVersions bytes.Buffer
@@ -119,8 +135,11 @@ func printProviderVersions(providerPath string) (string, error) {
 		return "", err
 	}
 
+	timeout := providerVersionTimeout()
 	for _, provider := range providers {
-		version, err := exec.Command(filepath.Join(providerPath, provider), "--version").Output()
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		version, err := exec.CommandContext(ctx, filepath.Join(providerPath, provider), "--version").Output()
+		cancel()
 		if err != nil {
 			fmt.Fprintf(&providerVersions, "%s: unknown version\n", provider)
 			continue

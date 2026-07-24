@@ -459,16 +459,27 @@ func GetDefaultPath() (string, error) {
 		"	C:\\Program Files\\Cyberark Conjur\\Summon\\Providers")
 }
 
-// GetAllProviders creates slice of all file names in the default path
+// GetAllProviders returns the names of executable files in providerDir.
+// Directories and files without any execute bit set are silently skipped.
 func GetAllProviders(providerDir string) ([]string, error) {
-	files, err := os.ReadDir(providerDir)
+	entries, err := os.ReadDir(providerDir)
 	if err != nil {
 		return nil, err
 	}
 
-	names := make([]string, len(files))
-	for i, file := range files {
-		names[i] = file.Name()
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Type().IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		if info.Mode()&0111 == 0 {
+			continue
+		}
+		names = append(names, entry.Name())
 	}
 	return names, nil
 }
