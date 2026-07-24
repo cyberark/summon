@@ -115,6 +115,10 @@ func TestAuthnTokenEnvVar(t *testing.T) {
 		assert.Error(t, err)
 		assert.NotContains(t, stderr.String(), invalidToken,
 			"raw token must not appear in stderr")
+		// CNJR-14594: conjur-api-go names the problem variable in the error so
+		// operators know which env var to fix without seeing the token value.
+		assert.Contains(t, stderr.String(), "CONJUR_AUTHN_TOKEN",
+			"error should identify the malformed token variable by name")
 	})
 }
 
