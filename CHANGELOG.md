@@ -8,23 +8,35 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.13.0] - 2026-07-13
 
+### Security
+- Scrub `JWT_TOKEN_PATH` and `CONJURRC` from child process environments to prevent credential path leakage to the child program (CNJR-14597)
+
 ### Added
 - Suppress Linux core dumps at startup via `Setrlimit(RLIMIT_CORE)` (CNJR-13728)
 - External provider binaries time out via `SUMMON_PROVIDER_TIMEOUT` (Go duration,
   default 60s) on both one-shot and stream invocation paths (CNJR-13727)
 - Built-in Conjur provider validates authn-cert client certificate file paths at startup and surfaces configuration errors before authentication (CNJR-14097)
+- Filter non-executable files from the default provider directory so summon ignores scripts or data files that are not runnable providers (CNJR-14597)
+- Add `SUMMON_PROVIDER_VERSION_TIMEOUT` (Go duration, default 5s) to cap each provider binary invoked during `--all-provider-versions`; slow binaries no longer block the version listing indefinitely (CNJR-14597)
+- Validate `CONJUR_NETRC_PATH` is a regular file before loading Conjur config; surfaces a clear configuration error if the path is a directory or does not exist (CNJR-14597)
+- Document `CONJUR_SSL_CERTIFICATE` vs `CONJUR_CERT_FILE` precedence (inline PEM wins) in README (CNJR-14597)
 
 ### Changed
 - Stream/interactive mode prefers `SUMMON_PROVIDER_TIMEOUT`; `CONJUR_HTTP_TIMEOUT`
   (integer seconds) remains a deprecated stream-only fallback for provider binary
   deadlines and is unchanged as the built-in Conjur HTTP timeout (CNJR-13727)
 - Built-in Conjur provider defaults to read-only credential storage mode so new invocations do not write to shared keychain or netrc; set `CONJUR_CREDENTIAL_STORAGE_MODE=readwrite` to restore write caching (CNJR-13619)
+- Provider timeout (`SUMMON_PROVIDER_TIMEOUT`) now bounds wall-clock time even when the provider forks grandchild processes; uses process-group signals and `WaitDelay` so the pipe is force-closed if a grandchild outlives the deadline (CNJR-14597)
+- Signals to the child program are now delivered to its entire process group so grandchildren do not outlive the child (CNJR-14597)
 
 ### Fixed
 - Fix `format: properties` to emit Java-compatible unquoted values instead of Go `%q` quoting
   ([cyberark/summon#264](https://github.com/cyberark/summon/issues/264), CNJR-14251)
 - Fix built-in Conjur provider dispatch so fetch matches `Path()` (`conjur (built-in)`) and uses the short-circuit path (CNJR-13496)
 - Unset `CONJUR_*` credentials in Summon's process space before exec (CNJR-13496)
+- Skip provider invocation when all secrets.yml entries are literals; previously summon would start the provider binary with no secrets to fetch, hanging indefinitely on providers that wait for stdin input (CNJR-14597)
+- Emit `slog.Warn` when a double-quoted YAML literal contains an embedded newline from a `\n` escape (CNJR-14597)
+- Return "authentication failed: authenticator not found" instead of "variable not found" when a 404 comes from an auth endpoint (e.g. JWT webservice not configured in Conjur policy) (CNJR-14597)
 
 ## [0.12.0] - 2026-04-14
 
