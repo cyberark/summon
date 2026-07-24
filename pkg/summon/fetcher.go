@@ -36,6 +36,14 @@ func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFacto
 		return append(results, builtinResults...), nil
 	}
 
+	// Skip provider invocation entirely when there are no variable secrets to fetch.
+	// CallInteractiveMode would start the provider binary but never write to its stdin,
+	// blocking indefinitely until a timeout fires.
+	if len(filteredSecrets) == 0 {
+		slog.Debug("No variable secrets to fetch; skipping provider invocation", "provider", sc.Provider)
+		return results, nil
+	}
+
 	// External provider: try interactive mode first, fall back to non-interactive.
 	resultsCh, errorsCh, cleanup := prov.CallInteractiveMode(sc.Provider, filteredSecrets)
 	defer cleanup()
