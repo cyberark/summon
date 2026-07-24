@@ -188,6 +188,32 @@ func TestFetchSecret(t *testing.T) {
 		assert.Equal(t, []byte{}, got)
 	})
 
+	t.Run("authenticator not found (404 with Details) returns authentication-failed error", func(t *testing.T) {
+		// A 404 from the auth endpoint (JWT webservice not configured) carries a
+		// structured body with Details. Without the tightened guard, summon would
+		// say "variable not found" which misleads the operator.
+		conjurErr := &response.ConjurError{
+			Code:    404,
+			Message: "Not Found",
+			Details: &response.ConjurErrorDetails{
+				Code:    "CONJ00036E",
+				Message: "Webservice conjur/acct:webservice:conjur/authn-jwt/myservice is not found",
+			},
+		}
+		provider := NewWithClient(&mockConjurClient{
+			retrieveSecret: func(_ string) ([]byte, error) {
+				return nil, conjurErr
+			},
+		})
+
+		_, err := provider.FetchSecret("path/to/var")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "authentication failed")
+		assert.Contains(t, err.Error(), "authenticator not found")
+		assert.NotContains(t, err.Error(), "variable")
+	})
+
 	t.Run("auth failure (401) returns error", func(t *testing.T) {
 		conjurErr := &response.ConjurError{Code: 401, Message: "Unauthorized"}
 		provider := NewWithClient(&mockConjurClient{

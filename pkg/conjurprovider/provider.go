@@ -107,6 +107,13 @@ func (p *ConjurProvider) FetchSecret(varID string) ([]byte, error) {
 	if err != nil {
 		var conjurErr *response.ConjurError
 		if errors.As(err, &conjurErr) && conjurErr.Code == 404 {
+			// CONJ00036E is Conjur's canonical "authenticator webservice not found
+			// in policy" code. Matching on the code rather than Details != nil
+			// prevents future Conjur versions that return structured bodies for
+			// variable-not-found 404s from being misclassified as auth failures.
+			if conjurErr.Details != nil && conjurErr.Details.Code == "CONJ00036E" {
+				return nil, fmt.Errorf("authentication failed: authenticator not found or not enabled — check Conjur policy: %w", err)
+			}
 			return nil, fmt.Errorf("secret retrieval failed: variable '%s' not found or inaccessible", varID)
 		}
 		// Security: same rationale as New() — ConjurError.Error() returns only
