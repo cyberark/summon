@@ -148,6 +148,7 @@ func clearConjurEnvFromProcess() {
 // These are auth-related variables that do not share the CONJUR_ prefix.
 var conjurEnvDenyList = []string{
 	"JWT_TOKEN_PATH",
+	"CONJURRC",
 }
 
 // filterConjurEnv returns a copy of env with Conjur auth variables removed.

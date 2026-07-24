@@ -571,6 +571,11 @@ func TestFilterConjurEnv(t *testing.T) {
 			input:    []string{"JWT_TOKEN_PATH_EXTRA=/foo", "JWT_TOKEN_PATH=/bar"},
 			expected: []string{"JWT_TOKEN_PATH_EXTRA=/foo"},
 		},
+		{
+			name:     "removes CONJURRC (deny-list entry without CONJUR_ prefix)",
+			input:    []string{"CONJURRC=/home/user/.conjurrc", "HOME=/root"},
+			expected: []string{"HOME=/root"},
+		},
 	}
 
 	for _, tc := range tests {
