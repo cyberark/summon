@@ -619,6 +619,39 @@ summon.files:
 	}
 }
 
+func TestParseFromString_LiteralNewlineWarning(t *testing.T) {
+	t.Run("warns when a double-quoted literal contains an embedded newline", func(t *testing.T) {
+		// yaml.v3 expands \n in double-quoted scalars to an actual newline.
+		// ParseFromString should still succeed; the warning goes to slog.
+		yaml := `GREETING: "hello\nworld"`
+		config, err := ParseFromString(yaml, "", nil)
+		assert.NoError(t, err)
+		spec := config.EnvSecrets["GREETING"]
+		// The value contains a real newline after YAML parsing.
+		assert.Contains(t, spec.Path, "\n")
+		assert.True(t, spec.IsLiteral())
+	})
+
+	t.Run("no warning for single-quoted literal (no escape expansion)", func(t *testing.T) {
+		yaml := "GREETING: 'hello\\nworld'"
+		config, err := ParseFromString(yaml, "", nil)
+		assert.NoError(t, err)
+		spec := config.EnvSecrets["GREETING"]
+		// Single-quoted: backslash-n is literal, not a newline.
+		assert.NotContains(t, spec.Path, "\n")
+		assert.Contains(t, spec.Path, `\n`)
+	})
+
+	t.Run("no warning for !var tag even with double-quoted value", func(t *testing.T) {
+		yaml := `SECRET: !var "path/to/secret"`
+		config, err := ParseFromString(yaml, "", nil)
+		assert.NoError(t, err)
+		spec := config.EnvSecrets["SECRET"]
+		assert.True(t, spec.IsVar())
+		assert.False(t, spec.IsLiteral())
+	})
+}
+
 func TestSetYAML_EdgeCases(t *testing.T) {
 	t.Run("Unknown value type", func(t *testing.T) {
 		spec := SecretSpec{}
