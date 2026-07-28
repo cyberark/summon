@@ -27,6 +27,7 @@ func runSubcommand(command []string, env []string) error {
 	runner.Stdout = os.Stdout
 	runner.Stderr = os.Stderr
 	runner.Env = env
+	setProcessGroup(runner)
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel)
@@ -36,10 +37,12 @@ func runSubcommand(command []string, env []string) error {
 		return startErr
 	}
 
+	pgid := getProcessGroupID(runner.Process.Pid)
 	done := make(chan struct{})
 
-	// Forward all signals to the child process, with escalation for
-	// termination signals: a second SIGINT/SIGTERM/SIGHUP sends SIGKILL.
+	// Forward all signals to the child's process group, with escalation for
+	// termination signals: a second SIGINT/SIGTERM/SIGHUP sends SIGKILL to
+	// the group, ensuring grandchildren do not outlive the deadline.
 	go func() {
 		receivedTermination := false
 		for {
@@ -47,13 +50,13 @@ func runSubcommand(command []string, env []string) error {
 			case sig := <-signalChannel:
 				if isTermSignal(sig) {
 					if receivedTermination {
-						// Second termination signal: force-kill the child
-						runner.Process.Signal(syscall.SIGKILL)
+						// Second termination signal: force-kill the entire group.
+						forwardSignalToGroup(runner.Process, pgid, syscall.SIGKILL)
 						return
 					}
 					receivedTermination = true
 				}
-				runner.Process.Signal(sig)
+				forwardSignalToGroup(runner.Process, pgid, sig)
 			case <-done:
 				return
 			}

@@ -122,7 +122,8 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 }
 
 // clearConjurEnvFromProcess unsets every environment variable whose key starts
-// with "CONJUR_" in the current process. Safe to call more than once.
+// with "CONJUR_" or is in conjurEnvDenyList in the current process.
+// Safe to call more than once.
 func clearConjurEnvFromProcess() {
 	for _, entry := range os.Environ() {
 		key, _, ok := strings.Cut(entry, "=")
@@ -131,17 +132,42 @@ func clearConjurEnvFromProcess() {
 		}
 		if strings.HasPrefix(key, "CONJUR_") {
 			_ = os.Unsetenv(key)
+			continue
+		}
+		for _, deny := range conjurEnvDenyList {
+			if key == deny {
+				_ = os.Unsetenv(key)
+				break
+			}
 		}
 	}
 }
 
-// filterConjurEnv returns a copy of env with all entries whose key starts with
-// "CONJUR_" removed. This prevents the built-in Conjur provider credentials
-// (e.g. CONJUR_ACCOUNT, CONJUR_AUTHN_TOKEN) from leaking into the child process.
+// conjurEnvDenyList contains exact variable names that must be stripped from the
+// child process environment in addition to any CONJUR_-prefixed variables.
+// These are auth-related variables that do not share the CONJUR_ prefix.
+var conjurEnvDenyList = []string{
+	"JWT_TOKEN_PATH",
+	"CONJURRC",
+}
+
+// filterConjurEnv returns a copy of env with Conjur auth variables removed.
+// Strips all CONJUR_-prefixed entries plus every key in conjurEnvDenyList.
 func filterConjurEnv(env []string) []string {
 	filtered := make([]string, 0, len(env))
 	for _, entry := range env {
-		if !strings.HasPrefix(entry, "CONJUR_") {
+		key, _, _ := strings.Cut(entry, "=")
+		if strings.HasPrefix(key, "CONJUR_") {
+			continue
+		}
+		denied := false
+		for _, deny := range conjurEnvDenyList {
+			if key == deny {
+				denied = true
+				break
+			}
+		}
+		if !denied {
 			filtered = append(filtered, entry)
 		}
 	}

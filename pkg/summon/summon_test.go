@@ -561,6 +561,21 @@ func TestFilterConjurEnv(t *testing.T) {
 			input:    []string{"conjur_account=myorg", "CONJUR_ACCOUNT=myorg"},
 			expected: []string{"conjur_account=myorg"},
 		},
+		{
+			name:     "removes JWT_TOKEN_PATH (deny-list entry without CONJUR_ prefix)",
+			input:    []string{"JWT_TOKEN_PATH=/var/run/secrets/token", "HOME=/root", "CONJUR_ACCOUNT=org"},
+			expected: []string{"HOME=/root"},
+		},
+		{
+			name:     "does not remove partial match JWT_TOKEN_PATH_EXTRA",
+			input:    []string{"JWT_TOKEN_PATH_EXTRA=/foo", "JWT_TOKEN_PATH=/bar"},
+			expected: []string{"JWT_TOKEN_PATH_EXTRA=/foo"},
+		},
+		{
+			name:     "removes CONJURRC (deny-list entry without CONJUR_ prefix)",
+			input:    []string{"CONJURRC=/home/user/.conjurrc", "HOME=/root"},
+			expected: []string{"HOME=/root"},
+		},
 	}
 
 	for _, tc := range tests {
@@ -687,6 +702,43 @@ func TestFetchSecretsDispatch(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, results, 2)
 		assert.Equal(t, int32(2), fetchCount.Load())
+	})
+
+	t.Run("literal-only secrets skip provider invocation entirely", func(t *testing.T) {
+		// When all secrets are literals, filteredSecrets is empty. Without the
+		// guard, CallInteractiveMode starts the provider binary with nothing to
+		// write to its stdin — providers that wait for stdin input hang forever.
+		// With the guard, fetchSecrets returns immediately.
+		//
+		// Use a real executable that exits non-zero to confirm the provider is
+		// not invoked: if it were, interactive mode would fail and the fallback
+		// would still return the literal values — but any var-type FetchSecret
+		// call would never happen either way. The key correctness check is that
+		// results are returned without error.
+		providerDir := t.TempDir()
+		providerPath := filepath.Join(providerDir, "slow-provider")
+		require.NoError(t, os.WriteFile(providerPath,
+			[]byte("#!/bin/sh\nsleep 60\n"), 0o755))
+
+		secrets := secretsyml.SecretsMap{
+			"GREETING": {Path: "hello", Tags: []secretsyml.YamlTag{secretsyml.Literal}},
+			"FAREWELL": {Path: "bye", Tags: []secretsyml.YamlTag{secretsyml.Literal}},
+		}
+		sc := &SubprocessConfig{
+			Provider:    providerPath,
+			FetchSecret: func(_ string) ([]byte, error) { return nil, nil },
+		}
+
+		results, err := fetchSecrets(secrets, sc, &TempFactory{})
+
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+		keys := make([]string, 0, len(results))
+		for _, r := range results {
+			keys = append(keys, r.Key)
+			assert.NoError(t, r.Error)
+		}
+		assert.ElementsMatch(t, []string{"GREETING", "FAREWELL"}, keys)
 	})
 }
 

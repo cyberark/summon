@@ -4,6 +4,7 @@ package conjurprovider
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/cyberark/conjur-api-go/conjurapi/response"
@@ -37,11 +38,33 @@ type ConjurProvider struct {
 // configuration from the environment. Credential storage mode defaults to
 // ReadOnly unless the operator sets CONJUR_CREDENTIAL_STORAGE_MODE.
 func loadConjurConfig() (conjurapi.Config, error) {
+	if err := validateNetrcPath(); err != nil {
+		return conjurapi.Config{}, err
+	}
 	// conjur-api-go's WithDefaultCredentialStorageMode is a package-level setter
 	// (no return value), not a functional option. LoadConfig reads the default
 	// when CONJUR_CREDENTIAL_STORAGE_MODE is unset.
 	conjurapi.WithDefaultCredentialStorageMode(conjurapi.CredentialStorageModeReadOnly)
 	return conjurapi.LoadConfig()
+}
+
+// validateNetrcPath checks CONJUR_NETRC_PATH when set and returns a
+// configuration error if the path does not refer to a regular file.
+// This prevents conjur-api-go from emitting a misleading OIDC error
+// when the operator points the variable at a directory by mistake.
+func validateNetrcPath() error {
+	path := os.Getenv("CONJUR_NETRC_PATH")
+	if path == "" {
+		return nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("configuration error: CONJUR_NETRC_PATH is not accessible: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("configuration error: CONJUR_NETRC_PATH is not a regular file: %s", path)
+	}
+	return nil
 }
 
 // New loads Conjur configuration from the environment and creates a
@@ -84,6 +107,13 @@ func (p *ConjurProvider) FetchSecret(varID string) ([]byte, error) {
 	if err != nil {
 		var conjurErr *response.ConjurError
 		if errors.As(err, &conjurErr) && conjurErr.Code == 404 {
+			// CONJ00036E is Conjur's canonical "authenticator webservice not found
+			// in policy" code. Matching on the code rather than Details != nil
+			// prevents future Conjur versions that return structured bodies for
+			// variable-not-found 404s from being misclassified as auth failures.
+			if conjurErr.Details != nil && conjurErr.Details.Code == "CONJ00036E" {
+				return nil, fmt.Errorf("authentication failed: authenticator not found or not enabled — check Conjur policy: %w", err)
+			}
 			return nil, fmt.Errorf("secret retrieval failed: variable '%s' not found or inaccessible", varID)
 		}
 		// Security: same rationale as New() — ConjurError.Error() returns only

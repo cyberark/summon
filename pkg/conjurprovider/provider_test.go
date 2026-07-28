@@ -1,6 +1,7 @@
 package conjurprovider
 
 import (
+	"os"
 	"testing"
 
 	conjurapi "github.com/cyberark/conjur-api-go/conjurapi"
@@ -52,6 +53,39 @@ func TestLoadConjurConfigCredentialStorageMode(t *testing.T) {
 				assert.Equal(t, tc.want, cfg.CredentialStorageMode)
 			})
 		}
+	})
+}
+
+// ---- validateNetrcPath ----
+
+func TestValidateNetrcPath(t *testing.T) {
+	t.Run("no-op when CONJUR_NETRC_PATH is unset", func(t *testing.T) {
+		t.Setenv("CONJUR_NETRC_PATH", "")
+		assert.NoError(t, validateNetrcPath())
+	})
+
+	t.Run("no error when path points to a regular file", func(t *testing.T) {
+		f, err := os.CreateTemp(t.TempDir(), "netrc-*")
+		require.NoError(t, err)
+		f.Close()
+		t.Setenv("CONJUR_NETRC_PATH", f.Name())
+		assert.NoError(t, validateNetrcPath())
+	})
+
+	t.Run("configuration error when path is a directory", func(t *testing.T) {
+		t.Setenv("CONJUR_NETRC_PATH", t.TempDir())
+		err := validateNetrcPath()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error")
+		assert.Contains(t, err.Error(), "not a regular file")
+	})
+
+	t.Run("configuration error when path does not exist", func(t *testing.T) {
+		t.Setenv("CONJUR_NETRC_PATH", "/nonexistent/path/to/netrc")
+		err := validateNetrcPath()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error")
+		assert.Contains(t, err.Error(), "not accessible")
 	})
 }
 
@@ -152,6 +186,32 @@ func TestFetchSecret(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, []byte{}, got)
+	})
+
+	t.Run("authenticator not found (404 with Details) returns authentication-failed error", func(t *testing.T) {
+		// A 404 from the auth endpoint (JWT webservice not configured) carries a
+		// structured body with Details. Without the tightened guard, summon would
+		// say "variable not found" which misleads the operator.
+		conjurErr := &response.ConjurError{
+			Code:    404,
+			Message: "Not Found",
+			Details: &response.ConjurErrorDetails{
+				Code:    "CONJ00036E",
+				Message: "Webservice conjur/acct:webservice:conjur/authn-jwt/myservice is not found",
+			},
+		}
+		provider := NewWithClient(&mockConjurClient{
+			retrieveSecret: func(_ string) ([]byte, error) {
+				return nil, conjurErr
+			},
+		})
+
+		_, err := provider.FetchSecret("path/to/var")
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "authentication failed")
+		assert.Contains(t, err.Error(), "authenticator not found")
+		assert.NotContains(t, err.Error(), "variable")
 	})
 
 	t.Run("auth failure (401) returns error", func(t *testing.T) {

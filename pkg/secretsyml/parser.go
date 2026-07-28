@@ -2,10 +2,12 @@ package secretsyml
 
 import (
 	"fmt"
+	"log/slog"
 	"maps"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -129,7 +131,11 @@ func (secretMap *SecretsMap) UnmarshalYAML(unmarshal func(interface{}) error) er
 		if err != nil {
 			return err
 		}
-
+		if spec.IsLiteral() && v.Style == yaml.DoubleQuotedStyle && strings.ContainsRune(v.Value, '\n') {
+			slog.Warn("literal value contains an embedded newline from a YAML \\n escape sequence; "+
+				"the environment variable will contain a literal newline character",
+				"key", k)
+		}
 		(*secretMap)[k] = spec
 	}
 
@@ -274,6 +280,11 @@ func parseSimpleSecretsFromNode(node *yaml.Node, subs map[string]string) (Secret
 		var spec SecretSpec
 		if err := spec.setYAML(val.Tag, val.Value); err != nil {
 			return nil, fmt.Errorf("failed to parse secret %q: %w", key, err)
+		}
+		if spec.IsLiteral() && val.Style == yaml.DoubleQuotedStyle && strings.ContainsRune(val.Value, '\n') {
+			slog.Warn("literal value contains an embedded newline from a YAML \\n escape sequence; "+
+				"the environment variable will contain a literal newline character",
+				"key", key)
 		}
 		secretsMap[key] = spec
 	}

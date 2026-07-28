@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli"
@@ -36,6 +37,33 @@ testprovider-trailingnewline version 3.2.1
 `, pathToTest)
 
 		assert.Equal(t, expected, output)
+	})
+}
+
+func TestProviderVersionTimeout(t *testing.T) {
+	t.Run("defaults to 5s when SUMMON_PROVIDER_VERSION_TIMEOUT is unset", func(t *testing.T) {
+		t.Setenv("SUMMON_PROVIDER_VERSION_TIMEOUT", "")
+		assert.Equal(t, 5*time.Second, providerVersionTimeout())
+	})
+
+	t.Run("honors a valid duration string", func(t *testing.T) {
+		t.Setenv("SUMMON_PROVIDER_VERSION_TIMEOUT", "30s")
+		assert.Equal(t, 30*time.Second, providerVersionTimeout())
+	})
+
+	t.Run("falls back to 5s for an invalid duration string", func(t *testing.T) {
+		t.Setenv("SUMMON_PROVIDER_VERSION_TIMEOUT", "notaduration")
+		assert.Equal(t, 5*time.Second, providerVersionTimeout())
+	})
+
+	t.Run("falls back to 5s for zero duration", func(t *testing.T) {
+		t.Setenv("SUMMON_PROVIDER_VERSION_TIMEOUT", "0s")
+		assert.Equal(t, 5*time.Second, providerVersionTimeout())
+	})
+
+	t.Run("falls back to 5s for negative duration", func(t *testing.T) {
+		t.Setenv("SUMMON_PROVIDER_VERSION_TIMEOUT", "-1s")
+		assert.Equal(t, 5*time.Second, providerVersionTimeout())
 	})
 }
 
