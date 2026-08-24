@@ -84,6 +84,7 @@ The built-in provider supports the following authentication methods via `CONJUR_
 | AWS IAM | `iam` | `CONJUR_SERVICE_ID`, `CONJUR_AUTHN_JWT_HOST_ID` |
 | Azure | `azure` | `CONJUR_SERVICE_ID`, `CONJUR_AUTHN_JWT_HOST_ID`, `CONJUR_AUTHN_AZURE_CLIENT_ID` (optional) |
 | GCP | `gcp` | `CONJUR_AUTHN_JWT_HOST_ID` (required when auto-fetching token from GCP metadata service) |
+| Certificate (authn-cert) | `cert` (implied when `CONJUR_AUTHN_CERT_SERVICE_ID` is set) | `CONJUR_AUTHN_CERT_SERVICE_ID`, `CONJUR_AUTHN_CERT_FILE`, `CONJUR_AUTHN_CERT_KEY_FILE`, `CONJUR_AUTHN_CERT_HOST_ID` (optional) |
 
 #### Configuration
 
@@ -106,6 +107,11 @@ The provider loads configuration from:
 > `CONJUR_SSL_CERTIFICATE` (inline PEM) takes precedence over `CONJUR_CERT_FILE`. Only set one to
 > avoid confusion.
 
+> **`CONJUR_CERT_FILE` vs `CONJUR_AUTHN_CERT_FILE`:** `CONJUR_CERT_FILE` is the Conjur server's
+> TLS certificate used to verify the HTTPS connection. `CONJUR_AUTHN_CERT_FILE` is the client
+> certificate presented to Conjur during certificate authentication (mTLS). They serve different
+> purposes and can both be set at the same time.
+
 ##### Authentication
 
 | Variable | Description |
@@ -116,11 +122,19 @@ The provider loads configuration from:
 | `CONJUR_AUTHN_TOKEN_FILE` | Path to a file containing the auth token |
 | `CONJUR_AUTHN_JWT_SERVICE_ID` | JWT authenticator service ID (e.g. `kubernetes`) |
 | `JWT_TOKEN_PATH` | Path to the JWT token file (default: `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
-| `CONJUR_AUTHN_TYPE` | Auth backend: `iam`, `azure`, or `gcp` |
-| `CONJUR_SERVICE_ID` | Authenticator service ID for IAM and Azure |
+| `CONJUR_AUTHN_TYPE` | Auth backend: `jwt`, `iam`, `azure`, `gcp`, or `cert`. Setting `CONJUR_AUTHN_CERT_SERVICE_ID` activates cert authentication implicitly, overriding any other value set here. |
+| `CONJUR_SERVICE_ID` | Authenticator service ID for IAM and Azure. Also accepted for `jwt` and `cert`, but prefer the dedicated `CONJUR_AUTHN_JWT_SERVICE_ID` / `CONJUR_AUTHN_CERT_SERVICE_ID`, which override it. |
 | `CONJUR_AUTHN_JWT_HOST_ID` | Conjur host identity for IAM, Azure, and JWT auth; for GCP, required only when auto-fetching the token from the GCP metadata service |
 | `CONJUR_AUTHN_AZURE_CLIENT_ID` | Azure managed identity client ID (optional; selects a specific identity on multi-identity hosts) |
 | `CONJUR_AUTHN_JWT_TOKEN` | Inline JWT token string (alternative to `JWT_TOKEN_PATH`; use when the token is available as a value rather than a file) |
+| `CONJUR_AUTHN_CERT_SERVICE_ID` | Certificate authenticator service ID. Setting this implicitly activates cert authentication (equivalent to `CONJUR_AUTHN_TYPE=cert`) and takes precedence over `CONJUR_SERVICE_ID`. |
+| `CONJUR_AUTHN_CERT_FILE` | Path to the PEM-encoded client certificate file for certificate authentication (mTLS). |
+| `CONJUR_AUTHN_CERT_KEY_FILE` | Path to the PEM-encoded private key file for the client certificate. |
+| `CONJUR_AUTHN_CERT_HOST_ID` | Conjur host identity for certificate authentication (e.g. `host/vm-workloads/vm-01`). Optional in SPIFFE mode — leave it unset and the server derives the host from the certificate's SAN URI. |
+
+> **Certificate authentication requires an HTTPS appliance URL and is not supported on Conjur Cloud
+> (Idira Secrets Manager, SaaS).** Both are rejected at config validation, before any request is
+> sent.
 
 ##### Credential storage
 
