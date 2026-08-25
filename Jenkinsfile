@@ -212,6 +212,17 @@ pipeline {
       }
     }
 
+    stage('Scan with govulncheck') {
+      steps {
+        script {
+          infrapool.agentSh 'go install golang.org/x/vuln/cmd/govulncheck@latest'
+          catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+            infrapool.agentSh '$(go env GOPATH)/bin/govulncheck -mode=binary ./pristine-checkout/dist/goreleaser/summon-linux_linux_amd64_v1/summon'
+          }
+        }
+      }
+    }
+
     stage('Run integration tests') {
       environment {
         INFRAPOOL_TEST_AWS = "${params.TEST_AWS}"
