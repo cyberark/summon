@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-09-29
+
+### Fixed
+- Fix interactive child commands stopping (state T, SIGTTIN) when summon is run
+  in a terminal; the regression was introduced in 0.13.0 by the Setpgid change
+  (commit 5af7e13) that placed the child in a background process group without
+  granting it foreground terminal access (CNJR-15475,
+  [#266](https://github.com/cyberark/summon/issues/266))
+
 ## [0.13.1] - 2026-08-21
 
 ### Security

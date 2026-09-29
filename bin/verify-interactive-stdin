@@ -1,0 +1,231 @@
+#!/usr/bin/env python3
+"""
+verify-interactive-stdin — manual SIGTTIN regression check for summon
+
+Background
+----------
+summon places child commands in their own process group (Setpgid: true) so
+that signals can be delivered to the entire group.  Without also calling
+tcsetpgrp(TIOCSPGRP) to make the child the terminal's foreground group,
+POSIX sends SIGTTIN to any background process that reads the controlling
+terminal — stopping the child in state T.  This caused interactive commands
+such as `terraform apply` to hang when launched via summon.
+
+  Public issue : https://github.com/cyberark/summon/issues/266
+  Internal ref : CNJR-15475
+
+The fix (pkg/summon/subcommand_unix.go) calls ioctl(TIOCSPGRP) from the
+parent after the child starts, following the shell convention of ignoring
+SIGTTOU around tcsetpgrp, and restores the original foreground group when
+the child exits.
+
+Purpose of this script
+-----------------------
+The Linux PTY unit test (TestInteractiveChildCanReadStdin) guards the read
+path in CI, but it runs without a real controlling terminal so the
+TIOCSPGRP foreground-grant call is a no-op in that environment.  This
+script exercises the full path — including the ioctl — using a genuine PTY
+pair on macOS or Linux with a real TTY.
+
+Run it after any change to subcommand*.go or the signal-forwarding logic in
+subcommand.go to confirm that interactive child commands are not regressed.
+
+Usage
+-----
+    bin/verify-interactive-stdin [SUMMON_BINARY]
+
+    SUMMON_BINARY defaults to ./output/summon, then summon on PATH.
+    Build the binary first:  go build -o output/summon ./cmd/main.go
+
+Exit codes
+----------
+    0 — all cases passed
+    1 — one or more cases failed
+    2 — prerequisites missing (not Unix, Python < 3.6, pty unavailable)
+"""
+
+import os
+import select
+import signal
+import subprocess
+import sys
+import time
+
+# ── prerequisites ──────────────────────────────────────────────────────────────
+
+if sys.platform == "win32":
+    sys.exit("verify-interactive-stdin: requires Unix (macOS or Linux)")
+
+if sys.version_info < (3, 6):
+    sys.exit("verify-interactive-stdin: requires Python 3.6+")
+
+try:
+    import pty
+except ImportError:
+    sys.exit("verify-interactive-stdin: pty module not available on this platform")
+
+# ── locate summon binary ───────────────────────────────────────────────────────
+
+def find_summon(explicit=None):
+    candidates = (
+        [explicit] if explicit else
+        ["./output/summon", "summon"]
+    )
+    for c in candidates:
+        if os.path.isfile(c) and os.access(c, os.X_OK):
+            return os.path.abspath(c)
+        # also try PATH lookup for bare names
+        import shutil
+        found = shutil.which(c)
+        if found:
+            return found
+    return None
+
+SUMMON = find_summon(sys.argv[1] if len(sys.argv) > 1 else None)
+if not SUMMON:
+    sys.exit(
+        "verify-interactive-stdin: summon binary not found.\n"
+        "Build it first:  go build -o output/summon ./cmd/main.go\n"
+        "or pass the path explicitly:  bin/verify-interactive-stdin /path/to/summon"
+    )
+
+print(f"summon binary : {SUMMON}")
+print(f"platform      : {sys.platform}")
+print()
+
+# ── test harness ───────────────────────────────────────────────────────────────
+
+TIMEOUT = 8  # seconds per case
+
+def run_case(label, args, input_line=None, want_in_output=None):
+    """
+    Run summon in a PTY, optionally write input_line to the master end, collect
+    output, and return True if the child exited without SIGTTIN/SIGSTOP.
+    """
+    print(f"{'─' * 58}")
+    print(f"Case : {label}")
+    print(f"  cmd: {' '.join(args)}")
+    if input_line is not None:
+        print(f"  in : {input_line!r}")
+
+    master_fd, slave_fd = pty.openpty()
+
+    proc = subprocess.Popen(
+        args,
+        stdin=slave_fd,
+        stdout=slave_fd,
+        stderr=slave_fd,
+        close_fds=True,
+    )
+    os.close(slave_fd)          # parent keeps only the master end
+    time.sleep(0.15)            # let child settle into read()
+
+    if input_line is not None:
+        try:
+            os.write(master_fd, (input_line + "\n").encode())
+        except OSError as exc:
+            # EIO means the slave was closed — child exited before we wrote.
+            # That is only a problem when we needed the child to consume input.
+            if want_in_output:
+                print(f"  FAIL: write to PTY master failed: {exc}")
+                proc.kill()
+                os.close(master_fd)
+                return False
+
+    output = b""
+    deadline = time.time() + TIMEOUT
+    while time.time() < deadline:
+        r, _, _ = select.select([master_fd], [], [], 0.2)
+        if r:
+            try:
+                output += os.read(master_fd, 1024)
+            except OSError:
+                break   # slave closed — child exited
+
+    try:
+        proc.wait(timeout=max(0.5, deadline - time.time()))
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+    os.close(master_fd)
+
+    rc = proc.returncode
+    out = output.decode(errors="replace")
+    stopped = rc in (-signal.SIGSTOP, -signal.SIGTTIN, None)
+
+    print(f"  exit={rc}  output={out!r}")
+
+    if stopped:
+        print("  RESULT: FAIL — child was stopped (SIGTTIN regression!)")
+        return False
+
+    if want_in_output and want_in_output not in out:
+        print(f"  RESULT: FAIL — expected {want_in_output!r} not found in output")
+        return False
+
+    print("  RESULT: PASS")
+    return True
+
+
+# ── cases ─────────────────────────────────────────────────────────────────────
+
+results = []
+
+# 1. Primary regression: child reads from stdin via summon over a PTY.
+#    Before the fix, the child's process group was in the background so reading
+#    stdin caused SIGTTIN, stopping the child (state T).
+results.append(run_case(
+    "interactive child reads stdin  [regression guard]",
+    [SUMMON, "-p", "/bin/echo", "-f", "/dev/null",
+     "--", "sh", "-c", "read x && printf 'echo:%s\\n' \"$x\""],
+    input_line="hello-interactive",
+    want_in_output="echo:hello-interactive",
+))
+
+# 2. Non-interactive child (no read): must still exit 0 cleanly — ensure the
+#    foreground-grant path does not break simple non-interactive commands.
+results.append(run_case(
+    "non-interactive child exits 0  [regression guard]",
+    [SUMMON, "-p", "/bin/echo", "-f", "/dev/null", "--", "sh", "-c", "exit 0"],
+))
+
+# 3. Child writes a prompt then reads a response — exercises the full
+#    prompt→input→response round trip that tools like terraform use.
+results.append(run_case(
+    "child prompts then reads response",
+    [SUMMON, "-p", "/bin/echo", "-f", "/dev/null",
+     "--", "sh", "-c", "printf 'enter: ' && read x && printf 'got:%s\\n' \"$x\""],
+    input_line="world",
+    want_in_output="got:world",
+))
+
+# 4. Non-TTY stdin (pipe): isStdinTerminal() must return false and the child
+#    must run normally without any foreground-grant logic involved.
+print(f"{'─' * 58}")
+print("Case : non-TTY stdin (pipe)  [regression guard]")
+p = subprocess.run(
+    [SUMMON, "-p", "/bin/echo", "-f", "/dev/null",
+     "--", "sh", "-c", "echo non-tty-ok"],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    input=b"",
+)
+nontty_ok = b"non-tty-ok" in p.stdout
+results.append(nontty_ok)
+print(f"  exit={p.returncode}  stdout={p.stdout.decode().strip()!r}")
+print(f"  RESULT: {'PASS' if nontty_ok else 'FAIL'}")
+
+# ── summary ────────────────────────────────────────────────────────────────────
+
+print()
+print(f"{'═' * 58}")
+passed = sum(1 for r in results if r)
+total  = len(results)
+print(f"Result: {passed}/{total} passed")
+if passed == total:
+    print("ALL PASS")
+    sys.exit(0)
+else:
+    print("FAILURES — see output above")
+    sys.exit(1)

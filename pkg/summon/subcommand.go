@@ -38,6 +38,12 @@ func runSubcommand(command []string, env []string) error {
 	}
 
 	pgid := getProcessGroupID(runner.Process.Pid)
+	// When stdin is a terminal, give the child's process group foreground
+	// access so it can read from the terminal without receiving SIGTTIN.
+	// Restore foreground to summon when the child exits.
+	// No-op on non-TTY stdin and non-Unix platforms.
+	grantTerminalForeground(pgid)
+	defer restoreTerminalForeground()
 	done := make(chan struct{})
 
 	// Forward all signals to the child's process group, with escalation for
