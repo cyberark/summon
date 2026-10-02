@@ -21,3 +21,9 @@ func forwardSignalToGroup(proc *os.Process, _ int, sig os.Signal) {
 
 // getProcessGroupID returns pid on Windows; process groups are not used.
 func getProcessGroupID(pid int) int { return pid }
+
+// grantTerminalForeground is a no-op on Windows.
+func grantTerminalForeground(_ int) {}
+
+// restoreTerminalForeground is a no-op on Windows.
+func restoreTerminalForeground() {}
