@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-08
+
+### Added
+- SPIFFE Workload API authentication: summon's built-in Conjur provider now
+  supports zero-static-credential authentication using SPIFFE/SPIRE platform
+  identity. Both X.509-SVID (authn-cert with a SPIRE-issued certificate) and
+  JWT-SVID (authn-jwt with a SPIRE-issued token) paths are supported via a
+  thin routing guard in the built-in provider that delegates all auth-type
+  selection to `conjur-api-go`. Set `SPIFFE_ENDPOINT_SOCKET` to the SPIRE
+  agent socket and configure the matching Conjur authenticator; `conjur-api-go`
+  routes the auth call automatically. (CNJR-14843)
+
 ## [0.13.2] - 2026-09-29
 
 ### Fixed
@@ -382,7 +394,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Initial release
 
-[Unreleased]: https://github.com/cyberark/summon/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/cyberark/summon/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/cyberark/summon/compare/v0.13.2...v0.14.0
+[0.13.2]: https://github.com/cyberark/summon/compare/v0.13.1...v0.13.2
+[0.13.1]: https://github.com/cyberark/summon/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/cyberark/summon/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/cyberark/summon/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/cyberark/summon/compare/v0.11.0...v0.11.1

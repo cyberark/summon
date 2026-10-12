@@ -136,6 +136,37 @@ The provider loads configuration from:
 > (Idira Secrets Manager, SaaS).** Both are rejected at config validation, before any request is
 > sent.
 
+##### SPIFFE Workload API (zero-static-credential)
+
+Set these variables to authenticate using a SPIFFE/SPIRE platform identity with no API key,
+certificate file, or token path. Both X.509-SVID (`authn-cert`) and JWT-SVID (`authn-jwt`)
+paths are supported.
+
+| Variable | Description |
+|---|---|
+| `SPIFFE_ENDPOINT_SOCKET` | Required. Address of the SPIRE agent socket (e.g. `unix:///run/spire/api.sock`). Triggers SPIFFE auto-wiring in `conjur-api-go`. This variable is passed through to the child process. |
+| `CONJUR_AUTHN_CERT_SERVICE_ID` | X.509-SVID path. Selects the Conjur `authn-cert` authenticator service ID and implies `AuthnType=cert`. When `SPIFFE_ENDPOINT_SOCKET` is also set, `conjur-api-go` sources the certificate from the Workload API instead of a file. |
+| `CONJUR_AUTHN_JWT_SERVICE_ID` | JWT-SVID path. Selects the Conjur `authn-jwt` authenticator service ID. When `SPIFFE_ENDPOINT_SOCKET` is also set and no static JWT token is configured, `conjur-api-go` sources the token from the Workload API automatically. |
+| `CONJUR_SPIFFE_ID` | Optional. Selects a specific SVID by SPIFFE ID when the Workload API returns more than one (e.g. `spiffe://example.org/workload/myapp`). Required only when multiple SVIDs are registered for the workload. |
+
+**Which path is used** depends on which service ID is set:
+- `CONJUR_AUTHN_CERT_SERVICE_ID` set → X.509-SVID (certificate-based mTLS)
+- `CONJUR_AUTHN_JWT_SERVICE_ID` set (and no static token) → JWT-SVID (token-based)
+
+**Conjur-side prerequisites for X.509-SVID:**
+1. Enable `authn-cert/<service-id>` on the Conjur server.
+2. Configure the webservice with the SPIRE trust bundle CA as the accepted CA.
+3. Grant the SPIFFE host identity `read` and `authenticate` on the webservice.
+
+**Conjur-side prerequisites for JWT-SVID:**
+1. Enable `authn-jwt/<service-id>` on the Conjur server.
+2. Configure `public-keys`, `issuer`, `audience`, and `token-app-property` variables
+   under the authenticator policy.
+3. Grant the workload host `read` and `authenticate` on the webservice.
+
+See `bin/setup-spiffe.sh` and `ci/spiffe/` for a reference SPIRE configuration used in
+the integration test harness.
+
 ##### Credential storage
 
 | Variable | Description |
