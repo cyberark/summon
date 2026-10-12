@@ -94,7 +94,14 @@ func TestValidateNetrcPath(t *testing.T) {
 func TestNew(t *testing.T) {
 	t.Run("creates provider with explicit environment config", func(t *testing.T) {
 		// Isolate from developer machine config files so this test is deterministic.
+		// Also clear any SPIFFE/cert auth env vars that leak from the integration
+		// test environment (e.g. CONJUR_AUTHN_CERT_SERVICE_ID exported by
+		// setup-spiffe.sh) to prevent conjur-api-go from triggering cert auth and
+		// failing the HTTPS URL validation on the intentionally-invalid test URL.
 		t.Setenv("HOME", t.TempDir())
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
+		t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "")
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
 		t.Setenv("CONJUR_APPLIANCE_URL", "://not-a-url")
 		t.Setenv("CONJUR_ACCOUNT", "test")
 		t.Setenv("CONJUR_AUTHN_LOGIN", "host/test")

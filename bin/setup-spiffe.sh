@@ -170,12 +170,12 @@ EOF
   - !variable public-keys
   - !variable issuer
   - !variable audience
-  - !variable token-app-property
-  # Note: identity-path is intentionally omitted. The SPIFFE workload ID
-  # (spiffe://example.org/workload/summon-test) contains "://" which is not a
-  # valid Conjur host-path segment. Instead, the host is located via annotation
-  # matching: Conjur finds the host that carries the annotation
-  # authn-jwt/spiffe-jwt/sub = <sub-claim-value>.
+  # token-app-property is intentionally absent. The SPIFFE JWT sub claim
+  # (e.g. spiffe://example.org/workload/summon-test) contains "://" which
+  # Conjur treats as invalid even for annotation-based identity resolution,
+  # throwing CONJ00098E. Host identity is provided explicitly in the URL path
+  # via CONJUR_AUTHN_JWT_HOST_ID (URL-encoded: host%2Fdata%2F...).
+  # identity-path is also absent for the same reason.
   - !webservice status
   - !group authenticatable
   - !permit
@@ -231,8 +231,7 @@ EOF
   conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_SERVICE_ID}/public-keys" "${jwks}"
   conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_SERVICE_ID}/issuer" "${issuer}"
   conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_SERVICE_ID}/audience" "conjur"
-  conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_SERVICE_ID}/token-app-property" "sub"
-  # identity-path is not set; Conjur uses annotation-based identity matching.
+  # token-app-property is not set; host identity comes from the URL path.
 
   conjur_authenticator_enable "authn-jwt/${SPIFFE_JWT_SERVICE_ID}"
 
@@ -256,8 +255,9 @@ function configure_conjur_jwt_spiffe_oidc() {
   - !variable jwks-uri
   - !variable issuer
   - !variable audience
-  - !variable token-app-property
-  # Note: identity-path is intentionally omitted — see configure_conjur_jwt_spiffe.
+  # token-app-property is intentionally absent — see configure_conjur_jwt_spiffe.
+  # Host identity is provided explicitly in the URL path via CONJUR_AUTHN_JWT_HOST_ID.
+  # identity-path is also absent for the same reason.
   - !webservice status
   - !group authenticatable
   - !permit
@@ -276,8 +276,7 @@ EOF
   conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_OIDC_SERVICE_ID}/jwks-uri" "http://spire-oidc:8085/keys"
   conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_OIDC_SERVICE_ID}/issuer" "http://spire-oidc:8085"
   conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_OIDC_SERVICE_ID}/audience" "conjur"
-  conjur_variable_set "conjur/authn-jwt/${SPIFFE_JWT_OIDC_SERVICE_ID}/token-app-property" "sub"
-  # identity-path is not set; Conjur uses annotation-based identity matching.
+  # token-app-property is not set; host identity comes from the URL path.
 
   conjur_authenticator_enable "authn-jwt/${SPIFFE_JWT_OIDC_SERVICE_ID}"
 
