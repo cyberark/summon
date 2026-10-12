@@ -78,7 +78,16 @@ func New() (*ConjurProvider, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("configuration error: %w", err)
 	}
-	client, err := conjurapi.NewClientFromEnvironment(cfg, telemetryData)
+	// When LoadConfig auto-wired the SPIFFE Workload API as the cert source
+	// (SPIFFE_ENDPOINT_SOCKET is set, AuthnType=cert, no static cert files),
+	// cfg.ClientCertProvider is non-nil. NewClientFromCertificate accepts a
+	// dynamic provider function; NewClientFromEnvironment does not.
+	var client *conjurapi.Client
+	if cfg.ClientCertProvider != nil {
+		client, err = conjurapi.NewClientFromCertificate(cfg, telemetryData)
+	} else {
+		client, err = conjurapi.NewClientFromEnvironment(cfg, telemetryData)
+	}
 	if err != nil {
 		// Security: propagating err.Error() here does not risk leaking secret
 		// material. conjur-api-go validates config before any auth attempt,
