@@ -70,6 +70,7 @@ pipeline {
     booleanParam(name: 'TEST_AZURE', defaultValue: false, description: 'Run integration tests against Azure')
     booleanParam(name: 'TEST_GCP', defaultValue: false, description: 'Run integration tests against GCP')
     booleanParam(name: 'TEST_CERT', defaultValue: false, description: 'Run authn-cert integration tests against Conjur Enterprise (auto-enabled on main/master)')
+    booleanParam(name: 'TEST_SPIFFE', defaultValue: false, description: 'Run SPIFFE Workload API integration tests (X.509-SVID and JWT-SVID) (auto-enabled on main/master)')
     booleanParam(name: 'TEST_SAAS', defaultValue: false, description: 'Run Secrets Manager SaaS JWT tests')
   }
 
@@ -256,6 +257,43 @@ pipeline {
               junit allowEmptyResults: true, testResults: 'output/integration/*.xml'
             } else {
               echo 'Skipping integration junit publication: output/integration/junit.xml not found'
+            }
+          }
+        }
+      }
+    }
+
+    stage('Run SPIFFE Workload API tests') {
+      when {
+        expression {
+          def mainline = env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master'
+          return params.TEST_SPIFFE || mainline
+        }
+      }
+      steps {
+        script {
+          env.INFRAPOOL_TEST_SPIFFE = 'true'
+          infrapool.agentDir('./pristine-checkout') {
+            try {
+              infrapool.agentSh './bin/test.sh'
+            } finally {
+              infrapool.agentStash name: 'spiffe-integration-output', includes: 'output/integration/*.xml', allowEmpty: true
+            }
+          }
+        }
+      }
+      post {
+        always {
+          script {
+            try {
+              unstash 'spiffe-integration-output'
+            } catch (err) {
+              echo "Skipping SPIFFE integration test report unstash: ${err.message}"
+            }
+            if (fileExists('output/integration/junit.xml')) {
+              junit allowEmptyResults: true, testResults: 'output/integration/*.xml'
+            } else {
+              echo 'Skipping SPIFFE junit publication: output/integration/junit.xml not found'
             }
           }
         }

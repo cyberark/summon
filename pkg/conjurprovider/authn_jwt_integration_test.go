@@ -176,7 +176,7 @@ func TestAuthnJWTIntegration(t *testing.T) {
 			_, stderr, err := runSummonWithVar(variableIdentifier)
 			assert.Error(t, err)
 			errText := stderr.String()
-			assert.Contains(t, errText, "Must specify a ServiceID when using jwt",
+			assert.Contains(t, errText, "Must specify a service ID (CONJUR_AUTHN_JWT_SERVICE_ID) when using jwt",
 				"expected missing JWT service ID config error; stderr: %s", errText)
 			assert.NotContains(t, errText, jwtToken)
 			assert.NotContains(t, errText, secretValue)

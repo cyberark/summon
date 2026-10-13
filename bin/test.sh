@@ -20,6 +20,14 @@ function finish {
     docker compose --profile cert logs conjur-leader >> output/integration/conjur-leader-logs.txt 2>&1 || true
     docker compose --profile cert down -v --remove-orphans || true
   fi
+  if [[ "${TEST_SPIFFE:-false}" == "true" ]]; then
+    mkdir -p output/integration
+    # Enterprise Appliance logs go to Docker stdout (runit/svlogd), not a file.
+    docker compose --profile spiffe logs conjur-leader >> output/integration/conjur-leader-logs.txt 2>&1 || true
+    docker compose --profile spiffe logs spire-server >> output/integration/spire-server-logs.txt 2>&1 || true
+    docker compose --profile spiffe logs spire-agent >> output/integration/spire-agent-logs.txt 2>&1 || true
+    docker compose --profile spiffe down -v --remove-orphans || true
+  fi
   docker compose down -v
 }
 trap finish EXIT
@@ -32,6 +40,10 @@ function failed {
   if [[ "${TEST_CERT:-false}" == "true" ]]; then
     echo 'Conjur Enterprise logs:'
     docker compose --profile cert logs conjur-leader || true
+  fi
+  if [[ "${TEST_SPIFFE:-false}" == "true" ]]; then
+    echo 'Conjur Enterprise (SPIFFE) logs:'
+    docker compose --profile spiffe logs conjur-leader || true
   fi
   echo '-----'
   exit 1
@@ -49,6 +61,7 @@ function main() {
   prepareGCP
   prepareCertIfNeeded
   prepareJWT
+  prepareSpiffeIfNeeded
   runTests
 }
 
@@ -57,6 +70,14 @@ function prepareCertIfNeeded() {
     export TEST_CERT=true
     # shellcheck source=bin/setup-cert-auth.sh
     source ./bin/setup-cert-auth.sh
+  fi
+}
+
+function prepareSpiffeIfNeeded() {
+  if [[ "${INFRAPOOL_TEST_SPIFFE:-false}" == "true" || "${TEST_SPIFFE:-false}" == "true" ]]; then
+    export TEST_SPIFFE=true
+    # shellcheck source=bin/setup-spiffe.sh
+    source ./bin/setup-spiffe.sh
   fi
 }
 
@@ -196,6 +217,16 @@ function runTests() {
     -e TEST_CERT_CA_CERT \
     -e CONJUR_SSL_CERTIFICATE \
     -e TEST_SAAS \
+    -e TEST_SPIFFE \
+    -e SPIFFE_ENDPOINT_SOCKET \
+    -e CONJUR_AUTHN_CERT_SERVICE_ID \
+    -e CONJUR_AUTHN_CERT_HOST_ID \
+    -e CONJUR_AUTHN_JWT_SPIFFE_SERVICE_ID \
+    -e CONJUR_AUTHN_JWT_SPIFFE_OIDC_SERVICE_ID \
+    -e CONJUR_AUTHN_JWT_HOST_ID \
+    -e CONJUR_SPIFFE_ID \
+    -e CONJUR_SPIFFE_TEST_SECRET_ID \
+    -e CONJUR_SPIFFE_TEST_SECRET_VALUE \
     -e JWT \
     -e PUBLIC_KEYS \
     "$service" || failed
