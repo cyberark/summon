@@ -70,7 +70,7 @@ pipeline {
     booleanParam(name: 'TEST_AZURE', defaultValue: false, description: 'Run integration tests against Azure')
     booleanParam(name: 'TEST_GCP', defaultValue: false, description: 'Run integration tests against GCP')
     booleanParam(name: 'TEST_CERT', defaultValue: false, description: 'Run authn-cert integration tests against Conjur Enterprise (auto-enabled on main/master)')
-    booleanParam(name: 'TEST_SPIFFE', defaultValue: false, description: 'Run SPIFFE Workload API integration tests (X.509-SVID and JWT-SVID)')
+    booleanParam(name: 'TEST_SPIFFE', defaultValue: false, description: 'Run SPIFFE Workload API integration tests (X.509-SVID and JWT-SVID) (auto-enabled on main/master)')
     booleanParam(name: 'TEST_SAAS', defaultValue: false, description: 'Run Secrets Manager SaaS JWT tests')
   }
 
@@ -266,7 +266,8 @@ pipeline {
     stage('Run SPIFFE Workload API tests') {
       when {
         expression {
-          return params.TEST_SPIFFE
+          def mainline = env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master'
+          return params.TEST_SPIFFE || mainline
         }
       }
       steps {
