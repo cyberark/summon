@@ -19,6 +19,8 @@ announce() {
 # shared with the SPIRE OIDC discovery provider via the spire-server-socket volume.
 readonly SPIRE_SERVER_SOCKET="/run/spire-server/private/api.sock"
 
+export CONJUR_ADMIN_PASSWORD="${CONJUR_ADMIN_PASSWORD:-MySecretP@ss1}"
+
 # ── Conjur REST API helpers ───────────────────────────────────────────────────
 # The conjur CLI is not present in the Conjur server container.
 # These helpers use conjurctl + curl (both available inside the container)
@@ -82,6 +84,181 @@ function conjur_authenticator_enable() {
     "http://localhost/${authn_id}/cucumber")"
   [[ "$status" == "200" || "$status" == "204" || "$status" == "201" ]] \
     || { echo "ERROR: authenticator enable '${authn_id}' returned HTTP ${status}"; exit 1; }
+}
+
+# ── Conjur Enterprise Appliance REST API helpers ─────────────────────────────
+# These target the conjur-leader Enterprise Appliance (HTTPS) and require
+# CONJUR_CERT_AUTHN_API_KEY to be exported by start_conjur_leader_for_spiffe.
+# All calls run inside the conjur-leader container via docker compose exec.
+
+# Authenticate as admin against the Enterprise Appliance; return a base64-encoded token.
+function _conjur_appliance_b64_token() {
+  local token
+  token="$(docker compose --profile spiffe exec -T conjur-leader \
+    curl -sfk \
+    --data "${CONJUR_CERT_AUTHN_API_KEY}" \
+    "https://localhost/authn/conjur/admin/authenticate")"
+  printf '%s' "$token" | base64 -w 0
+}
+
+# Load a Conjur policy on the Enterprise Appliance.
+# Usage: conjur_appliance_policy_load <branch> <policy_yaml>
+function conjur_appliance_policy_load() {
+  local branch="$1" policy="$2"
+  local encoded_token status
+  encoded_token="$(_conjur_appliance_b64_token)"
+  status="$(printf '%s' "$policy" \
+    | docker exec -i "$(docker compose --profile spiffe ps -q conjur-leader)" \
+      curl -sk -o /dev/null -w "%{http_code}" -X POST \
+      -H "Authorization: Token token=\"${encoded_token}\"" \
+      -H "Content-Type: text/plain" \
+      --data-binary "@-" \
+      "https://localhost/policies/conjur/policy/${branch}")"
+  [[ "$status" == "201" || "$status" == "200" ]] \
+    || { echo "ERROR: appliance policy load on branch '${branch}' returned HTTP ${status}"; exit 1; }
+}
+
+# Set a Conjur variable value on the Enterprise Appliance.
+# Usage: conjur_appliance_variable_set <variable_id> <value>
+function conjur_appliance_variable_set() {
+  local var_id="$1" value="$2"
+  local encoded_token status
+  encoded_token="$(_conjur_appliance_b64_token)"
+  status="$(printf '%s' "$value" \
+    | docker exec -i "$(docker compose --profile spiffe ps -q conjur-leader)" \
+      curl -sk -o /dev/null -w "%{http_code}" -X POST \
+      -H "Authorization: Token token=\"${encoded_token}\"" \
+      -H "Content-Type: text/plain" \
+      --data-binary "@-" \
+      "https://localhost/secrets/conjur/variable/${var_id}")"
+  [[ "$status" == "201" || "$status" == "200" || "$status" == "204" ]] \
+    || { echo "ERROR: appliance variable set '${var_id}' returned HTTP ${status}"; exit 1; }
+}
+
+# Enable a Conjur authenticator on the Enterprise Appliance.
+# Usage: conjur_appliance_authenticator_enable <authenticator_type/service_id>
+function conjur_appliance_authenticator_enable() {
+  local authn_id="$1"
+  local encoded_token status
+  encoded_token="$(_conjur_appliance_b64_token)"
+  status="$(docker compose --profile spiffe exec -T conjur-leader \
+    curl -sk -o /dev/null -w "%{http_code}" -X PATCH \
+    -H "Authorization: Token token=\"${encoded_token}\"" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "enabled=true" \
+    "https://localhost/${authn_id}/conjur")"
+  [[ "$status" == "200" || "$status" == "204" || "$status" == "201" ]] \
+    || { echo "ERROR: appliance authenticator enable '${authn_id}' returned HTTP ${status}"; exit 1; }
+}
+
+# ── Conjur Enterprise Appliance startup ───────────────────────────────────────
+
+function start_conjur_leader_for_spiffe() {
+  # If setup-cert-auth.sh already started and configured conjur-leader
+  # (when TEST_CERT=true and TEST_SPIFFE=true both run), reuse its credentials.
+  if [[ -n "${CONJUR_CERT_AUTHN_API_KEY:-}" ]]; then
+    announce "Conjur Enterprise appliance already running (reusing cert-auth setup)."
+    return 0
+  fi
+
+  announce "Pulling Conjur Enterprise appliance image for SPIFFE cert tests..."
+  docker compose --profile spiffe pull conjur-leader
+
+  announce "Starting Conjur Enterprise appliance..."
+  docker compose --profile spiffe up --no-deps -d conjur-leader
+
+  local timeout=60 elapsed=0
+  until docker compose --profile spiffe exec -T conjur-leader true 2>/dev/null; do
+    if (( elapsed >= timeout )); then
+      echo "ERROR: timed out waiting for conjur-leader container to be exec-able"
+      exit 1
+    fi
+    sleep 2
+    (( elapsed += 2 ))
+  done
+
+  announce "Configuring Conjur Enterprise master..."
+  timeout=120; elapsed=0
+  until docker compose --profile spiffe exec -T conjur-leader evoke configure master \
+    --hostname=conjur-leader-1.mycompany.local \
+    --master-altnames="conjur-leader.mycompany.local,conjur-leader-1.mycompany.local" \
+    --accept-eula \
+    --admin-password="${CONJUR_ADMIN_PASSWORD}" \
+    conjur; do
+    if (( elapsed >= timeout )); then
+      echo "ERROR: timed out configuring Conjur Enterprise master"
+      exit 1
+    fi
+    sleep 5
+    (( elapsed += 5 ))
+  done
+
+  announce "Waiting for Enterprise Appliance TLS certificate..."
+  timeout=120; elapsed=0
+  until docker compose --profile spiffe exec -T conjur-leader test -f /opt/conjur/etc/ssl/conjur.pem; do
+    if (( elapsed >= timeout )); then
+      echo "ERROR: timed out waiting for Enterprise Appliance TLS certificate"
+      exit 1
+    fi
+    sleep 2
+    (( elapsed += 2 ))
+  done
+
+  CONJUR_CERT_AUTHN_API_KEY="$(docker compose --profile spiffe exec -T conjur-leader \
+    curl -sfk --user "admin:${CONJUR_ADMIN_PASSWORD}" \
+    https://localhost/authn/conjur/login | tr -d '\r\n')"
+  if [[ -z "${CONJUR_CERT_AUTHN_API_KEY}" || "${CONJUR_CERT_AUTHN_API_KEY}" == *"<"* ]]; then
+    echo "ERROR: failed to retrieve admin API key from Enterprise Appliance"
+    exit 1
+  fi
+  export CONJUR_CERT_AUTHN_API_KEY
+
+  CONJUR_CERT_SSL_CERTIFICATE="$(docker compose --profile spiffe exec -T conjur-leader \
+    cat /opt/conjur/etc/ssl/conjur.pem)"
+  export CONJUR_CERT_SSL_CERTIFICATE
+  export CONJUR_CERT_APPLIANCE_URL="https://conjur-leader-1.mycompany.local"
+  announce "Enterprise Appliance ready at ${CONJUR_CERT_APPLIANCE_URL}"
+}
+
+# ── Conjur Enterprise workload identity for cert tests ────────────────────────
+
+# Creates the SPIFFE test host and secret on the Enterprise Appliance.
+# Reuses the secret path and value set by configure_conjur_workload on OSS Conjur
+# so TestAuthnSpiffeCertIntegration can use the same CONJUR_SPIFFE_TEST_SECRET_ID
+# and CONJUR_SPIFFE_TEST_SECRET_VALUE env vars.
+function configure_conjur_cert_workload_enterprise() {
+  announce "Configuring Conjur Enterprise workload identity for SPIFFE cert tests..."
+
+  # SPIFFE X.509-SVID certs have an empty Subject CN (per the SPIFFE spec).
+  # authn-cert uses URL-based mode: the host ID goes in the URL and the
+  # Enterprise Appliance validates the cert's URI SAN against the
+  # authn-cert/<service-id>/san-uri annotation on the host.
+  local workload_policy
+  workload_policy="$(cat <<EOF
+- !policy
+  id: data
+  body:
+  - !policy
+    id: spiffe-test
+    body:
+    - !host
+      id: summon-test
+      annotations:
+        authn-cert/${SPIFFE_CERT_SERVICE_ID}/san-uri: spiffe://example.org/workload/summon-test
+    - !variable spiffe-secret
+    - !permit
+      role: !host summon-test
+      privilege: [ read, execute ]
+      resource: !variable spiffe-secret
+EOF
+)"
+  conjur_appliance_policy_load "root" "$workload_policy"
+
+  # Set the same secret value as OSS Conjur so the test env var is consistent.
+  conjur_appliance_variable_set "data/spiffe-test/spiffe-secret" \
+    "${CONJUR_SPIFFE_TEST_SECRET_VALUE}"
+
+  announce "Enterprise Appliance workload identity configured."
 }
 
 # ── SPIRE server ──────────────────────────────────────────────────────────────
@@ -289,7 +466,7 @@ EOF
 readonly SPIFFE_CERT_SERVICE_ID="spiffe-cert"
 
 function configure_conjur_cert_spiffe() {
-  announce "Configuring Conjur authn-cert for SPIFFE X.509-SVID..."
+  announce "Configuring Conjur Enterprise authn-cert for SPIFFE X.509-SVID..."
 
   # Extract the SPIRE trust bundle CA (PEM) for the authn-cert CA configuration.
   local ca_cert
@@ -302,15 +479,16 @@ function configure_conjur_cert_spiffe() {
     exit 1
   fi
 
-  # Load authn-cert policy and configure the webservice CA with the SPIRE bundle.
+  # Create the conjur/authn-cert branch on the Enterprise Appliance if needed.
   local parent_policy
   parent_policy="$(cat <<'EOF'
 - !policy
   id: conjur/authn-cert
 EOF
 )"
-  conjur_policy_load "root" "$parent_policy" || true
+  conjur_appliance_policy_load "root" "$parent_policy" || true
 
+  # Load the authn-cert service policy.
   local service_policy
   service_policy="$(cat <<EOF
 - !policy
@@ -329,15 +507,16 @@ EOF
     member: !host /data/spiffe-test/summon-test
 EOF
 )"
-  conjur_policy_load "conjur/authn-cert" "$service_policy"
+  conjur_appliance_policy_load "conjur/authn-cert" "$service_policy"
 
-  # Store the CA cert as the webservice's CA configuration variable.
-  conjur_variable_set "conjur/authn-cert/${SPIFFE_CERT_SERVICE_ID}/ca-cert" "${ca_cert}"
+  # Store the SPIRE CA as the webservice's CA configuration variable.
+  conjur_appliance_variable_set "conjur/authn-cert/${SPIFFE_CERT_SERVICE_ID}/ca-cert" "${ca_cert}"
 
-  conjur_authenticator_enable "authn-cert/${SPIFFE_CERT_SERVICE_ID}"
+  conjur_appliance_authenticator_enable "authn-cert/${SPIFFE_CERT_SERVICE_ID}"
 
+  export CONJUR_AUTHN_CERT_HOST_ID="host/data/spiffe-test/summon-test"
   export CONJUR_AUTHN_CERT_SERVICE_ID="${SPIFFE_CERT_SERVICE_ID}"
-  announce "authn-cert SPIFFE authenticator configured."
+  announce "authn-cert SPIFFE authenticator configured on Enterprise Appliance."
 }
 
 # ── Conjur test workload identity and secret ──────────────────────────────────
@@ -420,11 +599,7 @@ start_spire_oidc
 configure_conjur_workload
 configure_conjur_jwt_spiffe
 configure_conjur_jwt_spiffe_oidc
-# configure_conjur_cert_spiffe is intentionally skipped in this setup.
-# authn-cert (X.509-SVID) uses mutual TLS: the client certificate is presented
-# during the TLS handshake. The OSS Conjur container serves HTTP only, so mTLS
-# cannot complete. TestAuthnSpiffeCertIntegration is auto-skipped when
-# CONJUR_AUTHN_CERT_SERVICE_ID is unset.
-# TODO: add a TLS-capable Conjur endpoint (e.g. nginx SSL proxy) to the spiffe
-# profile and call configure_conjur_cert_spiffe when it is available.
+start_conjur_leader_for_spiffe
+configure_conjur_cert_workload_enterprise
+configure_conjur_cert_spiffe
 export_spiffe_socket
