@@ -1,0 +1,4 @@
+#!/bin/sh
+# Demo provider: the secret "db-password" is the content of values/db-password.
+# Change a file in values/ to simulate a rotation.
+cat "$(dirname "$0")/values/$1"

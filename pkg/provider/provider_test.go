@@ -80,6 +80,7 @@ func TestResolveEmptyProviderFallsBackToBuiltin(t *testing.T) {
 }
 
 func TestProviderResolutionOfAbsPath(t *testing.T) {
+	requirePOSIX(t)
 	expected := "/bin/bash"
 	provider, err := Resolve(expected)
 
@@ -96,6 +97,7 @@ func TestProviderResolutionOfRelPath(t *testing.T) {
 	f, err := os.CreateTemp("", "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(0755)
+	f.Close() // an open handle blocks removal on Windows
 
 	currentDir, err := os.Getwd()
 	assert.Nil(t, err)
@@ -119,6 +121,7 @@ func TestProviderResolutionOfRelPath(t *testing.T) {
 }
 
 func TestProviderResolutionViaEnvVarOfAbsPath(t *testing.T) {
+	requirePOSIX(t)
 	expected := "/bin/bash"
 	os.Setenv("SUMMON_PROVIDER", expected)
 	defer os.Unsetenv("SUMMON_PROVIDER")
@@ -137,6 +140,7 @@ func TestProviderResolutionViaEnvVarOfRelPath(t *testing.T) {
 	f, err := os.CreateTemp("", "")
 	defer os.RemoveAll(f.Name())
 	f.Chmod(0755)
+	f.Close() // an open handle blocks removal on Windows
 
 	currentDir, err := os.Getwd()
 	assert.Nil(t, err)
@@ -208,6 +212,7 @@ func TestProviderResolutionViaDefaultPathWithMultipleProviders(t *testing.T) {
 
 func TestResolve(t *testing.T) {
 	t.Run("returns ExternalProvider instance for an external provider path", func(t *testing.T) {
+		requirePOSIX(t)
 		// Use /bin/ls as a stand-in for any executable external provider.
 		provider, err := Resolve("/bin/ls")
 		assert.NoError(t, err)
@@ -217,7 +222,7 @@ func TestResolve(t *testing.T) {
 
 	t.Run("returns error for builtin when Conjur is not fully configured", func(t *testing.T) {
 		// Isolate from ~/.conjurrc so LoadConfig cannot succeed via file.
-		t.Setenv("HOME", t.TempDir())
+		isolateHome(t)
 		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
 			t.Setenv(envVar, "")
 		}
@@ -226,7 +231,7 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("case-insensitive CONJUR routes to builtin", func(t *testing.T) {
-		t.Setenv("HOME", t.TempDir())
+		isolateHome(t)
 		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
 			t.Setenv(envVar, "")
 		}
@@ -235,7 +240,7 @@ func TestResolve(t *testing.T) {
 	})
 
 	t.Run("mixed-case Conjur routes to builtin", func(t *testing.T) {
-		t.Setenv("HOME", t.TempDir())
+		isolateHome(t)
 		for _, envVar := range []string{"CONJUR_APPLIANCE_URL", "CONJUR_ACCOUNT"} {
 			t.Setenv(envVar, "")
 		}
@@ -245,6 +250,7 @@ func TestResolve(t *testing.T) {
 }
 
 func TestProviderCall(t *testing.T) {
+	requirePOSIX(t)
 	arg := "provider.go"
 	out, err := Call(context.Background(), "ls", arg)
 
@@ -257,6 +263,7 @@ func TestProviderCall(t *testing.T) {
 }
 
 func TestProviderCallWithExecutionError(t *testing.T) {
+	requirePOSIX(t)
 	err := os.Setenv("LC_ALL", "C")
 	assert.Nil(t, err)
 
@@ -268,6 +275,7 @@ func TestProviderCallWithExecutionError(t *testing.T) {
 }
 
 func TestProviderCallWithBadPath(t *testing.T) {
+	requirePOSIX(t)
 	err := os.Setenv("LC_ALL", "C")
 	assert.Nil(t, err)
 	if err != nil {
@@ -287,8 +295,7 @@ func TestGetAllProviders(t *testing.T) {
 		return
 	}
 
-	choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
-	assert.Equal(t, choppedPathTo, pathTo[0:len(pathTo)-9])
+	choppedPathTo := filepath.Dir(pathTo) // the pkg directory
 
 	pathToTest := filepath.Join(choppedPathTo, "command", "testversions")
 
@@ -322,6 +329,12 @@ func TestGetAllProviders_FiltersNonExecutables(t *testing.T) {
 
 	names, err := GetAllProviders(dir)
 	require.NoError(t, err)
+	if runtime.GOOS == "windows" {
+		// Windows has no execute bit (isProviderFile accepts every file), so only
+		// directories are filtered out.
+		assert.ElementsMatch(t, []string{"executable-provider", "also-executable", "not-executable.txt", "no-perms"}, names)
+		return
+	}
 	assert.ElementsMatch(t, []string{"executable-provider", "also-executable"}, names)
 }
 
@@ -332,8 +345,7 @@ func TestGetAllProvidersWithBadPath(t *testing.T) {
 		return
 	}
 
-	choppedPathTo := strings.TrimSuffix(pathTo, "/provider")
-	assert.Equal(t, choppedPathTo, pathTo[0:len(pathTo)-9])
+	choppedPathTo := filepath.Dir(pathTo) // the pkg directory
 
 	pathToTest := filepath.Join(choppedPathTo, "command", "testversions")
 
@@ -342,6 +354,7 @@ func TestGetAllProvidersWithBadPath(t *testing.T) {
 }
 
 func TestCallInteractiveMode(t *testing.T) {
+	requirePOSIX(t)
 	t.Run("provider command fails to execute", func(t *testing.T) {
 		provider := "/non/existent/command"
 		secrets := secretsyml.SecretsMap{
@@ -539,6 +552,7 @@ func TestProviderTimeoutResolution(t *testing.T) {
 }
 
 func TestCallTimeout(t *testing.T) {
+	requirePOSIX(t)
 	t.Setenv(providerTimeoutEnvVar, "200ms")
 	provider, err := createSleepingProvider(2 * time.Second)
 	assert.NoError(t, err)
@@ -553,6 +567,7 @@ func TestCallTimeout(t *testing.T) {
 }
 
 func TestCallCompletesWithinTimeout(t *testing.T) {
+	requirePOSIX(t)
 	t.Setenv(providerTimeoutEnvVar, "5s")
 	out, err := Call(context.Background(), "ls", "provider.go")
 	assert.NoError(t, err)
@@ -560,6 +575,7 @@ func TestCallCompletesWithinTimeout(t *testing.T) {
 }
 
 func TestCallInteractiveModeTimeout(t *testing.T) {
+	requirePOSIX(t)
 	t.Setenv(providerTimeoutEnvVar, "200ms")
 	provider, err := createSleepingProvider(2 * time.Second)
 	assert.NoError(t, err)
@@ -583,6 +599,7 @@ func TestCallInteractiveModeTimeout(t *testing.T) {
 }
 
 func TestCallInteractiveModeTimeoutAfterPartialOutput(t *testing.T) {
+	requirePOSIX(t)
 	t.Setenv(providerTimeoutEnvVar, "200ms")
 
 	tmpfile, err := os.CreateTemp("", "partialsleepprovider")
@@ -629,6 +646,7 @@ exec sleep 30
 }
 
 func TestCallInteractiveModeLegacyTimeoutEnv(t *testing.T) {
+	requirePOSIX(t)
 	t.Setenv(providerTimeoutEnvVar, "")
 	t.Setenv(legacyInteractiveTimeoutEnvVar, "1") // 1 second
 	provider, err := createSleepingProvider(5 * time.Second)
@@ -650,6 +668,7 @@ func TestCallInteractiveModeLegacyTimeoutEnv(t *testing.T) {
 }
 
 func TestCall_WallClockEnforcedWithForkingProvider(t *testing.T) {
+	requirePOSIX(t)
 	// Verify that SUMMON_PROVIDER_TIMEOUT bounds wall-clock time even when the
 	// provider forks a grandchild that keeps the stdout pipe open.
 	// Without Setpgid + WaitDelay, exec.CommandContext sends SIGKILL only to
@@ -677,6 +696,7 @@ func TestCall_WallClockEnforcedWithForkingProvider(t *testing.T) {
 }
 
 func TestCallInteractiveMode_WallClockEnforcedWithForkingProvider(t *testing.T) {
+	requirePOSIX(t)
 	// Verify that SUMMON_PROVIDER_TIMEOUT bounds wall-clock time in interactive
 	// mode even when the provider forks a grandchild that keeps the stdout pipe
 	// open after the direct child exits.
@@ -815,10 +835,33 @@ func TestIsBuiltinTarget(t *testing.T) {
 	}
 }
 
-func TestCallInteractiveModeNoGoroutineLeak(t *testing.T) {
+// isolateHome points the home directory at an empty temp dir so no user config
+// (e.g. ~/.conjurrc) leaks into the test: HOME on Unix, USERPROFILE on Windows.
+func isolateHome(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+}
+
+// requirePOSIX skips a test that shells out to POSIX tools or scripts (bash,
+// ls, base64, /bin, /etc) that do not exist on Windows.
+func requirePOSIX(t *testing.T) {
+	t.Helper()
 	if runtime.GOOS == "windows" {
-		t.Skip("requires bash, unavailable on Windows")
+		t.Skip("requires POSIX shell and utilities (bash, ls, /bin, /etc), unavailable on Windows")
 	}
+}
+
+func TestWindowsProgramFilesDir(t *testing.T) {
+	assert.Equal(t, `D:\Programs`, windowsProgramFilesDir(`D:\Programs`))
+	// The fallback must be drive-absolute: filepath.Join("C:", "Program Files")
+	// yields the drive-relative `C:Program Files`.
+	assert.Equal(t, `C:\Program Files`, windowsProgramFilesDir(""))
+}
+
+func TestCallInteractiveModeNoGoroutineLeak(t *testing.T) {
+	requirePOSIX(t)
 	f, err := os.CreateTemp("", "noisyprovider")
 	require.NoError(t, err)
 	defer os.Remove(f.Name())

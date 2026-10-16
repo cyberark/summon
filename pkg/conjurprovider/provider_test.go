@@ -101,7 +101,7 @@ func TestNew(t *testing.T) {
 		// test environment (e.g. CONJUR_AUTHN_CERT_SERVICE_ID exported by
 		// setup-spiffe.sh) to prevent conjur-api-go from triggering cert auth and
 		// failing the HTTPS URL validation on the intentionally-invalid test URL.
-		t.Setenv("HOME", t.TempDir())
+		isolateHome(t)
 		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
 		t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "")
 		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
@@ -122,7 +122,7 @@ func TestNew(t *testing.T) {
 		// live in conjur-api-go TestConfig_Validate (merged in PR #155, v0.15.3).
 		// Summon keeps one contract test: New(0) must surface Validate() failures as
 		// configuration errors, not authentication failures.
-		t.Setenv("HOME", t.TempDir())
+		isolateHome(t)
 		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
 		t.Setenv("CONJUR_AUTHN_CERT_FILE", "/missing/cert.pem")
 		t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example")
@@ -261,6 +261,15 @@ func TestConjurProviderPath(t *testing.T) {
 	})
 
 	assert.Equal(t, BuiltinProviderPath, provider.Path())
+}
+
+// isolateHome points the home directory at an empty temp dir so no user config
+// (e.g. ~/.conjurrc) leaks into the test: HOME on Unix, USERPROFILE on Windows.
+func isolateHome(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 }
 
 func TestIsUnauthorized(t *testing.T) {

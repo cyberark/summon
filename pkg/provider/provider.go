@@ -543,6 +543,16 @@ func expandPath(provider string) (string, error) {
 	return filepath.Join(defaultPath, provider), nil
 }
 
+// windowsProgramFilesDir returns programW6432 (the value of %ProgramW6432%), or
+// a drive-absolute fallback when it is unset. The fallback is a literal:
+// filepath.Join("C:", "Program Files") would be the drive-relative "C:Program Files".
+func windowsProgramFilesDir(programW6432 string) string {
+	if programW6432 != "" {
+		return programW6432
+	}
+	return `C:\Program Files`
+}
+
 func GetDefaultPath() (string, error) {
 	pathOverride := os.Getenv("SUMMON_PROVIDER_PATH")
 
@@ -555,10 +565,7 @@ func GetDefaultPath() (string, error) {
 	if runtime.GOOS == "windows" {
 		// Try to get the appropriate "Program Files" directory but if one doesn't
 		// exist, use a hardcoded value we think should be right.
-		programFilesDir := os.Getenv("ProgramW6432")
-		if programFilesDir == "" {
-			programFilesDir = filepath.Join("C:", "Program Files")
-		}
+		programFilesDir := windowsProgramFilesDir(os.Getenv("ProgramW6432"))
 
 		dir = filepath.Join(programFilesDir, "Cyberark Conjur", "Summon", "Providers")
 	}

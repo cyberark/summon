@@ -6,20 +6,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.14.1] - 2026-10-14
-
-### Fixed
-- Bound the wait for `CONJUR_AUTHN_TOKEN_FILE` at startup. Previously summon
-  (built-in Conjur provider) hung forever when the file did not exist. It now
-  waits up to 30s (configurable via `SUMMON_AUTHN_TOKEN_FILE_WAIT`, `0` to not
-  wait) and then exits with a configuration error; a directory or unreadable
-  file fails immediately.
+## [0.14.0] - 2026-10-08
 
 ### Security
 - Update Go to 1.27.2 and golang.org/x/net to v0.61.0 (GO-2026-6603, 6605, 6607,
   6608, 6610, 6611, 6612, 6613, 6617)
-
-## [0.14.0] - 2026-10-08
+- Suppress core dumps on macOS, BSD and Solaris as well as Linux: summon sets
+  `RLIMIT_CORE` to 0 at startup on every run. The subprocess inherits the hard
+  limit and cannot raise it, so programs run under summon no longer produce core
+  dumps on these platforms.
 
 ### Added
 - SPIFFE Workload API authentication: summon's built-in Conjur provider now
@@ -30,6 +25,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   selection to `conjur-api-go`. Set `SPIFFE_ENDPOINT_SOCKET` to the SPIRE
   agent socket and configure the matching Conjur authenticator; `conjur-api-go`
   routes the auth call automatically. (CNJR-14843)
+- Add daemon mode (`--refresh`, aliases `--daemon` and `--sidecar`): keep
+  running, periodically re-fetch secrets, rewrite changed secret files
+  atomically and gracefully restart the subprocess when secrets rotate.
+  Configurable via `SUMMON_REFRESH_*` and `SUMMON_RESTART_ON_ROTATION`; see the
+  README "Refresh mode" section. Not supported on Solaris (`--refresh` exits
+  with an error there). (CNJR-15643)
+
+### Fixed
+- Bound the wait for `CONJUR_AUTHN_TOKEN_FILE` at startup. Previously summon
+  (built-in Conjur provider) hung forever when the file did not exist. It now
+  waits up to 30s (configurable via `SUMMON_AUTHN_TOKEN_FILE_WAIT`, `0` to not
+  wait) and then exits with a configuration error; a directory or unreadable
+  file fails immediately.
+- Fail when finalizing a push-to-file secret file fails. Previously an error from
+  the final atomic rename was ignored, so Summon carried on and the secret file
+  was left missing or stale; it now reports "failed to finalize push to file"
+  and returns an error.
 
 ## [0.13.2] - 2026-09-29
 
