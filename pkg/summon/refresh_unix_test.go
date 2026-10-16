@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/cyberark/summon/pkg/conjurprovider"
+	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -509,6 +510,40 @@ func TestRefreshIgnoredAtStartupKeepsStartupState(t *testing.T) {
 			t.Fatal("failure of a startup-fetched secret was not counted as a failed poll")
 		}
 		assert.Len(t, h.starts(), 1, "no restart on a failed poll")
+	})
+}
+
+func TestRefreshFailureLogsOmitProviderStderrUnlessDebug(t *testing.T) {
+	providerErr := &prov.CallError{Err: errors.New("exit status 1"), Stderr: "leaked-stderr-token"}
+
+	run := func(t *testing.T, level slog.Level) string {
+		logs := &lockedBuffer{}
+		original := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: level})))
+		defer slog.SetDefault(original)
+
+		secrets := newFakeSecrets(map[string]string{"app/a": "v1"})
+		h := startLoop(t, secrets, envYAML, recordScript, fastRefresh(true))
+		h.waitStarts(1)
+		secrets.mu.Lock()
+		secrets.failErr = providerErr
+		secrets.mu.Unlock()
+		calls := secrets.calls.Load()
+		secrets.failN.Store(2)
+		waitFor(t, "failed polls", 5*time.Second, func() bool { return secrets.calls.Load() >= calls+3 })
+		h.finish()
+		return logs.String()
+	}
+
+	t.Run("info", func(t *testing.T) {
+		out := run(t, slog.LevelInfo)
+		assert.Contains(t, out, "Secrets refresh failed")
+		assert.Contains(t, out, "exit status 1")
+		assert.NotContains(t, out, "leaked-stderr-token")
+	})
+
+	t.Run("debug keeps stderr", func(t *testing.T) {
+		assert.Contains(t, run(t, slog.LevelDebug), "leaked-stderr-token")
 	})
 }
 

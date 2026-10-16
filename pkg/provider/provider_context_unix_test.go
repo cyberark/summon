@@ -18,16 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// writeProvider creates an executable script in a fresh 0755 directory.
-func writeProvider(t *testing.T, body string) string {
-	t.Helper()
-	dir := t.TempDir()
-	require.NoError(t, os.Chmod(dir, 0o755))
-	path := filepath.Join(dir, "prov")
-	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755))
-	return path
-}
-
 func pidGone(pid int) bool {
 	return syscall.Kill(pid, 0) == syscall.ESRCH
 }
@@ -116,6 +106,20 @@ func TestCall_OwnTimeoutStillReportsProviderTimeout(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "timed out after")
 	assert.False(t, errors.Is(err, context.Canceled))
+}
+
+func TestExternalProviderFetchSecret_VerifiesBeforeExec(t *testing.T) {
+	prov := writeProvider(t, `echo ok`)
+	p, err := ResolveDaemon(prov, 0)
+	require.NoError(t, err)
+
+	v, err := p.FetchSecret(context.Background(), "x")
+	require.NoError(t, err)
+	assert.Equal(t, "ok", string(v))
+
+	require.NoError(t, os.WriteFile(prov, []byte("#!/bin/sh\necho evil\n"), 0o755))
+	_, err = p.FetchSecret(context.Background(), "x")
+	require.Error(t, err, "replaced binary must be refused")
 }
 
 func TestCallInteractiveMode_CancelKillsProvider(t *testing.T) {

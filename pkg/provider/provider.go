@@ -42,12 +42,30 @@ const maxWaitDelay = 2 * time.Second
 // interface. FetchSecret shells out to the binary via Call.
 type ExternalProvider struct {
 	path string
+	// identity is recorded at Resolve time in daemon mode only. When nil
+	// (one-shot mode) Verify is a no-op.
+	identity *fileIdentity
+}
+
+// Verify re-checks, in daemon mode, that the provider binary and its
+// directory still match what Resolve recorded and are not group/world
+// writable. Callers must invoke it before every exec of the binary. It is a
+// no-op for providers resolved with Resolve.
+func (ep *ExternalProvider) Verify() error {
+	if ep.identity == nil {
+		return nil
+	}
+	return verifyIdentity(ep.path, ep.identity)
 }
 
 // FetchSecret calls the external provider binary with secretID as the sole
 // argument and returns its stdout as a byte slice.
-// Cancelling ctx kills the provider process (see Call).
+// Cancelling ctx kills the provider process (see Call). The binary is
+// verified before the exec.
 func (ep *ExternalProvider) FetchSecret(ctx context.Context, secretID string) ([]byte, error) {
+	if err := ep.Verify(); err != nil {
+		return nil, err
+	}
 	s, err := Call(ctx, ep.path, secretID)
 	return []byte(s), err
 }
@@ -83,10 +101,14 @@ func IsBuiltinTarget(providerArg string) bool {
 // For external providers it validates the binary path and returns an
 // ExternalProvider wrapping that path.
 func Resolve(providerArg string) (Provider, error) {
-	return resolve(providerArg, 0)
+	return resolve(providerArg, false, 0)
 }
 
-// ResolveDaemon is Resolve for --refresh mode.
+// ResolveDaemon is Resolve for --refresh mode. For an external provider it
+// additionally refuses a binary, directory or ancestor that is group/world-writable
+// or owned by another user, execs the symlink-resolved path, and records
+// the binary's identity so ExternalProvider.Verify can detect replacement
+// before each of the many later execs.
 //
 // fetchTimeout additionally caps the built-in Conjur provider's HTTP timeout
 // (rounded up to whole seconds; the library only takes seconds), so that the
@@ -94,10 +116,10 @@ func Resolve(providerArg string) (Provider, error) {
 // are bounded too. It never raises a timeout the operator configured. Zero
 // leaves the default.
 func ResolveDaemon(providerArg string, fetchTimeout time.Duration) (Provider, error) {
-	return resolve(providerArg, fetchTimeout)
+	return resolve(providerArg, true, fetchTimeout)
 }
 
-func resolve(providerArg string, fetchTimeout time.Duration) (Provider, error) {
+func resolve(providerArg string, daemon bool, fetchTimeout time.Duration) (Provider, error) {
 	if IsBuiltinTarget(providerArg) {
 		cp, err := conjurprovider.New(fetchTimeout)
 		if err != nil {
@@ -144,7 +166,15 @@ func resolve(providerArg string, fetchTimeout time.Duration) (Provider, error) {
 		return nil, err
 	}
 
-	return &ExternalProvider{path: provider}, nil
+	ep := &ExternalProvider{path: provider}
+	if daemon {
+		if ep.identity, err = captureIdentity(provider); err != nil {
+			return nil, err
+		}
+		// Exec the path that was verified, not the (swappable) symlink.
+		ep.path = ep.identity.execPath(ep.path)
+	}
+	return ep, nil
 }
 
 // Call shells out to a provider and return its output
@@ -183,11 +213,7 @@ func Call(ctx context.Context, provider, specPath string) (string, error) {
 			// provider exceeded its wall-clock budget.
 			return "", providerTimeoutError(provider, timeout)
 		}
-		errstr := err.Error()
-		if stdErr.Len() > 0 {
-			errstr += ": " + strings.TrimSpace(stdErr.String())
-		}
-		return "", errors.New(errstr)
+		return "", &CallError{Err: err, Stderr: strings.TrimSpace(stdErr.String())}
 	}
 
 	// Extract the result before zeroing the buffer. stdOut.String() copies the
@@ -198,6 +224,26 @@ func Call(ctx context.Context, provider, specPath string) (string, error) {
 	clear(stdOut.Bytes())
 	return result, nil
 }
+
+// CallError is a failed provider invocation. Error() includes the provider's
+// stderr (unchanged one-shot behavior); Redacted() omits it, for long-lived
+// logs where provider output may echo secret material or credentials.
+type CallError struct {
+	Err    error  // the exec error, e.g. "exit status 1"
+	Stderr string // trimmed provider stderr; may be empty
+}
+
+func (e *CallError) Error() string {
+	if e.Stderr == "" {
+		return e.Err.Error()
+	}
+	return e.Err.Error() + ": " + e.Stderr
+}
+
+func (e *CallError) Unwrap() error { return e.Err }
+
+// Redacted returns the error text without the provider's stderr.
+func (e *CallError) Redacted() string { return e.Err.Error() }
 
 // Result is the outcome of fetching a single secret from the provider.
 // It pairs the resolved Value with the Key used to request it, plus an

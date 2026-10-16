@@ -100,6 +100,10 @@ var Action = func(c *cli.Context) {
 			fmt.Fprintln(os.Stderr, err.Error())
 			osExit(127)
 		}
+		if err := hardenDaemon(); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			osExit(127)
+		}
 		if !c.Bool("debug") {
 			if err := configureLogging(os.Stderr, os.Getenv("SUMMON_LOG_LEVEL")); err != nil {
 				fmt.Fprintln(os.Stderr, err.Error())
@@ -124,18 +128,24 @@ var Action = func(c *cli.Context) {
 
 	slog.Debug("Using provider", "provider", providerInstance.Path())
 
+	var verifyProvider func() error
+	if v, ok := providerInstance.(interface{ Verify() error }); ok {
+		verifyProvider = v.Verify
+	}
+
 	code, err := summon.RunSubprocess(&summon.SubprocessConfig{
-		Args:        c.Args(),
-		Environment: c.String("environment"),
-		Filepath:    c.String("f"),
-		YamlInline:  c.String("yaml"),
-		Ignores:     c.StringSlice("ignore"),
-		IgnoreAll:   c.Bool("ignore-all"),
-		RecurseUp:   c.Bool("up"),
-		Subs:        c.StringSlice("D"),
-		Provider:    providerInstance.Path(),
-		FetchSecret: providerInstance.FetchSecret,
-		Refresh:     refresh,
+		Args:           c.Args(),
+		Environment:    c.String("environment"),
+		Filepath:       c.String("f"),
+		YamlInline:     c.String("yaml"),
+		Ignores:        c.StringSlice("ignore"),
+		IgnoreAll:      c.Bool("ignore-all"),
+		RecurseUp:      c.Bool("up"),
+		Subs:           c.StringSlice("D"),
+		Provider:       providerInstance.Path(),
+		FetchSecret:    providerInstance.FetchSecret,
+		VerifyProvider: verifyProvider,
+		Refresh:        refresh,
 	})
 
 	if err != nil {

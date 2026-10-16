@@ -10,6 +10,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -246,6 +247,17 @@ func (r *refresher) loop() (int, error) {
 	}
 }
 
+// loggableError returns err's text for the always-on logs. External provider
+// stderr can echo credentials or secret material, so it is only included when
+// debug logging is enabled.
+func loggableError(err error) string {
+	var ce *prov.CallError
+	if errors.As(err, &ce) && !slog.Default().Enabled(context.Background(), slog.LevelDebug) {
+		return strings.Replace(err.Error(), ce.Error(), ce.Redacted(), 1)
+	}
+	return err.Error()
+}
+
 // poll runs one Fetching → Diffing → Writing → Restarting cycle.
 func (r *refresher) poll() pollOutcome {
 	r.pollStart = r.now()
@@ -254,7 +266,7 @@ func (r *refresher) poll() pollOutcome {
 		if r.ctx.Err() != nil {
 			return pollOutcome{}
 		}
-		slog.Warn("Secrets refresh failed; subprocess keeps last-known-good secrets", "error", err)
+		slog.Warn("Secrets refresh failed; subprocess keeps last-known-good secrets", "error", loggableError(err))
 		return r.failure(err)
 	}
 
@@ -293,12 +305,8 @@ func (r *refresher) poll() pollOutcome {
 	return r.restart(fetched, tf, cycleOK)
 }
 
-// loggableError returns err's text for the always-on logs.
-func loggableError(err error) string {
-	return err.Error()
-}
-
-// logWriteErrors logs failed secret file writes.
+// logWriteErrors logs failed secret file writes. Their errors can wrap
+// provider stderr, so they go through loggableError.
 func logWriteErrors(errs []fileWriteError) {
 	for _, we := range errs {
 		slog.Error("Secret file write failed", "path", we.path, "error", loggableError(we.err))

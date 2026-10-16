@@ -4,15 +4,36 @@ package summon
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"log/slog"
 	"os"
 	"syscall"
 	"testing"
 	"time"
 
 	"github.com/cyberark/summon/pkg/conjurprovider"
+	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestLogWriteErrorsOmitsProviderStderrUnlessDebug(t *testing.T) {
+	werr := fileWriteError{path: "/x", err: fmt.Errorf("Error fetching secret: %w",
+		&prov.CallError{Err: errors.New("exit status 1"), Stderr: "leaked-stderr-token"})}
+	run := func(level slog.Level) string {
+		logs := &lockedBuffer{}
+		original := slog.Default()
+		slog.SetDefault(slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: level})))
+		defer slog.SetDefault(original)
+		logWriteErrors([]fileWriteError{werr})
+		return logs.String()
+	}
+	out := run(slog.LevelInfo)
+	assert.Contains(t, out, "Secret file write failed")
+	assert.NotContains(t, out, "leaked-stderr-token")
+	assert.Contains(t, run(slog.LevelDebug), "leaked-stderr-token")
+}
 
 func TestRestartWhileTerminatingMapsOurStopSignalToCleanExit(t *testing.T) {
 	root := NewTempFactory(t.TempDir())

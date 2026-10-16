@@ -45,6 +45,12 @@ func fetchSecrets(ctx context.Context, secrets secretsyml.SecretsMap, sc *Subpro
 		return results, nil
 	}
 
+	if sc.VerifyProvider != nil {
+		if err := sc.VerifyProvider(); err != nil {
+			return nil, err
+		}
+	}
+
 	// External provider: try interactive mode first, fall back to non-interactive.
 	resultsCh, errorsCh, cleanup := prov.CallInteractiveMode(ctx, sc.Provider, filteredSecrets)
 	defer cleanup()

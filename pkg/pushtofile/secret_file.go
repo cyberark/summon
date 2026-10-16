@@ -26,7 +26,9 @@ type SecretFile struct {
 	Ignores    []string
 	IgnoreAll  bool
 	// Daemon marks a long-running (--refresh) caller that rewrites the file
-	// repeatedly: the directory is fsynced after each rename.
+	// repeatedly: the destination directory must be owned by the current user
+	// and not group/world-writable, a symlinked destination is refused, and
+	// the directory is fsynced after each rename.
 	Daemon bool
 }
 

@@ -27,6 +27,9 @@ type SubprocessConfig struct {
 	Environment string
 	RecurseUp   bool
 	FetchSecret secretFetcher
+	// VerifyProvider, when set, is called before every exec of an external
+	// provider binary; an error fails the fetch without running it.
+	VerifyProvider func() error
 	// Refresh enables daemon mode: secrets are re-fetched on an interval while
 	// the subprocess runs. Nil means one-shot.
 	Refresh *RefreshConfig
