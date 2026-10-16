@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.14.1] - 2026-10-14
 
+### Fixed
+- Bound the wait for `CONJUR_AUTHN_TOKEN_FILE` at startup. Previously summon
+  (built-in Conjur provider) hung forever when the file did not exist. It now
+  waits up to 30s (configurable via `SUMMON_AUTHN_TOKEN_FILE_WAIT`, `0` to not
+  wait) and then exits with a configuration error; a directory or unreadable
+  file fails immediately.
+
 ### Security
 - Update Go to 1.27.2 and golang.org/x/net to v0.61.0 (GO-2026-6603, 6605, 6607,
   6608, 6610, 6611, 6612, 6613, 6617)

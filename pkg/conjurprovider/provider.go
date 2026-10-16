@@ -2,9 +2,12 @@
 package conjurprovider
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"time"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
 	"github.com/cyberark/conjur-api-go/conjurapi/response"
@@ -41,6 +44,9 @@ func loadConjurConfig() (conjurapi.Config, error) {
 	if err := validateNetrcPath(); err != nil {
 		return conjurapi.Config{}, err
 	}
+	if err := validateAuthnTokenFile(context.Background()); err != nil {
+		return conjurapi.Config{}, err
+	}
 	// conjur-api-go's WithDefaultCredentialStorageMode is a package-level setter
 	// (no return value), not a functional option. LoadConfig reads the default
 	// when CONJUR_CREDENTIAL_STORAGE_MODE is unset.
@@ -65,6 +71,76 @@ func validateNetrcPath() error {
 		return fmt.Errorf("configuration error: CONJUR_NETRC_PATH is not a regular file: %s", path)
 	}
 	return nil
+}
+
+// Token-file wait settings. conjur-api-go waits for a missing token file with
+// no time limit (it polls every 100ms, MaxWaitTime -1), which hung summon
+// forever on a bad path. Summon therefore waits itself, for a bounded time,
+// before the client is built.
+const (
+	authnTokenFileWaitEnv     = "SUMMON_AUTHN_TOKEN_FILE_WAIT"
+	defaultAuthnTokenFileWait = 30 * time.Second
+)
+
+// tokenFilePollInterval is how often the token file is polled; a variable so
+// tests can shorten it.
+var tokenFilePollInterval = 100 * time.Millisecond
+
+// authnTokenFileWait parses SUMMON_AUTHN_TOKEN_FILE_WAIT (a Go duration; 0
+// disables waiting). Unset or empty yields the default.
+func authnTokenFileWait() (time.Duration, error) {
+	v := os.Getenv(authnTokenFileWaitEnv)
+	if v == "" {
+		return defaultAuthnTokenFileWait, nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil || d < 0 {
+		return 0, fmt.Errorf("configuration error: %s must be a non-negative duration such as 30s, got %q", authnTokenFileWaitEnv, v)
+	}
+	return d, nil
+}
+
+// validateAuthnTokenFile checks CONJUR_AUTHN_TOKEN_FILE when set. A path that
+// does not exist yet is polled for up to SUMMON_AUTHN_TOKEN_FILE_WAIT (a
+// sidecar may create it shortly after start); a path that is not a readable
+// regular file fails immediately. It runs once, when the provider is
+// constructed; later rotation of the file is left to the library.
+func validateAuthnTokenFile(ctx context.Context) error {
+	path := os.Getenv("CONJUR_AUTHN_TOKEN_FILE")
+	if path == "" {
+		return nil
+	}
+	wait, err := authnTokenFileWait()
+	if err != nil {
+		return err
+	}
+	deadline := time.Now().Add(wait)
+	var info os.FileInfo
+	for {
+		info, err = os.Stat(path)
+		if err == nil || !errors.Is(err, fs.ErrNotExist) {
+			break
+		}
+		if !time.Now().Before(deadline) {
+			return fmt.Errorf("configuration error: CONJUR_AUTHN_TOKEN_FILE %s does not exist after waiting %s (see %s)", path, wait, authnTokenFileWaitEnv)
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("configuration error: waiting for CONJUR_AUTHN_TOKEN_FILE %s: %w", path, ctx.Err())
+		case <-time.After(min(tokenFilePollInterval, time.Until(deadline))):
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("configuration error: CONJUR_AUTHN_TOKEN_FILE is not accessible: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("configuration error: CONJUR_AUTHN_TOKEN_FILE is not a regular file: %s", path)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("configuration error: CONJUR_AUTHN_TOKEN_FILE is not readable: %w", err)
+	}
+	return f.Close()
 }
 
 // New loads Conjur configuration from the environment and creates a

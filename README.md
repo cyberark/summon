@@ -119,7 +119,8 @@ The provider loads configuration from:
 | `CONJUR_AUTHN_LOGIN` | Conjur identity (user or host) |
 | `CONJUR_AUTHN_API_KEY` | API key for the identity |
 | `CONJUR_AUTHN_TOKEN` | Pre-fetched Conjur auth token (inline) |
-| `CONJUR_AUTHN_TOKEN_FILE` | Path to a file containing the auth token |
+| `CONJUR_AUTHN_TOKEN_FILE` | Path to a file containing the auth token. At startup summon waits up to `SUMMON_AUTHN_TOKEN_FILE_WAIT` for a missing file to appear, then exits with a configuration error; a path that is a directory or unreadable fails immediately. Once running, the library re-reads the file when it changes; if it disappears or becomes unreadable later, the fetch fails with an error naming `CONJUR_AUTHN_TOKEN_FILE` and the path, and succeeds again once the file is back |
+| `SUMMON_AUTHN_TOKEN_FILE_WAIT` | Go duration (default `30s`, `0` = do not wait) that summon waits at startup for `CONJUR_AUTHN_TOKEN_FILE` to exist; negative or malformed values are a configuration error |
 | `CONJUR_AUTHN_JWT_SERVICE_ID` | JWT authenticator service ID (e.g. `kubernetes`) |
 | `JWT_TOKEN_PATH` | Path to the JWT token file (default: `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
 | `CONJUR_AUTHN_TYPE` | Auth backend: `jwt`, `iam`, `azure`, `gcp`, or `cert`. Setting `CONJUR_AUTHN_CERT_SERVICE_ID` activates cert authentication implicitly, overriding any other value set here. |
