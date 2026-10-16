@@ -128,7 +128,7 @@ func TestWriteAndClose(t *testing.T) {
 				// Check the file permissions
 				mode, err := os.Stat(path)
 				assert.NoError(t, err)
-				assert.Equal(t, os.FileMode(0644), mode.Mode())
+				assert.Equal(t, expectedMode(0644), mode.Mode())
 				// Check that the temp file was deleted
 				assert.NoFileExists(t, tempFilePath)
 				// Check that OS functions were called as expected
@@ -172,7 +172,7 @@ func TestWriteAndClose(t *testing.T) {
 
 			// Create a test atomic writer
 			path := filepath.Join(tmpDir, tc.path)
-			writer, funcCounts, _ := newTestWriter(path, tc.permissions, injectErrors{})
+			writer, funcCounts, _ := newTestWriter(t, path, tc.permissions, injectErrors{})
 
 			// Write the temp file and record its path
 			if tc.skipWrite != true {
@@ -201,6 +201,15 @@ func TestWriterAtomicity(t *testing.T) {
 	// Create 2 writers for the same path
 	writer1 := NewAtomicWriter(path, 0600)
 	writer2 := NewAtomicWriter(path, 0644)
+	// writer2 is never closed; release its temp file so TempDir cleanup can
+	// delete it (Windows cannot delete a file that is still open).
+	t.Cleanup(func() {
+		w := writer2.(*atomicWriter)
+		if w.tempFile != nil {
+			_ = w.tempFile.Close()
+			w.Cleanup()
+		}
+	})
 
 	// Write different content to each writer
 	writer1.Write([]byte("writer 1 line 1\n"))
@@ -226,7 +235,7 @@ func TestWriterAtomicity(t *testing.T) {
 	// Check the file permissions match the first writer
 	mode, err := os.Stat(path)
 	assert.NoError(t, err)
-	assert.Equal(t, os.FileMode(0600), mode.Mode())
+	assert.Equal(t, expectedMode(0600), mode.Mode())
 }
 
 func TestLogsErrors(t *testing.T) {
@@ -352,7 +361,7 @@ func TestLogsErrors(t *testing.T) {
 			path := filepath.Join(tmpDir, tc.path)
 
 			// Create a test atomic writer
-			writer, _, logBuf := newTestWriter(path, 0644, tc.injectErrs)
+			writer, _, logBuf := newTestWriter(t, path, 0644, tc.injectErrs)
 
 			// Try to write the file
 			_, err := writer.Write([]byte("test content"))
@@ -387,10 +396,17 @@ func TestDefaultDirectory(t *testing.T) {
 	assert.FileExists(t, "./test_file.txt")
 }
 
-func newTestWriter(path string, permissions os.FileMode,
+func newTestWriter(t *testing.T, path string, permissions os.FileMode,
 	injectErrs injectErrors) (io.WriteCloser, *osFuncCounts, *bytes.Buffer) {
 
 	writer := NewAtomicWriter(path, permissions)
+	// Error paths can leave the temp file open; close it so TempDir cleanup can
+	// delete it (Windows cannot delete a file that is still open).
+	t.Cleanup(func() {
+		if w := writer.(*atomicWriter); w.tempFile != nil {
+			_ = w.tempFile.Close()
+		}
+	})
 	funcs, counts := newTestOSFuncs(injectErrs)
 	logBuf := bytes.Buffer{}
 	writer.(*atomicWriter).os = funcs
