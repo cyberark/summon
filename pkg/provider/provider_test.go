@@ -1,11 +1,13 @@
 package provider
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -244,7 +246,7 @@ func TestResolve(t *testing.T) {
 
 func TestProviderCall(t *testing.T) {
 	arg := "provider.go"
-	out, err := Call("ls", arg)
+	out, err := Call(context.Background(), "ls", arg)
 
 	assert.Nil(t, err)
 	if err != nil {
@@ -258,7 +260,7 @@ func TestProviderCallWithExecutionError(t *testing.T) {
 	err := os.Setenv("LC_ALL", "C")
 	assert.Nil(t, err)
 
-	out, err := Call("ls", "README.notafile")
+	out, err := Call(context.Background(), "ls", "README.notafile")
 
 	assert.Empty(t, out)
 	assert.NotNil(t, err)
@@ -272,7 +274,7 @@ func TestProviderCallWithBadPath(t *testing.T) {
 		return
 	}
 
-	out, err := Call("/etc/passwd", "foo")
+	out, err := Call(context.Background(), "/etc/passwd", "foo")
 
 	assert.Empty(t, out)
 	assert.Contains(t, err.Error(), "permission denied")
@@ -346,7 +348,7 @@ func TestCallInteractiveMode(t *testing.T) {
 			"key1": secretsyml.SecretSpec{Path: "provider.go"},
 		}
 
-		_, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		_, errorsCh, cleanup := CallInteractiveMode(context.Background(), provider, secrets)
 		defer cleanup()
 
 		select {
@@ -364,7 +366,7 @@ func TestCallInteractiveMode(t *testing.T) {
 			"key1": secretsyml.SecretSpec{Path: "provider.go"},
 		}
 
-		resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		resultsCh, errorsCh, cleanup := CallInteractiveMode(context.Background(), provider, secrets)
 		defer cleanup()
 
 		select {
@@ -391,7 +393,7 @@ func TestCallInteractiveMode(t *testing.T) {
 		}
 		results := make(map[string]string)
 
-		resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		resultsCh, errorsCh, cleanup := CallInteractiveMode(context.Background(), provider, secrets)
 		defer cleanup()
 
 		for i := 0; i < len(secrets); i++ {
@@ -427,7 +429,7 @@ func TestCallInteractiveMode(t *testing.T) {
 		}
 		results := make(map[string]string)
 
-		resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+		resultsCh, errorsCh, cleanup := CallInteractiveMode(context.Background(), provider, secrets)
 		defer cleanup()
 
 		for range numResults {
@@ -542,7 +544,7 @@ func TestCallTimeout(t *testing.T) {
 	assert.NoError(t, err)
 	defer os.Remove(provider)
 
-	out, err := Call(provider, "ignored")
+	out, err := Call(context.Background(), provider, "ignored")
 	assert.Empty(t, out)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "timed out after")
@@ -552,7 +554,7 @@ func TestCallTimeout(t *testing.T) {
 
 func TestCallCompletesWithinTimeout(t *testing.T) {
 	t.Setenv(providerTimeoutEnvVar, "5s")
-	out, err := Call("ls", "provider.go")
+	out, err := Call(context.Background(), "ls", "provider.go")
 	assert.NoError(t, err)
 	assert.Equal(t, "provider.go", out)
 }
@@ -566,7 +568,7 @@ func TestCallInteractiveModeTimeout(t *testing.T) {
 	secrets := secretsyml.SecretsMap{
 		"key1": secretsyml.SecretSpec{Path: "some/secret"},
 	}
-	_, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+	_, errorsCh, cleanup := CallInteractiveMode(context.Background(), provider, secrets)
 	defer cleanup()
 
 	select {
@@ -603,7 +605,7 @@ exec sleep 30
 		"key1": secretsyml.SecretSpec{Path: "first/secret"},
 		"key2": secretsyml.SecretSpec{Path: "second/secret"},
 	}
-	resultsCh, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+	resultsCh, errorsCh, cleanup := CallInteractiveMode(context.Background(), provider, secrets)
 	defer cleanup()
 
 	// Drain partial results so the reader is not stuck on an unbuffered send
@@ -636,7 +638,7 @@ func TestCallInteractiveModeLegacyTimeoutEnv(t *testing.T) {
 	secrets := secretsyml.SecretsMap{
 		"key1": secretsyml.SecretSpec{Path: "path"},
 	}
-	_, errorsCh, cleanup := CallInteractiveMode(provider, secrets)
+	_, errorsCh, cleanup := CallInteractiveMode(context.Background(), provider, secrets)
 	defer cleanup()
 
 	select {
@@ -663,7 +665,7 @@ func TestCall_WallClockEnforcedWithForkingProvider(t *testing.T) {
 	require.NoError(t, os.WriteFile(providerPath, []byte(script), 0o755))
 
 	start := time.Now()
-	_, err := Call(providerPath, "any-secret")
+	_, err := Call(context.Background(), providerPath, "any-secret")
 	elapsed := time.Since(start)
 
 	assert.Error(t, err)
@@ -696,7 +698,7 @@ func TestCallInteractiveMode_WallClockEnforcedWithForkingProvider(t *testing.T) 
 	}
 
 	start := time.Now()
-	resultsCh, errorsCh, cleanup := CallInteractiveMode(providerPath, secrets)
+	resultsCh, errorsCh, cleanup := CallInteractiveMode(context.Background(), providerPath, secrets)
 	defer cleanup()
 
 	select {
@@ -811,4 +813,38 @@ func TestIsBuiltinTarget(t *testing.T) {
 			assert.Equal(t, tc.expected, got)
 		})
 	}
+}
+
+func TestCallInteractiveModeNoGoroutineLeak(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires bash, unavailable on Windows")
+	}
+	f, err := os.CreateTemp("", "noisyprovider")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+	_, err = f.WriteString("#!/bin/bash\nfor i in 1 2 3 4 5; do echo \"err $i\" >&2; done\nexit 1\n")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	require.NoError(t, os.Chmod(f.Name(), 0755))
+
+	secrets := secretsyml.SecretsMap{"key1": secretsyml.SecretSpec{Path: "some/secret"}}
+	baseline := runtime.NumGoroutine()
+
+	for i := 0; i < 10; i++ {
+		_, errorsCh, cleanup := CallInteractiveMode(context.Background(), f.Name(), secrets)
+		select {
+		case err := <-errorsCh: // like the fetcher: take one error, then clean up
+			require.Error(t, err)
+		case <-time.After(3 * time.Second):
+			t.Fatal("expected an error")
+		}
+		cleanup()
+	}
+
+	// Plain poll loop: require.Eventually spawns goroutines of its own.
+	deadline := time.Now().Add(5 * time.Second)
+	for runtime.NumGoroutine() > baseline && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	assert.LessOrEqual(t, runtime.NumGoroutine(), baseline, "goroutines leaked")
 }

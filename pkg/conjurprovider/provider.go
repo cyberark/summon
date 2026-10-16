@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"time"
 
@@ -31,16 +32,28 @@ type ConjurClient interface {
 	RetrieveSecret(variableID string) ([]byte, error)
 }
 
+// requestClient is the part of *conjurapi.Client that lets a retrieval be
+// bound to a context: the library has no context-taking RetrieveSecret, but it
+// builds the request itself and its SubmitRequest honours the request's
+// context. Test doubles that only implement ConjurClient take the fallback.
+type requestClient interface {
+	RetrieveSecretRequest(variableID string) (*http.Request, error)
+	SubmitRequest(req *http.Request) (*http.Response, error)
+}
+
 // ConjurProvider is the built-in Conjur secrets provider. It wraps a
 // ConjurClient and retrieves secrets via the conjur-api-go library.
 type ConjurProvider struct {
 	client ConjurClient
+	// tokenFile is CONJUR_AUTHN_TOKEN_FILE as seen at construction: daemon
+	// mode clears CONJUR_* from the process environment afterwards.
+	tokenFile string
 }
 
 // loadConjurConfig applies summon built-in provider defaults and loads Conjur
 // configuration from the environment. Credential storage mode defaults to
 // ReadOnly unless the operator sets CONJUR_CREDENTIAL_STORAGE_MODE.
-func loadConjurConfig() (conjurapi.Config, error) {
+func loadConjurConfig(maxHTTPTimeout time.Duration) (conjurapi.Config, error) {
 	if err := validateNetrcPath(); err != nil {
 		return conjurapi.Config{}, err
 	}
@@ -51,7 +64,25 @@ func loadConjurConfig() (conjurapi.Config, error) {
 	// (no return value), not a functional option. LoadConfig reads the default
 	// when CONJUR_CREDENTIAL_STORAGE_MODE is unset.
 	conjurapi.WithDefaultCredentialStorageMode(conjurapi.CredentialStorageModeReadOnly)
-	return conjurapi.LoadConfig()
+	cfg, err := conjurapi.LoadConfig()
+	if err != nil {
+		return cfg, err
+	}
+	capHTTPTimeout(&cfg, maxHTTPTimeout)
+	return cfg, nil
+}
+
+// capHTTPTimeout lowers cfg.HTTPTimeout (whole seconds) to limit, rounded up,
+// when limit is positive and shorter than the effective timeout. It never
+// raises a timeout the operator configured.
+func capHTTPTimeout(cfg *conjurapi.Config, limit time.Duration) {
+	if limit <= 0 {
+		return
+	}
+	secs := int((limit + time.Second - 1) / time.Second)
+	if secs < cfg.GetHttpTimeout() {
+		cfg.HTTPTimeout = secs
+	}
 }
 
 // validateNetrcPath checks CONJUR_NETRC_PATH when set and returns a
@@ -146,8 +177,13 @@ func validateAuthnTokenFile(ctx context.Context) error {
 // New loads Conjur configuration from the environment and creates a
 // ConjurProvider. Configuration loading, validation, and auth setup are
 // handled by conjur-api-go.
-func New() (*ConjurProvider, error) {
-	cfg, err := loadConjurConfig()
+//
+// The client's HTTP timeout is capped at maxHTTPTimeout (see capHTTPTimeout);
+// zero leaves it as configured. Daemon mode passes SUMMON_REFRESH_TIMEOUT so
+// the library's token refresh, which cannot be cancelled through a context, is
+// still bounded by it.
+func New(maxHTTPTimeout time.Duration) (*ConjurProvider, error) {
+	cfg, err := loadConjurConfig(maxHTTPTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: failed to load Conjur configuration: %w", err)
 	}
@@ -175,7 +211,7 @@ func New() (*ConjurProvider, error) {
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
-	return &ConjurProvider{client: client}, nil
+	return &ConjurProvider{client: client, tokenFile: os.Getenv("CONJUR_AUTHN_TOKEN_FILE")}, nil
 }
 
 // NewWithClient creates a ConjurProvider with an injected ConjurClient. This
@@ -187,27 +223,96 @@ func NewWithClient(client ConjurClient) *ConjurProvider {
 // FetchSecret fetches a Conjur variable by ID. A missing variable is treated
 // as a retrieval failure; an empty value is returned as-is (matching the
 // behavior of the standalone summon-conjur binary).
-func (p *ConjurProvider) FetchSecret(varID string) ([]byte, error) {
-	value, err := p.client.RetrieveSecret(varID)
-	if err != nil {
-		var conjurErr *response.ConjurError
-		if errors.As(err, &conjurErr) && conjurErr.Code == 404 {
-			// CONJ00036E is Conjur's canonical "authenticator webservice not found
-			// in policy" code. Matching on the code rather than Details != nil
-			// prevents future Conjur versions that return structured bodies for
-			// variable-not-found 404s from being misclassified as auth failures.
-			if conjurErr.Details != nil && conjurErr.Details.Code == "CONJ00036E" {
-				return nil, fmt.Errorf("authentication failed: authenticator not found or not enabled — check Conjur policy: %w", err)
-			}
-			return nil, fmt.Errorf("secret retrieval failed: variable '%s' not found or inaccessible", varID)
-		}
-		// Security: same rationale as New() — ConjurError.Error() returns only
-		// the HTTP status line from the error response body, which never
-		// contains secret material.
-		return nil, fmt.Errorf("secret retrieval failed: %w", err)
+//
+// With the real client the secret request carries ctx, so cancelling it aborts
+// the connection, the wait for response headers and the body read. What ctx
+// cannot reach is the library's token refresh (authentication) that may precede
+// the request; it is bounded by the client's HTTP timeout instead (see New).
+func (p *ConjurProvider) FetchSecret(ctx context.Context, varID string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
+	if err := p.checkTokenFile(); err != nil {
+		return nil, err
+	}
+	rc, ok := p.client.(requestClient)
+	if !ok {
+		value, err := p.client.RetrieveSecret(varID)
+		return value, retrievalError(varID, err)
+	}
+	req, err := rc.RetrieveSecretRequest(varID)
+	if err != nil {
+		return nil, retrievalError(varID, err)
+	}
+	resp, err := rc.SubmitRequest(req.WithContext(ctx))
+	if err != nil {
+		return nil, ctxOr(ctx, retrievalError(varID, err))
+	}
+	value, err := response.DataResponse(resp)
+	return value, ctxOr(ctx, retrievalError(varID, err))
+}
 
-	return value, nil
+// checkTokenFile fails when a configured CONJUR_AUTHN_TOKEN_FILE is no longer a
+// readable regular file. The library stats the file on every retrieval and
+// dereferences the result unchecked, so a file that vanished after the
+// provider was built (or never appeared) must be reported here instead of
+// reaching it. The next retrieval succeeds again once the file is back.
+func (p *ConjurProvider) checkTokenFile() error {
+	if p.tokenFile == "" {
+		return nil
+	}
+	info, err := os.Stat(p.tokenFile)
+	if err != nil {
+		return fmt.Errorf("authentication token file unavailable: CONJUR_AUTHN_TOKEN_FILE is not accessible: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("authentication token file unavailable: CONJUR_AUTHN_TOKEN_FILE is not a regular file: %s", p.tokenFile)
+	}
+	f, err := os.Open(p.tokenFile)
+	if err != nil {
+		return fmt.Errorf("authentication token file unavailable: CONJUR_AUTHN_TOKEN_FILE is not readable: %w", err)
+	}
+	return f.Close()
+}
+
+// ctxOr reports ctx's error when it ended, so callers see a cancellation or
+// deadline rather than the transport's wording; otherwise err.
+func ctxOr(ctx context.Context, err error) error {
+	if err != nil && ctx.Err() != nil {
+		return fmt.Errorf("secret retrieval failed: %w", ctx.Err())
+	}
+	return err
+}
+
+// retrievalError maps a retrieval error from the library to Summon's wording;
+// nil stays nil.
+func retrievalError(varID string, err error) error {
+	if err == nil {
+		return nil
+	}
+	var conjurErr *response.ConjurError
+	if errors.As(err, &conjurErr) && conjurErr.Code == 404 {
+		// CONJ00036E is Conjur's canonical "authenticator webservice not found
+		// in policy" code. Matching on the code rather than Details != nil
+		// prevents future Conjur versions that return structured bodies for
+		// variable-not-found 404s from being misclassified as auth failures.
+		if conjurErr.Details != nil && conjurErr.Details.Code == "CONJ00036E" {
+			return fmt.Errorf("authentication failed: authenticator not found or not enabled — check Conjur policy: %w", err)
+		}
+		return fmt.Errorf("secret retrieval failed: variable '%s' not found or inaccessible", varID)
+	}
+	// Security: same rationale as New() — ConjurError.Error() returns only
+	// the HTTP status line from the error response body, which never
+	// contains secret material.
+	return fmt.Errorf("secret retrieval failed: %w", err)
+}
+
+// IsUnauthorized reports whether err carries a Conjur HTTP 401 response, i.e.
+// the server rejected the credentials. 403 (not permitted), 404 and transport
+// errors are not authentication failures.
+func IsUnauthorized(err error) bool {
+	var conjurErr *response.ConjurError
+	return errors.As(err, &conjurErr) && conjurErr.Code == 401
 }
 
 // Path returns the built-in Conjur provider identifier (BuiltinProviderPath).

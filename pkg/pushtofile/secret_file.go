@@ -25,6 +25,9 @@ type SecretFile struct {
 	FileConfig secretsyml.FileConfig
 	Ignores    []string
 	IgnoreAll  bool
+	// Daemon marks a long-running (--refresh) caller that rewrites the file
+	// repeatedly: the directory is fsynced after each rename.
+	Daemon bool
 }
 
 func (secretFile *SecretFile) SecretSpecs() secretsyml.SecretsMap {
@@ -58,7 +61,11 @@ func (secretFile *SecretFile) WriteIfChanged(
 	providerResults []provider.Result,
 	prevChecksum string,
 ) (absolutePath string, checksum string, written bool, err error) {
-	return secretFile.writeIfChanged(providerResults, prevChecksum, openFileAsWriteCloser)
+	open := openFileAsWriteCloser
+	if secretFile.Daemon {
+		open = openFileAsDaemonWriteCloser
+	}
+	return secretFile.writeIfChanged(providerResults, prevChecksum, open)
 }
 
 func (secretFile *SecretFile) writeIfChanged(

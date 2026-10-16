@@ -146,10 +146,10 @@ func TestNewFailsAfterWaitOnMissingTokenFile(t *testing.T) {
 	}
 	done := make(chan result, 1)
 	go func() {
-		pr, err := New()
+		pr, err := New(0)
 		if err == nil {
 			// Reproduces the old hang: retrieval polls for the file forever.
-			_, err = pr.FetchSecret("var/x")
+			_, err = pr.FetchSecret(context.Background(), "var/x")
 		}
 		done <- result{pr, err}
 	}()

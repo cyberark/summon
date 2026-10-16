@@ -22,12 +22,12 @@ is empty.
 In order to migrate from system directory configuration to a local provider directory you need to move all providers to the local provider dir *AND* delete
 the system directory.
 
-`func Call(provider, specPath string) (string, error)`
+`func Call(ctx context.Context, provider, specPath string) (string, error)`
 
 Given a provider and secret's namespace, runs the provider to resolve
 the secret's value.
 
-`func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func())`
+`func CallInteractiveMode(ctx context.Context, provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func())`
 
 Given a provider and secrets, runs the provider in interactive mode to resolve multiple
 secret's values in a single process.

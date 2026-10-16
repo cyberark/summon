@@ -28,11 +28,15 @@ import (
 // interactive-mode dispatch.
 type Provider interface {
 	// FetchSecret retrieves the secret identified by varID.
-	FetchSecret(varID string) ([]byte, error)
+	FetchSecret(ctx context.Context, varID string) ([]byte, error)
 	// Path returns the provider's identifier: "conjur (built-in)" for the
 	// built-in provider or the absolute binary path for external providers.
 	Path() string
 }
+
+// maxWaitDelay caps how long cmd.Wait lingers after a provider was killed
+// because something outside its process group still holds its output pipes.
+const maxWaitDelay = 2 * time.Second
 
 // ExternalProvider wraps an external binary and satisfies the Provider
 // interface. FetchSecret shells out to the binary via Call.
@@ -42,8 +46,9 @@ type ExternalProvider struct {
 
 // FetchSecret calls the external provider binary with secretID as the sole
 // argument and returns its stdout as a byte slice.
-func (ep *ExternalProvider) FetchSecret(secretID string) ([]byte, error) {
-	s, err := Call(ep.path, secretID)
+// Cancelling ctx kills the provider process (see Call).
+func (ep *ExternalProvider) FetchSecret(ctx context.Context, secretID string) ([]byte, error) {
+	s, err := Call(ctx, ep.path, secretID)
 	return []byte(s), err
 }
 
@@ -78,8 +83,23 @@ func IsBuiltinTarget(providerArg string) bool {
 // For external providers it validates the binary path and returns an
 // ExternalProvider wrapping that path.
 func Resolve(providerArg string) (Provider, error) {
+	return resolve(providerArg, 0)
+}
+
+// ResolveDaemon is Resolve for --refresh mode.
+//
+// fetchTimeout additionally caps the built-in Conjur provider's HTTP timeout
+// (rounded up to whole seconds; the library only takes seconds), so that the
+// parts of a fetch the library cannot cancel through a context (token refresh)
+// are bounded too. It never raises a timeout the operator configured. Zero
+// leaves the default.
+func ResolveDaemon(providerArg string, fetchTimeout time.Duration) (Provider, error) {
+	return resolve(providerArg, fetchTimeout)
+}
+
+func resolve(providerArg string, fetchTimeout time.Duration) (Provider, error) {
 	if IsBuiltinTarget(providerArg) {
-		cp, err := conjurprovider.New()
+		cp, err := conjurprovider.New(fetchTimeout)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +128,7 @@ func Resolve(providerArg string) (Provider, error) {
 	if provider == "" {
 		// No external provider found in the default directory — fall back to the
 		// built-in Conjur provider.
-		cp, err := conjurprovider.New()
+		cp, err := conjurprovider.New(fetchTimeout)
 		if err != nil {
 			return nil, err
 		}
@@ -130,23 +150,33 @@ func Resolve(providerArg string) (Provider, error) {
 // Call shells out to a provider and return its output
 // If call succeeds, stdout is returned with no error
 // If call fails, "" is return with error containing stderr
-func Call(provider, specPath string) (string, error) {
+//
+// When ctx is done the provider is killed (on Unix its whole process group)
+// and Wait returns even if a grandchild still holds the output pipes; the
+// error then wraps ctx.Err(). The SUMMON_PROVIDER_TIMEOUT limit applies on
+// top of ctx's own deadline.
+func Call(ctx context.Context, provider, specPath string) (string, error) {
 	var (
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer
 	)
 	timeout := callTimeout()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, provider, specPath)
+	cmd := exec.CommandContext(callCtx, provider, specPath)
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
 	setCallProcessGroup(cmd, timeout)
 	err := cmd.Run()
 
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded || errors.Is(err, exec.ErrWaitDelay) {
+		if ctx.Err() != nil {
+			// The caller's context ended (its own deadline or a cancel), not
+			// the provider's own time limit.
+			return "", fmt.Errorf("provider %q aborted: %w", provider, ctx.Err())
+		}
+		if callCtx.Err() == context.DeadlineExceeded || errors.Is(err, exec.ErrWaitDelay) {
 			// Either the context deadline fired (direct child was killed but a
 			// grandchild may still be running) or WaitDelay force-closed the pipe
 			// because a grandchild outlived the direct child. Both cases mean the
@@ -254,11 +284,39 @@ func providerTimeoutError(provider string, timeout time.Duration) error {
 
 // CallInteractiveMode calls a provider without passing any arguments. It then constantly fetches
 // secrets from its stdout. It returns a channel of results, a channel of errors and a cleanup function.
-func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func()) {
+//
+// When ctx is done the provider is killed (on Unix its whole process group)
+// and an error wrapping ctx.Err() is sent on the errors channel.
+func CallInteractiveMode(ctx context.Context, provider string, secrets secretsyml.SecretsMap) (chan Result, chan error, func()) {
 	resultsCh := make(chan Result)
 	errorsCh := make(chan error, 1)
+	// done is closed by the returned cleanup func. Every send to errorsCh goes
+	// through sendErr so no goroutine blocks forever once the receiver is gone.
+	done := make(chan struct{})
+	var doneOnce sync.Once
+	closeDone := func() { doneOnce.Do(func() { close(done) }) }
+	sendErr := func(err error) {
+		// Prefer delivering into the buffer so the first error always arrives.
+		select {
+		case errorsCh <- err:
+			return
+		default:
+		}
+		select {
+		case errorsCh <- err:
+		case <-done:
+		}
+	}
 	timeout := streamTimeout()
-	ctxTimeout, ctxCancel := context.WithTimeout(context.Background(), timeout)
+	ctxTimeout, ctxCancel := context.WithTimeout(ctx, timeout)
+	// ended is the error to report once ctxTimeout is done: the caller's
+	// context error, or the provider time limit.
+	ended := func() error {
+		if ctx.Err() != nil {
+			return fmt.Errorf("provider %q aborted: %w", provider, ctx.Err())
+		}
+		return providerTimeoutError(provider, timeout)
+	}
 
 	cmd := exec.CommandContext(ctxTimeout, provider)
 	setCallProcessGroup(cmd, timeout)
@@ -267,13 +325,14 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
 		errorsCh <- err
-		return resultsCh, errorsCh, func() { ctxCancel() }
+		return resultsCh, errorsCh, func() { closeDone(); ctxCancel() }
 	}
 	// Get a pipe to the command's stdoutPipe
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		errorsCh <- err
 		return resultsCh, errorsCh, func() {
+			closeDone()
 			stdinPipe.Close()
 			ctxCancel()
 		}
@@ -282,6 +341,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	if err != nil {
 		errorsCh <- err
 		return resultsCh, errorsCh, func() {
+			closeDone()
 			stdinPipe.Close()
 			stdoutPipe.Close()
 			ctxCancel()
@@ -305,6 +365,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 	}
 
 	cleanup := func() {
+		closeDone()
 		stdinPipe.Close()
 		stdoutPipe.Close()
 		stderrPipe.Close()
@@ -319,10 +380,10 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 		return resultsCh, errorsCh, cleanup
 	}
 
-	// When the context deadline fires, exec.CommandContext kills the direct
-	// child but not grandchildren in the same process group. Call cmd.Wait()
+	// When the context ends, exec.CommandContext kills the provider (its whole
+	// process group on Unix, see setCallProcessGroup). Call cmd.Wait()
 	// immediately so WaitDelay can force-close the stdout pipe if a
-	// grandchild holds it open — otherwise the reader goroutine below blocks
+	// grandchild outside the group holds it open — otherwise the reader goroutine below blocks
 	// indefinitely, preventing handleResultsFromProvider from returning and
 	// cleanup() from ever being reached.
 	go func() {
@@ -338,7 +399,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 			slog.Debug("Fetching secret", "name", key, "provider", provider)
 			_, err := fmt.Fprintln(stdinPipe, spec.Path)
 			if err != nil {
-				errorsCh <- ErrInteractiveModeNotSupported
+				sendErr(ErrInteractiveModeNotSupported)
 				break
 			}
 			secretEnvVarCh <- key
@@ -355,25 +416,33 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
-				if ctxTimeout.Err() == context.DeadlineExceeded {
-					errorsCh <- providerTimeoutError(provider, timeout)
+				if ctxTimeout.Err() != nil {
+					sendErr(ended())
 					break
 				}
 				if err == io.EOF {
 					break
 				}
-				errorsCh <- err
+				sendErr(err)
 				continue
 			}
 
 			line = strings.TrimRight(line, "\r\n")
 			decoded, err := base64.StdEncoding.DecodeString(line)
 			if err != nil {
-				errorsCh <- fmt.Errorf("failed to decode base64 string: %w", err)
+				sendErr(fmt.Errorf("failed to decode base64 string: %w", err))
 				continue
 			}
 
-			keyVal := <-secretEnvVarCh
+			var keyVal string
+			select {
+			case keyVal = <-secretEnvVarCh:
+			case <-ctxTimeout.Done():
+				sendErr(ended())
+				return
+			case <-done:
+				return
+			}
 			select {
 			case resultsCh <- Result{
 				Key:   keyVal,
@@ -381,9 +450,10 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 				Error: nil,
 			}:
 			case <-ctxTimeout.Done():
-				if ctxTimeout.Err() == context.DeadlineExceeded {
-					errorsCh <- providerTimeoutError(provider, timeout)
-				}
+				sendErr(ended())
+				clear(decoded)
+				return
+			case <-done:
 				clear(decoded)
 				return
 			}
@@ -394,8 +464,8 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 			}
 
 		}
-		if index == 0 && ctxTimeout.Err() != context.DeadlineExceeded {
-			errorsCh <- ErrInteractiveModeNotSupported
+		if index == 0 && ctxTimeout.Err() == nil {
+			sendErr(ErrInteractiveModeNotSupported)
 		}
 
 	}()
@@ -403,7 +473,7 @@ func CallInteractiveMode(provider string, secrets secretsyml.SecretsMap) (chan R
 		scanner := bufio.NewScanner(stderrPipe)
 		for scanner.Scan() {
 			line := scanner.Text()
-			errorsCh <- errors.New(line)
+			sendErr(errors.New(line))
 		}
 	}()
 	return resultsCh, errorsCh, cleanup

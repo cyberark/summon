@@ -1,6 +1,7 @@
 package summon
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -26,16 +27,25 @@ type SubprocessConfig struct {
 	Environment string
 	RecurseUp   bool
 	FetchSecret secretFetcher
+	// Refresh enables daemon mode: secrets are re-fetched on an interval while
+	// the subprocess runs. Nil means one-shot.
+	Refresh *RefreshConfig
 }
 
 const envFileMagic = "@SUMMONENVFILE"
 const summonEnvKeyName = "SUMMON_ENV"
 
 // secretFetcher is function signature for fetching a secret
-type secretFetcher func(string) ([]byte, error)
+type secretFetcher func(ctx context.Context, id string) ([]byte, error)
 
 // RunSubprocess encapsulates the logic of fetching secrets, executing the subprocess with the secrets injected.
 func RunSubprocess(sc *SubprocessConfig) (int, error) {
+	return runSubprocess(context.Background(), sc)
+}
+
+// runSubprocess is RunSubprocess with a context that, in daemon mode, stops
+// the subprocess and ends the run when cancelled.
+func runSubprocess(ctx context.Context, sc *SubprocessConfig) (int, error) {
 	// Scrub CONJUR_* from this process on every return path (including fetch
 	// errors). An explicit clear also runs immediately before exec so
 	// credentials are gone while the child is running, not only after Wait.
@@ -78,33 +88,18 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 	tempFactory := NewTempFactory("")
 	defer tempFactory.Cleanup()
 
-	// Note: This implementation will cause duplicate calls to the provider if
-	// there are secrets needed for both env and files. We can optimize this in
-	// the future by calling the provider once and then splitting the results
-	// based on whether they're needed for env or files. We can do this by
-	// creating a Set of all the secret paths to fetch, calling the provider
-	// once with that set, and then processing the results to populate both env
-	// and files as needed.
-
-	env := []string{}
-	// Fetch secrets needed for environment variables
-	if config.HasEnvSecrets() {
-		envResults, err := fetchSecrets(config.EnvSecrets, sc, &tempFactory)
-		if err != nil {
-			return 0, err
-		}
-		env, err = processResultsAndSetupEnv(envResults, sc, &tempFactory)
-		if err != nil {
-			return 0, err
-		}
+	if sc.Refresh != nil {
+		return runRefreshing(ctx, sc, config, &tempFactory)
 	}
 
+	fetched, err := fetchCycle(context.Background(), config, sc, &tempFactory)
+	if err != nil {
+		return 0, err
+	}
+	env := fetched.env
+
 	if config.HasFileSecrets() {
-		fileResults, err := fetchSecrets(config.FileSecrets(), sc, &tempFactory)
-		if err != nil {
-			return 0, err
-		}
-		err = processResultsAndSetupFiles(fileResults, config.Files, sc, &tempFactory)
+		err = processResultsAndSetupFiles(fetched.fileResults, config.Files, sc, &tempFactory)
 		if err != nil {
 			return 0, err
 		}
@@ -119,6 +114,56 @@ func RunSubprocess(sc *SubprocessConfig) (int, error) {
 	}
 
 	return 0, nil
+}
+
+// fetchedCycle is everything one fetch cycle produces before any file is
+// written.
+type fetchedCycle struct {
+	// env is the env-injected secrets as "key=value" entries.
+	env []string
+	// args is the subprocess command with @SUMMONENVFILE resolved.
+	args []string
+	// envResults and fileResults are the raw provider results.
+	envResults  []prov.Result
+	fileResults []prov.Result
+}
+
+// fetchCycle fetches the env and file secrets and builds the subprocess env.
+// Files are not written: callers decide how (one-shot or checksum-gated).
+//
+// Note: This implementation will cause duplicate calls to the provider if
+// there are secrets needed for both env and files. We can optimize this in
+// the future by calling the provider once and then splitting the results
+// based on whether they're needed for env or files. We can do this by
+// creating a Set of all the secret paths to fetch, calling the provider
+// once with that set, and then processing the results to populate both env
+// and files as needed.
+func fetchCycle(ctx context.Context, config *secretsyml.ParsedConfig, sc *SubprocessConfig, tempFactory *TempFactory) (*fetchedCycle, error) {
+	fetched := &fetchedCycle{env: []string{}}
+
+	// Fetch secrets needed for environment variables
+	if config.HasEnvSecrets() {
+		envResults, err := fetchSecrets(ctx, config.EnvSecrets, sc, tempFactory)
+		if err != nil {
+			return nil, err
+		}
+		fetched.envResults = envResults
+		fetched.env, err = processResultsAndSetupEnv(envResults, sc, tempFactory)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if config.HasFileSecrets() {
+		fileResults, err := fetchSecrets(ctx, config.FileSecrets(), sc, tempFactory)
+		if err != nil {
+			return nil, err
+		}
+		fetched.fileResults = fileResults
+	}
+
+	fetched.args = sc.Args
+	return fetched, nil
 }
 
 // clearConjurEnvFromProcess unsets every environment variable whose key starts

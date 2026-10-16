@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -19,6 +20,11 @@ import (
 
 // osExit is replaced in tests so Action can be exercised without ending the process.
 var osExit = os.Exit
+
+// refreshSupported reports whether --refresh can run on this OS. Solaris cannot
+// track a child's process tree (no syscall.Getpgid), so a restart could leave
+// orphans. Replaced in tests.
+var refreshSupported = runtime.GOOS != "solaris"
 
 // configureDebugLogging sets up slog to output debug-level messages to the given writer.
 // It returns an error if the initial log write fails.
@@ -35,6 +41,26 @@ func configureDebugLogging(w io.Writer) error {
 	); err != nil {
 		return fmt.Errorf("failed to initialize debug logging: %w", err)
 	}
+	return nil
+}
+
+// configureLogging sets up slog to write to w at the level named by
+// SUMMON_LOG_LEVEL (DEBUG, INFO, WARN or ERROR; empty means INFO).
+func configureLogging(w io.Writer, levelName string) error {
+	level := slog.LevelInfo
+	switch strings.ToUpper(levelName) {
+	case "":
+	case "DEBUG":
+		level = slog.LevelDebug
+	case "INFO":
+	case "WARN":
+		level = slog.LevelWarn
+	case "ERROR":
+		level = slog.LevelError
+	default:
+		return fmt.Errorf("SUMMON_LOG_LEVEL must be one of DEBUG, INFO, WARN, ERROR: %q", levelName)
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: level})))
 	return nil
 }
 
@@ -63,9 +89,34 @@ var Action = func(c *cli.Context) {
 		return
 	}
 
+	var refresh *summon.RefreshConfig
+	if c.Bool("refresh") {
+		if !refreshSupported {
+			fmt.Fprintln(os.Stderr, "refresh mode is not supported on solaris")
+			osExit(127)
+		}
+		var err error
+		if refresh, err = summon.RefreshConfigFromEnv(os.Getenv); err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+			osExit(127)
+		}
+		if !c.Bool("debug") {
+			if err := configureLogging(os.Stderr, os.Getenv("SUMMON_LOG_LEVEL")); err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+				osExit(127)
+			}
+		}
+	}
+
 	providerArg := c.String("provider")
 
-	providerInstance, err := prov.Resolve(providerArg)
+	resolve := prov.Resolve
+	if refresh != nil {
+		resolve = func(arg string) (prov.Provider, error) {
+			return prov.ResolveDaemon(arg, refresh.Timeout)
+		}
+	}
+	providerInstance, err := resolve(providerArg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		osExit(127)
@@ -84,6 +135,7 @@ var Action = func(c *cli.Context) {
 		Subs:        c.StringSlice("D"),
 		Provider:    providerInstance.Path(),
 		FetchSecret: providerInstance.FetchSecret,
+		Refresh:     refresh,
 	})
 
 	if err != nil {

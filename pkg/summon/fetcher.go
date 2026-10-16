@@ -1,6 +1,7 @@
 package summon
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -18,7 +19,7 @@ import (
 
 // fetchSecrets encapsulates the logic of fetching secrets from the provider, including filtering non-variable secrets,
 // handling results from the provider, and falling back to non-interactive mode if necessary.
-func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) ([]prov.Result, error) {
+func fetchSecrets(ctx context.Context, secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) ([]prov.Result, error) {
 	slog.Debug("Fetching secrets", "count", len(secrets), "provider", sc.Provider)
 
 	// Filter out non-variable secrets (literals, file specs, etc.).
@@ -29,7 +30,7 @@ func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFacto
 		// Built-in Conjur provider: fetch sequentially with short-circuit on the
 		// first error. Skip interactive mode entirely — this Path value is not
 		// an external binary.
-		builtinResults, err := fetchSecretsBuiltin(filteredSecrets, sc, tempFactory)
+		builtinResults, err := fetchSecretsBuiltin(ctx, filteredSecrets, sc, tempFactory)
 		if err != nil {
 			return nil, err
 		}
@@ -45,14 +46,19 @@ func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFacto
 	}
 
 	// External provider: try interactive mode first, fall back to non-interactive.
-	resultsCh, errorsCh, cleanup := prov.CallInteractiveMode(sc.Provider, filteredSecrets)
+	resultsCh, errorsCh, cleanup := prov.CallInteractiveMode(ctx, sc.Provider, filteredSecrets)
 	defer cleanup()
 
 	resultsFromProvider, err := handleResultsFromProvider(resultsCh, errorsCh, filteredSecrets, tempFactory)
 	results = append(results, resultsFromProvider...)
 
+	// A done context killed the provider; its partial output must neither be
+	// used nor trigger the per-secret fallback.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
 	if err != nil {
-		results = nonInteractiveProviderFallback(secrets, sc, tempFactory)
+		results = nonInteractiveProviderFallback(ctx, secrets, sc, tempFactory)
 	}
 
 	return results, nil
@@ -61,7 +67,7 @@ func fetchSecrets(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFacto
 // fetchSecretsBuiltin fetches secrets one at a time using the built-in Conjur
 // provider and short-circuits on the first error, leaving remaining secrets
 // unfetched. The ignore list (sc.Ignores / sc.IgnoreAll) is respected.
-func fetchSecretsBuiltin(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) ([]prov.Result, error) {
+func fetchSecretsBuiltin(ctx context.Context, secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) ([]prov.Result, error) {
 	// Sort keys for deterministic ordering.
 	keys := make([]string, 0, len(secrets))
 	for key := range secrets {
@@ -72,10 +78,16 @@ func fetchSecretsBuiltin(secrets secretsyml.SecretsMap, sc *SubprocessConfig, te
 	results := make([]prov.Result, 0, len(secrets))
 	for _, key := range keys {
 		spec := secrets[key]
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 
 		slog.Debug("Fetching secret", "name", key, "provider", sc.Provider)
-		secretBytes, err := sc.FetchSecret(spec.Path)
+		secretBytes, err := sc.FetchSecret(ctx, spec.Path)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err() // never "ignore" an aborted fetch
+			}
 			if sc.IgnoreAll || slices.Contains(sc.Ignores, key) {
 				slog.Debug("Ignoring fetch error", "name", key, "error", err)
 				continue
@@ -159,7 +171,7 @@ func handleResultsFromProvider(resultsCh chan prov.Result, errorsCh chan error,
 	}
 }
 
-func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) []prov.Result {
+func nonInteractiveProviderFallback(ctx context.Context, secrets secretsyml.SecretsMap, sc *SubprocessConfig, tempFactory *TempFactory) []prov.Result {
 	results := make(chan prov.Result, len(secrets))
 	var wg sync.WaitGroup
 
@@ -171,7 +183,7 @@ func nonInteractiveProviderFallback(secrets secretsyml.SecretsMap, sc *Subproces
 			var value string
 			if spec.IsVar() {
 				slog.Debug("Fetching secret", "name", key, "provider", sc.Provider)
-				valueBytes, err := sc.FetchSecret(spec.Path)
+				valueBytes, err := sc.FetchSecret(ctx, spec.Path)
 				if err != nil {
 					results <- prov.Result{Key: key, Value: "", Error: err}
 					return

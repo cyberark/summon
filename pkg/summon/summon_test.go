@@ -1,12 +1,13 @@
 package summon
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -32,11 +33,12 @@ func TestRunSubprocess(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
+				t.Setenv(helperEnv, "1")
 				dir := t.TempDir()
 				tempFile := filepath.Join(dir, "outputFile.txt")
 
 				code, err := RunSubprocess(&SubprocessConfig{
-					Args:       []string{"bash", "-c", "echo -n \"$FOO\" > " + tempFile},
+					Args:       helperArgs("writevar", tempFile, "FOO"),
 					YamlInline: tc.yamlInline,
 				})
 
@@ -63,10 +65,11 @@ func TestRunSubprocess(t *testing.T) {
 		err = os.MkdirAll(downDir, 0o700)
 		assert.NoError(t, err)
 		t.Chdir(downDir)
+		t.Setenv(helperEnv, "1")
 
 		outFile := filepath.Join(topDir, "output.txt")
 		code, err := RunSubprocess(&SubprocessConfig{
-			Args:      []string{"bash", "-c", "echo -n \"$BAR\" > " + outFile},
+			Args:      helperArgs("writevar", outFile, "BAR"),
 			RecurseUp: true,
 			Filepath:  "secrets.yml",
 		})
@@ -376,8 +379,9 @@ func TestLocateFileRecurseUp(t *testing.T) {
 		topDir := t.TempDir()
 
 		localFilePath := filepath.Join(topDir, filename)
-		_, err := os.Create(localFilePath)
+		f, err := os.Create(localFilePath)
 		assert.NoError(t, err)
+		assert.NoError(t, f.Close()) // an open handle blocks TempDir cleanup on Windows
 
 		gotPath, err := findInParentTree(filename, topDir)
 		assert.NoError(t, err)
@@ -389,8 +393,9 @@ func TestLocateFileRecurseUp(t *testing.T) {
 		topDir := t.TempDir()
 
 		fileAbovePath := filepath.Join(topDir, filename)
-		_, err := os.Create(fileAbovePath)
+		f, err := os.Create(fileAbovePath)
 		assert.NoError(t, err)
+		assert.NoError(t, f.Close()) // an open handle blocks TempDir cleanup on Windows
 
 		// Create a downwards directory hierarchy, starting from topDir
 		downDir := filepath.Join(topDir, "dir1", "dir2", "dir3")
@@ -419,8 +424,10 @@ func TestLocateFileRecurseUp(t *testing.T) {
 	t.Run("returns a friendly error if file is an absolute path", func(t *testing.T) {
 		topDir := t.TempDir()
 
-		absFileName := "/foo/bar/baz"
-		wantErrMsg := "file specified (/foo/bar/baz) is an absolute path: will not recurse up"
+		// Built from the temp dir so the path is absolute on every platform
+		// ("/foo/bar/baz" has no drive letter, so it is relative on Windows).
+		absFileName := filepath.Join(topDir, "foo", "bar", "baz")
+		wantErrMsg := "file specified (" + absFileName + ") is an absolute path: will not recurse up"
 
 		_, err := findInParentTree(absFileName, topDir)
 		assert.EqualError(t, err, wantErrMsg)
@@ -433,7 +440,8 @@ func TestLocateFileRecurseUp(t *testing.T) {
 		wantErrMsg := "unable to locate file specified (pizza\x00margherita): stat"
 
 		_, err := findInParentTree(fileNameWithNulByte, topDir)
-		assert.Contains(t, err.Error(), wantErrMsg)
+		// The OS error text differs in case between platforms ("stat" / "Stat").
+		assert.Contains(t, strings.ToLower(err.Error()), wantErrMsg)
 	})
 }
 
@@ -445,7 +453,7 @@ func TestReturnStatusOfError(t *testing.T) {
 	})
 
 	t.Run("returns ExitError as the wrapped exit status", func(t *testing.T) {
-		exit := exec.Command("false").Run()
+		exit := helperCommand("exit", "1").Run()
 		res, err := returnStatusOfError(exit)
 		assert.NoError(t, err)
 		assert.Equal(t, 1, res)
@@ -462,7 +470,7 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 	tests := []struct {
 		name        string
 		secrets     secretsyml.SecretsMap
-		fetchSecret func(string) ([]byte, error)
+		fetchSecret func(_ context.Context, _ string) ([]byte, error)
 		tempPath    string
 		assertFunc  func(t *testing.T, results []prov.Result)
 	}{
@@ -472,7 +480,7 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 				"key1": secretsyml.SecretSpec{Path: "path1"},
 				"key2": secretsyml.SecretSpec{Path: "path2"},
 			},
-			fetchSecret: func(path string) ([]byte, error) { return []byte(path), nil },
+			fetchSecret: func(_ context.Context, path string) ([]byte, error) { return []byte(path), nil },
 			assertFunc: func(t *testing.T, results []prov.Result) {
 				assert.Len(t, results, 2)
 				for _, r := range results {
@@ -487,7 +495,7 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 			secrets: secretsyml.SecretsMap{
 				"FAILING_KEY": {Path: "path/to/secret", Tags: []secretsyml.YamlTag{secretsyml.Var}},
 			},
-			fetchSecret: func(path string) ([]byte, error) {
+			fetchSecret: func(_ context.Context, path string) ([]byte, error) {
 				return nil, fmt.Errorf("provider error for %s", path)
 			},
 			assertFunc: func(t *testing.T, results []prov.Result) {
@@ -502,7 +510,7 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 			secrets: secretsyml.SecretsMap{
 				"FILE_KEY": {Path: "path/to/secret", Tags: []secretsyml.YamlTag{secretsyml.Var, secretsyml.File}},
 			},
-			fetchSecret: func(path string) ([]byte, error) { return []byte("secret-content"), nil },
+			fetchSecret: func(_ context.Context, path string) ([]byte, error) { return []byte("secret-content"), nil },
 			tempPath:    "/nonexistent/dir",
 			assertFunc: func(t *testing.T, results []prov.Result) {
 				assert.Len(t, results, 1)
@@ -519,7 +527,7 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 			tempFactory := NewTempFactory(tc.tempPath)
 			defer tempFactory.Cleanup()
 
-			results := nonInteractiveProviderFallback(tc.secrets, sc, &tempFactory)
+			results := nonInteractiveProviderFallback(context.Background(), tc.secrets, sc, &tempFactory)
 			tc.assertFunc(t, results)
 		})
 	}
@@ -591,13 +599,14 @@ func TestRunSubprocessFiltersConjurEnv(t *testing.T) {
 		t.Setenv("CONJUR_ACCOUNT", "should-be-filtered")
 		t.Setenv("CONJUR_AUTHN_TOKEN", "super-secret-token")
 		t.Setenv("SAFE_VAR", "keep-me")
+		t.Setenv(helperEnv, "1")
 
 		dir := t.TempDir()
 		outFile := filepath.Join(dir, "env_dump.txt")
 
 		// The child echoes the value of CONJUR_ACCOUNT (empty if filtered) and SAFE_VAR.
 		code, err := RunSubprocess(&SubprocessConfig{
-			Args:       []string{"bash", "-c", fmt.Sprintf(`echo -n "CONJUR_ACCOUNT=${CONJUR_ACCOUNT}|SAFE_VAR=${SAFE_VAR}" > %s`, outFile)},
+			Args:       helperArgs("writevars", outFile, "CONJUR_ACCOUNT", "SAFE_VAR"),
 			YamlInline: "DUMMY: !str dummy",
 		})
 
@@ -625,7 +634,7 @@ func TestRunSubprocessFiltersConjurEnv(t *testing.T) {
 			Args:       []string{"true"},
 			YamlInline: "SECRET: !var path/to/secret",
 			Provider:   conjurprovider.BuiltinProviderPath,
-			FetchSecret: func(string) ([]byte, error) {
+			FetchSecret: func(_ context.Context, _ string) ([]byte, error) {
 				return nil, errors.New("retrieval failed")
 			},
 		})
@@ -668,13 +677,13 @@ func TestFetchSecretsDispatch(t *testing.T) {
 		})
 		sc := &SubprocessConfig{
 			Provider: conjurprovider.BuiltinProviderPath,
-			FetchSecret: func(varID string) ([]byte, error) {
+			FetchSecret: func(_ context.Context, varID string) ([]byte, error) {
 				fetchCount++
 				return nil, errors.New("retrieval failed")
 			},
 		}
 
-		results, err := fetchSecrets(secrets, sc, &TempFactory{})
+		results, err := fetchSecrets(context.Background(), secrets, sc, &TempFactory{})
 
 		require.Error(t, err)
 		assert.Nil(t, results)
@@ -691,13 +700,13 @@ func TestFetchSecretsDispatch(t *testing.T) {
 			// Non-existent binary: interactive mode fails, non-interactive
 			// fallback fetches all keys (no short-circuit).
 			Provider: filepath.Join(t.TempDir(), "not-a-real-provider"),
-			FetchSecret: func(varID string) ([]byte, error) {
+			FetchSecret: func(_ context.Context, varID string) ([]byte, error) {
 				fetchCount.Add(1)
 				return nil, errors.New("retrieval failed")
 			},
 		}
 
-		results, err := fetchSecrets(secrets, sc, &TempFactory{})
+		results, err := fetchSecrets(context.Background(), secrets, sc, &TempFactory{})
 
 		require.NoError(t, err)
 		assert.Len(t, results, 2)
@@ -726,10 +735,10 @@ func TestFetchSecretsDispatch(t *testing.T) {
 		}
 		sc := &SubprocessConfig{
 			Provider:    providerPath,
-			FetchSecret: func(_ string) ([]byte, error) { return nil, nil },
+			FetchSecret: func(_ context.Context, _ string) ([]byte, error) { return nil, nil },
 		}
 
-		results, err := fetchSecrets(secrets, sc, &TempFactory{})
+		results, err := fetchSecrets(context.Background(), secrets, sc, &TempFactory{})
 
 		require.NoError(t, err)
 		require.Len(t, results, 2)
@@ -757,12 +766,12 @@ func TestFetchSecretsBuiltin(t *testing.T) {
 			"SECRET_B": "path/to/b",
 		})
 		sc := &SubprocessConfig{
-			FetchSecret: func(varID string) ([]byte, error) {
+			FetchSecret: func(_ context.Context, varID string) ([]byte, error) {
 				return []byte("val-" + varID), nil
 			},
 		}
 
-		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+		results, err := fetchSecretsBuiltin(context.Background(), secrets, sc, &TempFactory{})
 
 		require.NoError(t, err)
 		assert.Len(t, results, 2)
@@ -775,13 +784,13 @@ func TestFetchSecretsBuiltin(t *testing.T) {
 			"SECRET_B": "path/to/b",
 		})
 		sc := &SubprocessConfig{
-			FetchSecret: func(varID string) ([]byte, error) {
+			FetchSecret: func(_ context.Context, varID string) ([]byte, error) {
 				fetchCount++
 				return nil, errors.New("retrieval failed")
 			},
 		}
 
-		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+		results, err := fetchSecretsBuiltin(context.Background(), secrets, sc, &TempFactory{})
 
 		require.Error(t, err)
 		assert.Nil(t, results)
@@ -795,7 +804,7 @@ func TestFetchSecretsBuiltin(t *testing.T) {
 		})
 		sc := &SubprocessConfig{
 			Ignores: []string{"SECRET_A"},
-			FetchSecret: func(varID string) ([]byte, error) {
+			FetchSecret: func(_ context.Context, varID string) ([]byte, error) {
 				if varID == "path/to/a" {
 					return nil, errors.New("not found")
 				}
@@ -803,7 +812,7 @@ func TestFetchSecretsBuiltin(t *testing.T) {
 			},
 		}
 
-		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+		results, err := fetchSecretsBuiltin(context.Background(), secrets, sc, &TempFactory{})
 
 		require.NoError(t, err)
 		require.Len(t, results, 1)
@@ -818,12 +827,12 @@ func TestFetchSecretsBuiltin(t *testing.T) {
 		})
 		sc := &SubprocessConfig{
 			IgnoreAll: true,
-			FetchSecret: func(varID string) ([]byte, error) {
+			FetchSecret: func(_ context.Context, varID string) ([]byte, error) {
 				return nil, errors.New("all fail")
 			},
 		}
 
-		results, err := fetchSecretsBuiltin(secrets, sc, &TempFactory{})
+		results, err := fetchSecretsBuiltin(context.Background(), secrets, sc, &TempFactory{})
 
 		require.NoError(t, err)
 		assert.Empty(t, results)
