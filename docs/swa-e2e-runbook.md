@@ -55,6 +55,26 @@ summon --version
 | `SWA_EDGE_URL` | _(empty)_ | SWA Edge proxy URL; Edge scenarios are skipped when empty |
 | `SWA_EDGE_CA_CERT` | _(empty)_ | PEM-encoded CA cert for the Edge TLS connection |
 
+### Optional — Enterprise (self-hosted Conjur) scenarios
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CONJUR_ENTERPRISE_URL` | _(empty)_ | Self-hosted Conjur appliance URL; Enterprise scenarios are skipped when empty |
+| `CONJUR_ENTERPRISE_ACCOUNT` | `conjur` | Account on the self-hosted appliance |
+| `CONJUR_ENTERPRISE_JWT_SERVICE_ID` | _(same as JWT service ID)_ | authn-jwt service ID on the self-hosted appliance |
+| `CONJUR_ENTERPRISE_CERT_SERVICE_ID` | _(same as cert service ID)_ | authn-x509 service ID on the self-hosted appliance |
+| `CONJUR_ENTERPRISE_CA_CERT` | _(empty)_ | PEM CA cert for the appliance TLS connection |
+| `CONJUR_ENTERPRISE_JWT_HOST_ID` | _(empty)_ | Host ID override for JWT auth on the appliance |
+| `CONJUR_ENTERPRISE_CERT_HOST_ID` | _(empty)_ | Host ID override for cert auth on the appliance |
+| `CONJUR_ENTERPRISE_IGNORE_SSL` | `false` | Set to `true` to skip TLS verification (CI only, not for production) |
+| `CONJUR_ENTERPRISE_GODEBUG` | _(empty)_ | Go `GODEBUG` flags forwarded to summon for Enterprise scenarios. Set to `x509negativeserial=1` when running against Conjur 5.x, which generates certificates with DER-negative serial numbers that Go 1.20+ rejects by default. |
+
+> **`CONJUR_ADMIN_PASSWORD` is required** for `bin/swa/setup-swa-enterprise.sh` — there is no default. Set it before running:
+> ```sh
+> export CONJUR_ADMIN_PASSWORD=<your-local-appliance-password>
+> ```
+
+### Script defaults
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -196,6 +216,8 @@ Copy the output and attach it as the test execution record.
 | 5 | `CONJUR_AUTHN_JWT_SERVICE_ID` absent → config error | — | Verifies error names the missing variable; no secret in output |
 | 6 | `CONJUR_APPLIANCE_URL` unset → config error | — | Verifies error names missing variable |
 | 7 | cert files missing → config error | — | Verifies error names missing path |
+| 8 | JWT-SVID → self-hosted Conjur enterprise → secret retrieved | `CONJUR_ENTERPRISE_URL` set, enterprise appliance running | Skipped when `CONJUR_ENTERPRISE_URL` is empty |
+| 9 | cert auth → self-hosted Conjur enterprise → secret retrieved | `CONJUR_ENTERPRISE_URL` set, enterprise appliance running | Skipped when `CONJUR_ENTERPRISE_URL` is empty |
 
 ---
 
