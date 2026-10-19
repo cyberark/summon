@@ -67,6 +67,7 @@ pipeline {
 
   parameters {
     booleanParam(name: 'TEST_AWS', defaultValue: true, description: 'Run integration tests against AWS IAM')
+    booleanParam(name: 'TEST_WINDOWS', defaultValue: true, description: 'Run unit tests on a Windows agent')
     booleanParam(name: 'TEST_AZURE', defaultValue: false, description: 'Run integration tests against Azure')
     booleanParam(name: 'TEST_GCP', defaultValue: false, description: 'Run integration tests against GCP')
     booleanParam(name: 'TEST_CERT', defaultValue: false, description: 'Run authn-cert integration tests against Conjur Enterprise (auto-enabled on main/master)')
@@ -103,6 +104,11 @@ pipeline {
         script {
           // Request ExecutorV2 agents for 1 hour(s)
           infrapool = getInfraPoolAgent.connected(type: "ExecutorV2", quantity: 1, duration: 1)[0]
+
+          // Windows agent for the Windows-only process-tree restart tests
+          if (params.TEST_WINDOWS) {
+            INFRAPOOL_WINDOWS_EXECUTORV2_AGENT_0 = getInfraPoolAgent.connected(type: "AzureExecutorV2Windows", quantity: 1, duration: 1)[0]
+          }
 
           // Request additional executors for cloud specific tests
           if (params.TEST_AZURE) {
@@ -401,6 +407,40 @@ pipeline {
               infrapool.agentSh 'cp -r gcp ./pristine-checkout/'
               infrapool.agentDir('./pristine-checkout') {
                 infrapool.agentSh './bin/test.sh'
+              }
+            }
+          }
+        }
+
+        stage('Run Windows tests') {
+          when {
+            expression { params.TEST_WINDOWS }
+          }
+          steps {
+            script {
+              // Windows agents do not ship with Go; bin/test-windows.ps1 downloads it and
+              // runs the unit tests (integration tests need a Conjur server and sit behind
+              // a build tag).
+              // Transfer one archive instead of the workspace: the sftp transfer costs
+              // about a second per file, so sending the whole checkout took ~14 minutes.
+              sh 'tar czf windows-src.tgz go.mod go.sum cmd internal pkg bin/test-windows.ps1 $(test -d vendor && echo vendor)'
+              INFRAPOOL_WINDOWS_EXECUTORV2_AGENT_0.agentPut from: "windows-src.tgz", to: "."
+              timeout(time: 20, unit: 'MINUTES') {
+                try {
+                  echo 'windows tests: start'
+                  // Azure Windows InfraPool agents only support agentPs (PowerShell), not agentSh.
+                  INFRAPOOL_WINDOWS_EXECUTORV2_AGENT_0.agentPs '''
+                  $ErrorActionPreference = 'Stop'
+                  tar.exe -xzf windows-src.tgz
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                  & ./bin/test-windows.ps1
+                  exit $LASTEXITCODE
+                  '''
+                  echo 'windows tests: ok'
+                } catch (err) {
+                  echo "windows tests: FAILED ${err}"
+                  error("Windows tests failed: ${err}")
+                }
               }
             }
           }

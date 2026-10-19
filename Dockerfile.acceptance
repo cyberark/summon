@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine
+FROM golang:1.27-alpine
 
 RUN apk add --no-cache bash \
                        build-base \
@@ -25,4 +25,4 @@ COPY ./dist/goreleaser/summon-linux_linux_amd64_v1/summon /bin/summon
 
 # Run tests
 WORKDIR /summon/acceptance
-CMD ["cucumber"]
+CMD ["bundle", "exec", "cucumber"]

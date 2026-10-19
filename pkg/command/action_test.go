@@ -7,6 +7,9 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,24 +23,66 @@ func TestPrintProviderVersions(t *testing.T) {
 	}
 
 	t.Run("printProviderVersions should return a string of all of the providers in the defaultPath", func(t *testing.T) {
-		pathTo, err := os.Getwd()
-		assert.NoError(t, err)
-		pathToTest := filepath.Join(pathTo, "testversions")
+		// test1 - regular formating and appending of version # to string
+		// test2 - chopping off of trailing newline
+		// test3 - failed `--version` call
+		providers := []struct{ name, version string }{
+			{"testprovider", "1.2.3"},
+			{"testprovider-noversionsupport", ""}, // "" = --version fails
+			{"testprovider-trailingnewline", "3.2.1"},
+		}
+		pathToTest := providerFixtureDir(t, providers)
+		if runtime.GOOS == "windows" {
+			// Windows only runs files with an executable extension, so the
+			// fixtures are generated as .bat files.
+			for i := range providers {
+				providers[i].name += ".bat"
+			}
+		}
+		// The listing is sorted by file name.
+		sort.Slice(providers, func(i, j int) bool { return providers[i].name < providers[j].name })
 
-		//test1 - regular formating and appending of version # to string
-		//test2 - chopping off of trailing newline
-		//test3 - failed `--version` call
 		output, err := printProviderVersions(pathToTest)
 		assert.NoError(t, err)
 
-		expected := fmt.Sprintf(`Provider versions in %s:
-testprovider version 1.2.3
-testprovider-noversionsupport: unknown version
-testprovider-trailingnewline version 3.2.1
-`, pathToTest)
+		var expected strings.Builder
+		fmt.Fprintf(&expected, "Provider versions in %s:\n", pathToTest)
+		for _, p := range providers {
+			if p.version == "" {
+				fmt.Fprintf(&expected, "%s: unknown version\n", p.name)
+			} else {
+				fmt.Fprintf(&expected, "%s version %s\n", p.name, p.version)
+			}
+		}
 
-		assert.Equal(t, expected, output)
+		assert.Equal(t, expected.String(), output)
 	})
+}
+
+// providerFixtureDir returns a directory of fake providers that answer
+// `--version` with the given version (or fail when it is empty). On Unix it is
+// the checked-in bash scripts in testversions; on Windows, which cannot run
+// them, equivalent .bat files are generated in a temp dir.
+func providerFixtureDir(t *testing.T, providers []struct{ name, version string }) string {
+	t.Helper()
+	if runtime.GOOS != "windows" {
+		pathTo, err := os.Getwd()
+		assert.NoError(t, err)
+		return filepath.Join(pathTo, "testversions")
+	}
+
+	dir := t.TempDir()
+	for _, p := range providers {
+		script := "@echo off\r\nif \"%~1\"==\"--version\" (\r\n"
+		if p.version == "" {
+			script += "  exit /b 1\r\n"
+		} else {
+			script += "  echo " + p.version + "\r\n  exit /b 0\r\n"
+		}
+		script += ")\r\nexit /b 1\r\n"
+		assert.NoError(t, os.WriteFile(filepath.Join(dir, p.name+".bat"), []byte(script), 0o755))
+	}
+	return dir
 }
 
 func TestProviderVersionTimeout(t *testing.T) {

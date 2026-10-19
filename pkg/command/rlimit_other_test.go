@@ -1,4 +1,4 @@
-//go:build !linux
+//go:build !linux && !windows
 
 package command
 
@@ -8,6 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDefaultApplyCoreDumpLimit_NoOpOutsideLinux(t *testing.T) {
+func TestDefaultApplyCoreDumpLimit_ZeroesCoreLimit(t *testing.T) {
 	assert.NoError(t, defaultApplyCoreDumpLimit())
 }

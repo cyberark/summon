@@ -46,6 +46,10 @@ var Flags = []cli.Flag{
 		Usage: "List of all of the providers in the default path and their versions(if they have the --version tag)",
 	},
 	cli.BoolFlag{
+		Name:  "refresh, daemon, sidecar",
+		Usage: "Keep running: re-fetch secrets on an interval, rewrite changed secret files and restart the subprocess (see SUMMON_REFRESH_* and SUMMON_RESTART_ON_ROTATION)",
+	},
+	cli.BoolFlag{
 		Name:  "debug, d",
 		Usage: "Enable debug logging",
 	},

@@ -13,6 +13,7 @@ type osFuncs struct {
 	rename   func(string, string) error
 	remove   func(string) error
 	sync     func(*os.File) error
+	syncDir  func(string) error
 	tempFile func(string, string) (*os.File, error)
 	truncate func(string, int64) error
 	write    func(*os.File, []byte) (int, error)
@@ -26,6 +27,7 @@ var stdOSFuncs = osFuncs{
 	sync: func(file *os.File) error {
 		return file.Sync()
 	},
+	syncDir:  syncDir,
 	tempFile: os.CreateTemp,
 	truncate: os.Truncate,
 	write: func(file *os.File, content []byte) (int, error) {
@@ -36,9 +38,12 @@ var stdOSFuncs = osFuncs{
 type atomicWriter struct {
 	path        string
 	permissions os.FileMode
-	tempFile    *os.File
-	os          osFuncs
-	logger      *slog.Logger
+	// syncDir makes Close fsync the parent directory after the rename so the
+	// new directory entry survives a crash.
+	syncDir  bool
+	tempFile *os.File
+	os       osFuncs
+	logger   *slog.Logger
 }
 
 // NewAtomicWriter provides a simple atomic file writer which implements the
@@ -49,6 +54,15 @@ type atomicWriter struct {
 // any other writer.
 func NewAtomicWriter(path string, permissions os.FileMode) io.WriteCloser {
 	return newAtomicWriter(path, permissions, stdOSFuncs)
+}
+
+// NewDurableAtomicWriter is NewAtomicWriter that additionally fsyncs the
+// destination directory after the rename. Long-running callers that rewrite
+// the same file repeatedly use it so a crash cannot lose the update.
+func NewDurableAtomicWriter(path string, permissions os.FileMode) io.WriteCloser {
+	w := newAtomicWriter(path, permissions, stdOSFuncs)
+	w.(*atomicWriter).syncDir = true
+	return w
 }
 
 func newAtomicWriter(path string, permissions os.FileMode, osFuncs osFuncs) io.WriteCloser {
@@ -114,6 +128,13 @@ func (w *atomicWriter) Close() error {
 	}
 	w.tempFile = nil
 
+	if w.syncDir {
+		if err = w.os.syncDir(filepath.Dir(w.path)); err != nil {
+			w.logger.Error("Could not flush destination directory", "dest", w.path, "error", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -124,6 +145,10 @@ func (w *atomicWriter) Cleanup() {
 	if w.tempFile == nil {
 		return
 	}
+
+	// Windows cannot remove a file that is still open. Closing an already
+	// closed file is harmless (its error is ignored).
+	_ = w.tempFile.Close()
 
 	err := w.os.remove(w.tempFile.Name())
 	if err == nil || os.IsNotExist(err) {

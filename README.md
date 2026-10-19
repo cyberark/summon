@@ -119,7 +119,8 @@ The provider loads configuration from:
 | `CONJUR_AUTHN_LOGIN` | Conjur identity (user or host) |
 | `CONJUR_AUTHN_API_KEY` | API key for the identity |
 | `CONJUR_AUTHN_TOKEN` | Pre-fetched Conjur auth token (inline) |
-| `CONJUR_AUTHN_TOKEN_FILE` | Path to a file containing the auth token |
+| `CONJUR_AUTHN_TOKEN_FILE` | Path to a file containing the auth token. At startup summon waits up to `SUMMON_AUTHN_TOKEN_FILE_WAIT` for a missing file to appear, then exits with a configuration error; a path that is a directory or unreadable fails immediately. Once running, the library re-reads the file when it changes; if it disappears or becomes unreadable later, the fetch fails with an error naming `CONJUR_AUTHN_TOKEN_FILE` and the path, and succeeds again once the file is back; in `--refresh` mode that is an ordinary failed poll |
+| `SUMMON_AUTHN_TOKEN_FILE_WAIT` | Go duration (default `30s`, `0` = do not wait) that summon waits at startup for `CONJUR_AUTHN_TOKEN_FILE` to exist; negative or malformed values are a configuration error |
 | `CONJUR_AUTHN_JWT_SERVICE_ID` | JWT authenticator service ID (e.g. `kubernetes`) |
 | `JWT_TOKEN_PATH` | Path to the JWT token file (default: `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
 | `CONJUR_AUTHN_TYPE` | Auth backend: `jwt`, `iam`, `azure`, `gcp`, or `cert`. Setting `CONJUR_AUTHN_CERT_SERVICE_ID` activates cert authentication implicitly, overriding any other value set here. |
@@ -426,6 +427,8 @@ errors.
 
     When set, summon prints detailed log messages (at `DEBUG` level) to stderr, including configuration loading, secret fetching progress, and error details. Useful for troubleshooting provider or secrets.yml issues.
 
+* `--refresh` (aliases `--daemon`, `--sidecar`) Keep running and pick up rotated secrets. See [Refresh mode](#refresh-mode).
+
 * `-e, --environment` Specify section (environment) to parse from secret YAML.
 
     This flag specifies which specific environment/section to parse from the secrets YAML file (or string). In addition, it will also enable the usage of a `common` (or `default`) section which will be inherited by other sections/environments. In other words, if your `secrets.yaml` looks something like this:
@@ -463,6 +466,149 @@ summon docker run --env-file @SUMMONENVFILE myorg/myimage
 This file is created on demand - only when `@SUMMONENVFILE` appears in the
 arguments of the command summon is wrapping. This feature is not Docker-specific; if you have another tools that reads variables in `VAR=VAL` format
 you can use `@SUMMONENVFILE` just the same.
+
+## Refresh mode
+
+By default Summon fetches secrets once and exits with the subprocess. With `--refresh`
+(aliases `--daemon`, `--sidecar`) it keeps running: it re-fetches every secret on an
+interval while the subprocess runs.
+
+Refresh mode is not supported on Solaris: Summon cannot track the subprocess tree there, so
+`--refresh` exits with an error (`refresh mode is not supported on solaris`). One-shot mode
+works as usual.
+
+On every poll Summon compares SHA-256 checksums against the previous poll:
+
+* **File secrets** (`summon.files`) are rewritten atomically when their rendered content
+  changed, regardless of the restart setting.
+* **Any change** (env-injected secret or file) restarts the subprocess with freshly fetched
+  values, unless restart is disabled. A restart stops the whole process tree gracefully,
+  waits up to `SUMMON_TERM_GRACE_PERIOD`, force-kills whatever is left, and relaunches
+  with a fresh environment. Env-injected secrets cannot be changed in a running process,
+  which is why restart is the only rotation action.
+
+Secret files are rewritten before the restart, so for a moment the old subprocess may see
+new file content alongside its old environment.
+
+Set `SUMMON_RESTART_ON_ROTATION=false` when the application re-reads its secret files on
+its own: Summon then only polls and rewrites files.
+
+| Variable | Default | Description |
+|---|---|---|
+| `SUMMON_REFRESH_INTERVAL` | `5m` | Time between polls (minimum `5s`) |
+| `SUMMON_REFRESH_TIMEOUT` | `60s` | Per-poll fetch timeout; exceeding it cancels the fetch (see below) and counts as a failure |
+| `SUMMON_RESTART_ON_ROTATION` | `true` | Restart the subprocess when secrets change; `false` = poll and rewrite files only |
+| `SUMMON_TERM_GRACE_PERIOD` | `30s` | Time a restart or shutdown waits for a graceful stop before force-killing |
+| `SUMMON_MAX_REFRESH_OUTAGE` | `0` (unlimited) | Wall-clock duration (e.g. `15m`) of continuous failed polls before Summon terminates the subprocess and exits with code `2`; must be at least `SUMMON_REFRESH_INTERVAL` |
+| `SUMMON_MAX_AUTH_FAILURES` | `5` | Number of consecutive polls answered with HTTP 401 before Summon terminates the subprocess and exits with code `3`; `0` disables the check; a negative or non-numeric value is a configuration error |
+| `SUMMON_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN` or `ERROR`; secret values are never logged at any level |
+
+After a failed poll the subprocess keeps running with its last-known-good secrets and the
+poll is retried with exponential backoff: after `1s`, `2s`, `4s`, ... (±10% jitter), never
+longer than `SUMMON_REFRESH_INTERVAL`. A fully successful poll resets the backoff and the
+outage clock. The outage is the time since the first failed poll after the last fully
+successful one (startup counts as successful); once it reaches `SUMMON_MAX_REFRESH_OUTAGE`,
+Summon terminates the subprocess and exits with code `2`. The limit is wall-clock: the
+number of retries does not matter.
+
+A panic raised while fetching is recovered and handled as an ordinary failed poll (logged at
+`WARN` without a stack, which is logged at `DEBUG` only), so a crash in a provider never orphans
+the subprocess.
+
+#### Host API key rotation
+
+If the host's API key is rotated while Summon runs, polls keep working on the cached access
+token until it expires (several minutes). After that the Conjur client logs in again with the
+old key and every poll is answered with HTTP 401. Summon keeps the subprocess running on the
+last-known-good secrets and retries with backoff, counting consecutive 401 responses (a
+successful poll, or a failure that is not a 401 such as 403, 404 or a network error, resets the
+count). After `SUMMON_MAX_AUTH_FAILURES` of them it logs an error, stops the subprocess and
+exits with code `3`, so a supervisor (systemd, Kubernetes, ...) can restart Summon with the new
+credentials. Every failed poll is a failed login on the server, so a Conjur lockout policy
+may lock the host out earlier than the default of `5`; lower the value if needed. The check
+applies to the built-in Conjur provider and to polls only; a 401 at startup fails the start as
+in one-shot mode.
+
+A fetch that runs past `SUMMON_REFRESH_TIMEOUT` is cancelled and fails the poll with
+`fetch exceeded <timeout>`; the next poll starts a fresh fetch. The same cancellation aborts
+an in-flight fetch when Summon receives `SIGINT`/`SIGTERM`, so shutdown does not wait for it.
+What cancellation does:
+
+* External provider: the provider process is killed (on Unix its whole process group, so
+  helpers it started die with it) and Summon stops waiting for its output within seconds,
+  even if a process that left the group still holds the pipes. On Windows only the provider
+  process itself is killed.
+* Built-in Conjur provider: the secret request is aborted (connect, wait for the response and
+  body read). Authentication, which the Conjur client may perform before the request when
+  its access token expires, cannot be cancelled through a context; it is bounded by the
+  client's HTTP timeout, which in daemon mode is lowered to `SUMMON_REFRESH_TIMEOUT` (rounded
+  up to whole seconds) when that is shorter than `CONJUR_HTTP_TIMEOUT` / the 60s default.
+  The built-in provider also stops before fetching the next secret once the context is done.
+  The lowered limit applies to every request of the run, including the startup fetch.
+
+A poll that returns an empty value for a secret whose last-known-good value was non-empty
+(env or file secret, any provider) is treated as a failed poll: Summon logs a warning naming
+the variable, keeps the last-known-good value of every secret (no file rewrite, no restart)
+and recovers on the first poll that returns a non-empty value. A secret that was empty at
+startup stays valid.
+
+When Summon itself receives `SIGINT` or `SIGTERM`, it stops the subprocess tree like a
+restart does (graceful stop, up to `SUMMON_TERM_GRACE_PERIOD`, then force-kill of whatever is
+left) and exits with the subprocess's exit code, or `0` if the subprocess was ended by the
+stop signal or the force-kill. A second `SIGINT`/`SIGTERM` force-kills immediately.
+
+Exit codes: the subprocess's own exit code when it exits; `2` when
+`SUMMON_MAX_REFRESH_OUTAGE` is reached; `3` when `SUMMON_MAX_AUTH_FAILURES` is reached;
+`127` for setup or configuration errors. Whichever of the two limits is reached first wins.
+
+Notes:
+
+* With an external provider, `CONJUR_*` variables stay in Summon's own environment for the
+  whole run because the provider is re-invoked on every poll. They are never passed to the
+  subprocess.
+* Signals: Summon forwards every signal it receives to the subprocess except `SIGURG` and
+  `SIGCHLD`; `SIGINT` and `SIGTERM` start the shutdown described above instead of being
+  forwarded as-is. `SIGHUP` is only forwarded: it neither stops Summon nor arms the force-kill. Any process of the same user that can signal Summon (for example `SIGHUP` or
+  `SIGUSR1`) therefore reaches the application.
+* `--ignore` / `--ignore-all` apply to the startup fetch only. On later polls an ignored
+  secret that failed at startup and was ignored keeps that state for the whole run: it is not
+  fetched again (it never counts as a failed poll and is never added later, even if the backend
+  recovers; restart Summon to pick it up). A secret fetched at startup that fails on a later
+  poll counts as a failed poll and the last-known-good secrets are kept.
+* Hardening: Summon exits with `127` if it cannot disable core dumps, and on Linux marks
+  itself non-dumpable (`PR_SET_DUMPABLE=0`). `os.Unsetenv` does not scrub the kernel's copy
+  of the initial environment, so `CONJUR_*` values passed in the environment remain visible
+  in `/proc/<pid>/environ`; being non-dumpable makes that file readable by root only.
+  On other Unix systems core dumps are disabled with `RLIMIT_CORE` and the provider and
+  push-to-file checks below run, but the process is not marked non-dumpable; Summon prints
+  one warning line to stderr at `--refresh` startup saying so (shown even with
+  `SUMMON_LOG_LEVEL=ERROR`). On Windows `--refresh` runs without core-dump suppression,
+  provider binary verification and push-to-file directory checks, and prints one warning
+  line saying so at startup. Linux prints no warning. One-shot runs print none of these.
+* An external provider binary and its directory must not be group- or world-writable, and
+  the binary is re-checked (owner, mode, device/inode, mtime) before every invocation; a
+  changed binary fails the poll. Provider stderr is logged only at `DEBUG`.
+* Push-to-file destinations must be in a directory owned by the Summon user or root and
+  not group- or world-writable, and every ancestor directory (after resolving symlinks)
+  must be owned by the Summon user or root and not group- or world-writable, except a
+  sticky root-owned directory such as `/tmp`. A destination that is a symlink is
+  refused. The checks run before every rewrite, and the directory is fsynced after each
+  rewrite. (Unix only.)
+
+### Windows
+
+Restarts work on Windows with these limits:
+
+* The subprocess tree is tracked with a Job Object and stopped with `CTRL_BREAK`, which
+  reaches console processes that share Summon's console. The workload must handle
+  `CTRL_BREAK` (for example `os.Interrupt` in Go). Anything that does not exit within the
+  grace period is terminated together with its descendants.
+* The subprocess runs in a new process group and therefore ignores Ctrl+C; Summon forwards
+  its own interrupt as `CTRL_BREAK`.
+* Services, GUI applications and processes without a shared console get no graceful stop
+  and are force-killed when the grace period expires.
+* If Summon itself has no console (for example when it runs as a Windows service), every
+  restart force-kills immediately; Summon logs a warning at startup.
 
 ## Trust Model
 

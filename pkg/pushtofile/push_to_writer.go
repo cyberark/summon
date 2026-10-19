@@ -52,6 +52,29 @@ func openFileAsWriteCloser(path string, permissions os.FileMode, overwrite bool)
 	return atomicWriter, nil
 }
 
+// openFileAsDaemonWriteCloser is openFileAsWriteCloser for daemon mode: after
+// creating the directory it verifies the destination (see
+// checkDaemonDestination) and returns a writer that fsyncs the directory after
+// the rename.
+func openFileAsDaemonWriteCloser(path string, permissions os.FileMode, overwrite bool) (io.WriteCloser, error) {
+	dir := filepath.Dir(path)
+
+	if err := os.MkdirAll(dir, dirPermsForFilePerms(permissions)); err != nil {
+		return nil, fmt.Errorf("unable to mkdir when opening file to write at %q: %s", path, err)
+	}
+	if err := checkDaemonDestination(path); err != nil {
+		return nil, err
+	}
+
+	if !overwrite {
+		if _, err := os.Lstat(path); err == nil {
+			return nil, fmt.Errorf("file already exists at %q and overwrite is not enabled", path)
+		}
+	}
+
+	return atomicwriter.NewDurableAtomicWriter(path, permissions), nil
+}
+
 // pushToWriter takes a (file's) path, template and secrets, and processes the template
 // to generate text content that is pushed to a writer. push-to-file wraps around this.
 func pushToWriter(

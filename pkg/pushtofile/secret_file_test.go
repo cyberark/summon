@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -212,7 +213,7 @@ var pushToFileWithDepsTestCases = []pushToFileWithDepsTestCase{
 			require.NoError(t, err)
 			assert.Equal(t,
 				openWriteCloserArgs{
-					path:        pwd + "/path/to/file",
+					path:        filepath.Join(pwd, "path", "to", "file"),
 					permissions: 0o123,
 					overwrite:   false,
 				},
@@ -565,8 +566,11 @@ func TestSecretFile_Write(t *testing.T) {
 			f, err := os.Stat(absoluteFilePath)
 			assert.NoError(t, err)
 
-			// Assert on file contents and metadata
-			assert.EqualValues(t, f.Mode(), tc.filePermissions)
+			// Assert on file contents and metadata. Windows has no POSIX permission
+			// bits: Stat reports only 0666 / 0444, whatever mode was requested.
+			if runtime.GOOS != "windows" {
+				assert.EqualValues(t, f.Mode(), tc.filePermissions)
+			}
 			content := string(contentBytes)
 			assert.Contains(t, content, `"alias1": "value1"`)
 			assert.Contains(t, content, `"alias2": "value2"`)
@@ -574,6 +578,9 @@ func TestSecretFile_Write(t *testing.T) {
 	}
 
 	t.Run("failure to mkdir", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("/dev/stdout is a POSIX device path; on Windows this path is created under the working directory")
+		}
 		file := SecretFile{
 			FileConfig: secretsyml.FileConfig{
 				Path:        "/dev/stdout/x",
@@ -680,6 +687,9 @@ func TestSecretFile_Write(t *testing.T) {
 
 func TestSecretFile_absoluteFilePath(t *testing.T) {
 	pwd, _ := os.Getwd()
+	// An absolute directory that exists on every platform ("/tmp" is not
+	// absolute on Windows, where a path needs a drive letter).
+	tmp := os.TempDir()
 
 	testCases := []struct {
 		name     string
@@ -689,9 +699,9 @@ func TestSecretFile_absoluteFilePath(t *testing.T) {
 	}{
 		{
 			name: "absolute path with valid filename",
-			path: "/tmp/file",
+			path: filepath.Join(tmp, "file"),
 			assertFn: func(t *testing.T, result string) {
-				assert.Equal(t, "/tmp/file", result)
+				assert.Equal(t, filepath.Join(tmp, "file"), result)
 			},
 		},
 		{
@@ -704,7 +714,7 @@ func TestSecretFile_absoluteFilePath(t *testing.T) {
 		},
 		{
 			name:     "path ends with slash",
-			path:     "/tmp/",
+			path:     filepath.Join(tmp, "dir") + "/",
 			errorMsg: "must contain a filename",
 		},
 		{
@@ -714,14 +724,14 @@ func TestSecretFile_absoluteFilePath(t *testing.T) {
 		},
 		{
 			name:     "filename exceeds max length",
-			path:     "/tmp/" + strings.Repeat("a", maxFilenameLen+1),
+			path:     filepath.Join(tmp, strings.Repeat("a", maxFilenameLen+1)),
 			errorMsg: "must not be longer than",
 		},
 		{
 			name: "filename at max length",
-			path: "/tmp/" + strings.Repeat("a", maxFilenameLen),
+			path: filepath.Join(tmp, strings.Repeat("a", maxFilenameLen)),
 			assertFn: func(t *testing.T, result string) {
-				assert.Equal(t, "/tmp/"+strings.Repeat("a", maxFilenameLen), result)
+				assert.Equal(t, filepath.Join(tmp, strings.Repeat("a", maxFilenameLen)), result)
 			},
 		},
 		{
@@ -760,4 +770,15 @@ func TestSecretFile_absoluteFilePath(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSecretFile_absoluteFilePathTrailingBackslash(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("backslash is a path separator only on Windows")
+	}
+	file := SecretFile{FileConfig: secretsyml.FileConfig{Path: `C:\secrets\dir\`}}
+
+	_, err := file.absoluteFilePath()
+
+	assert.ErrorContains(t, err, "must contain a filename")
 }

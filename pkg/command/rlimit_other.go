@@ -1,9 +1,12 @@
-//go:build !linux
+//go:build !linux && !windows
 
 // Package command implements the Summon CLI (flags, Action, and startup hooks).
 package command
 
-// defaultApplyCoreDumpLimit is a no-op outside Linux; core dump suppression is Linux-only.
+import "syscall"
+
+// defaultApplyCoreDumpLimit sets RLIMIT_CORE soft and hard limits to zero on
+// non-Linux Unix systems (darwin, BSD, Solaris).
 func defaultApplyCoreDumpLimit() error {
-	return nil
+	return syscall.Setrlimit(syscall.RLIMIT_CORE, &syscall.Rlimit{Cur: 0, Max: 0})
 }

@@ -18,20 +18,26 @@ func isProviderFile(info os.FileInfo) bool {
 }
 
 // setCallProcessGroup configures cmd so that:
-//  1. The child starts in its own process group (Setpgid = true), preventing
-//     grandchildren from being orphaned when the context deadline fires.
-//  2. WaitDelay is set to a generous fraction of the provider timeout, so
-//     exec.CommandContext force-closes I/O pipes and unblocks cmd.Wait after
-//     sending SIGKILL to the process group if the direct child does not exit.
+//  1. The child starts in its own process group (Setpgid = true) and, when the
+//     context ends, cmd.Cancel sends SIGKILL to that whole group, so the
+//     provider's own children (shell pipelines, helpers) die with it.
+//  2. WaitDelay is set to a fraction of the provider timeout, so cmd.Wait
+//     force-closes the I/O pipes and returns even if a process that left the
+//     group (setsid) still holds them open.
 //
-// Without Setpgid, exec.CommandContext sends SIGKILL only to the direct child.
-// Grandchildren keep the stdout pipe open, and cmd.Wait blocks indefinitely
-// even though the context has already expired.
+// Without the group kill, exec.CommandContext signals only the direct child
+// and its grandchildren would outlive the cancelled fetch.
 func setCallProcessGroup(cmd *exec.Cmd, timeout time.Duration) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	// WaitDelay must be > 0 to take effect. Use half the provider timeout so
-	// the total wall-clock budget stays within 1.5x the configured timeout.
+	cmd.Cancel = func() error {
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
+			return cmd.Process.Kill()
+		}
+		return nil
+	}
+	// WaitDelay must be > 0 to take effect. The processes are already killed
+	// when it starts counting, so keep it short (see maxWaitDelay).
 	if timeout > 0 {
-		cmd.WaitDelay = timeout / 2
+		cmd.WaitDelay = min(timeout/2, maxWaitDelay)
 	}
 }

@@ -1,6 +1,9 @@
 package conjurprovider
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -25,7 +28,7 @@ func TestLoadConjurConfigCredentialStorageMode(t *testing.T) {
 	t.Run("defaults to ReadOnly when CONJUR_CREDENTIAL_STORAGE_MODE is unset", func(t *testing.T) {
 		t.Setenv("CONJUR_CREDENTIAL_STORAGE_MODE", "")
 
-		cfg, err := loadConjurConfig()
+		cfg, err := loadConjurConfig(0)
 
 		require.NoError(t, err)
 		assert.Equal(t, conjurapi.CredentialStorageModeReadOnly, cfg.CredentialStorageMode)
@@ -47,7 +50,7 @@ func TestLoadConjurConfigCredentialStorageMode(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Setenv("CONJUR_CREDENTIAL_STORAGE_MODE", tc.env)
 
-				cfg, err := loadConjurConfig()
+				cfg, err := loadConjurConfig(0)
 
 				require.NoError(t, err)
 				assert.Equal(t, tc.want, cfg.CredentialStorageMode)
@@ -98,7 +101,7 @@ func TestNew(t *testing.T) {
 		// test environment (e.g. CONJUR_AUTHN_CERT_SERVICE_ID exported by
 		// setup-spiffe.sh) to prevent conjur-api-go from triggering cert auth and
 		// failing the HTTPS URL validation on the intentionally-invalid test URL.
-		t.Setenv("HOME", t.TempDir())
+		isolateHome(t)
 		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
 		t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "")
 		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
@@ -107,7 +110,7 @@ func TestNew(t *testing.T) {
 		t.Setenv("CONJUR_AUTHN_LOGIN", "host/test")
 		t.Setenv("CONJUR_AUTHN_API_KEY", "dummy")
 
-		provider, err := New()
+		provider, err := New(0)
 
 		require.NoError(t, err)
 		require.NotNil(t, provider)
@@ -117,15 +120,15 @@ func TestNew(t *testing.T) {
 		// Detailed cert/key validation cases (missing key file, permission denied,
 		// readable file pair, inline-PEM path skip, conflicting inline+file paths)
 		// live in conjur-api-go TestConfig_Validate (merged in PR #155, v0.15.3).
-		// Summon keeps one contract test: New() must surface Validate() failures as
+		// Summon keeps one contract test: New(0) must surface Validate() failures as
 		// configuration errors, not authentication failures.
-		t.Setenv("HOME", t.TempDir())
+		isolateHome(t)
 		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
 		t.Setenv("CONJUR_AUTHN_CERT_FILE", "/missing/cert.pem")
 		t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example")
 		t.Setenv("CONJUR_ACCOUNT", "conjur")
 
-		_, err := New()
+		_, err := New(0)
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration error:")
@@ -160,7 +163,7 @@ func TestFetchSecret(t *testing.T) {
 			},
 		})
 
-		got, err := provider.FetchSecret("path/to/var")
+		got, err := provider.FetchSecret(context.Background(), "path/to/var")
 
 		require.NoError(t, err)
 		assert.Equal(t, expected, got)
@@ -174,7 +177,7 @@ func TestFetchSecret(t *testing.T) {
 			},
 		})
 
-		_, err := provider.FetchSecret("path/to/missing")
+		_, err := provider.FetchSecret(context.Background(), "path/to/missing")
 
 		require.Error(t, err)
 		// Variable path is safe to include; raw conjurapi message is not.
@@ -189,7 +192,7 @@ func TestFetchSecret(t *testing.T) {
 			},
 		})
 
-		got, err := provider.FetchSecret("path/to/empty")
+		got, err := provider.FetchSecret(context.Background(), "path/to/empty")
 
 		require.NoError(t, err)
 		assert.Equal(t, []byte{}, got)
@@ -213,7 +216,7 @@ func TestFetchSecret(t *testing.T) {
 			},
 		})
 
-		_, err := provider.FetchSecret("path/to/var")
+		_, err := provider.FetchSecret(context.Background(), "path/to/var")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "authentication failed")
@@ -229,7 +232,7 @@ func TestFetchSecret(t *testing.T) {
 			},
 		})
 
-		_, err := provider.FetchSecret("path/to/var")
+		_, err := provider.FetchSecret(context.Background(), "path/to/var")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "secret retrieval failed")
@@ -243,7 +246,7 @@ func TestFetchSecret(t *testing.T) {
 			},
 		})
 
-		_, err := provider.FetchSecret("path/to/var")
+		_, err := provider.FetchSecret(context.Background(), "path/to/var")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "secret retrieval failed")
@@ -258,4 +261,38 @@ func TestConjurProviderPath(t *testing.T) {
 	})
 
 	assert.Equal(t, BuiltinProviderPath, provider.Path())
+}
+
+// isolateHome points the home directory at an empty temp dir so no user config
+// (e.g. ~/.conjurrc) leaks into the test: HOME on Unix, USERPROFILE on Windows.
+func isolateHome(t *testing.T) {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+}
+
+func TestIsUnauthorized(t *testing.T) {
+	conjurErr := func(code int) error { return &response.ConjurError{Code: code} }
+	joined := errors.Join(errors.New("other"), fmt.Errorf("authentication failed: %w", conjurErr(401)))
+
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"bare 401":                   {conjurErr(401), true},
+		"wrapped 401":                {fmt.Errorf("authentication failed: %w", conjurErr(401)), true},
+		"401 through retrievalError": {retrievalError("v", conjurErr(401)), true},
+		"401 in joined errors":       {joined, true},
+		"403":                        {retrievalError("v", conjurErr(403)), false},
+		"404":                        {retrievalError("v", conjurErr(404)), false},
+		"500":                        {conjurErr(500), false},
+		"plain error":                {errors.New("401 Unauthorized"), false},
+		"context deadline":           {context.DeadlineExceeded, false},
+		"nil":                        {nil, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, IsUnauthorized(tc.err))
+		})
+	}
 }

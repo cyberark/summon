@@ -15,6 +15,9 @@ type TempFactory struct {
 	mu    sync.Mutex
 	path  string
 	files []string
+	// keepPath leaves the directory in place on Cleanup because other
+	// factories share it.
+	keepPath bool
 }
 
 // NewTempFactory creates a new temporary file factory.
@@ -40,6 +43,15 @@ func defaultTempPath() string {
 		}
 	}
 	return os.TempDir()
+}
+
+// newCycleTempFactory returns a factory that shares root's directory but owns
+// only the files pushed through it, so one refresh cycle's files can be removed
+// without touching the rest.
+func newCycleTempFactory(root *TempFactory) *TempFactory {
+	tf := NewTempFactory(root.path)
+	tf.keepPath = true
+	return &tf
 }
 
 // AddFile adds an existing file to the factory's list of files to clean up.
@@ -80,7 +92,7 @@ func (tf *TempFactory) Cleanup() {
 		_ = os.Remove(file) // Best-effort cleanup
 	}
 	// Also remove the tempdir if it's not devSHM
-	if tf.path != "" && !strings.Contains(tf.path, devSHM) {
+	if tf.path != "" && !tf.keepPath && !strings.Contains(tf.path, devSHM) {
 		_ = os.Remove(tf.path) // Best-effort cleanup
 	}
 	tf.files = nil

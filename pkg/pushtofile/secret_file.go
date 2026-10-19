@@ -1,6 +1,9 @@
 package pushtofile
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,6 +25,11 @@ type SecretFile struct {
 	FileConfig secretsyml.FileConfig
 	Ignores    []string
 	IgnoreAll  bool
+	// Daemon marks a long-running (--refresh) caller that rewrites the file
+	// repeatedly: the destination directory must be owned by the current user
+	// and not group/world-writable, a symlinked destination is refused, and
+	// the directory is fsynced after each rename.
+	Daemon bool
 }
 
 func (secretFile *SecretFile) SecretSpecs() secretsyml.SecretsMap {
@@ -37,15 +45,89 @@ func (secretFile *SecretFile) writeWithDeps(
 	depPushToWriter pushToWriterFunc,
 	providerResults []provider.Result,
 ) (absolutePath string, err error) {
-	err = secretFile.validate()
+	plan, err := secretFile.plan(providerResults)
 	if err != nil {
 		return "", err
+	}
+	return plan.absolutePath, secretFile.pushPlan(
+		plan, depOpenWriteCloser, depPushToWriter, secretFile.FileConfig.Overwrite)
+}
+
+// WriteIfChanged renders the file and rewrites it only when the SHA-256 of the
+// rendered content differs from prevChecksum. An empty prevChecksum means no
+// earlier write: the file is written and the configured overwrite setting is
+// respected. Once a checksum exists Summon owns the file, so later rewrites
+// always overwrite. It returns the absolute path, the checksum of the rendered
+// content, and whether the file was written.
+func (secretFile *SecretFile) WriteIfChanged(
+	providerResults []provider.Result,
+	prevChecksum string,
+) (absolutePath string, checksum string, written bool, err error) {
+	open := openFileAsWriteCloser
+	if secretFile.Daemon {
+		open = openFileAsDaemonWriteCloser
+	}
+	return secretFile.writeIfChanged(providerResults, prevChecksum, open)
+}
+
+func (secretFile *SecretFile) writeIfChanged(
+	providerResults []provider.Result,
+	prevChecksum string,
+	depOpenWriteCloser openWriteCloserFunc,
+) (absolutePath string, checksum string, written bool, err error) {
+	plan, err := secretFile.plan(providerResults)
+	if err != nil {
+		return "", "", false, err
+	}
+
+	var rendered bytes.Buffer
+	defer func() { clear(rendered.Bytes()) }()
+	if err = secretFile.renderPlan(plan, pushToWriter, &rendered); err != nil {
+		return "", "", false, err
+	}
+	sum := sha256.Sum256(rendered.Bytes())
+	checksum = hex.EncodeToString(sum[:])
+	if checksum == prevChecksum {
+		return plan.absolutePath, checksum, false, nil
+	}
+
+	overwrite := secretFile.FileConfig.Overwrite || prevChecksum != ""
+	wc, err := depOpenWriteCloser(plan.absolutePath, plan.permissions, overwrite)
+	if err != nil {
+		return "", "", false, err
+	}
+	if _, err = wc.Write(rendered.Bytes()); err != nil {
+		_ = wc.Close()
+		return "", "", false, fmt.Errorf("failed to write push to file %q: %w", secretFile.FileConfig.Path, err)
+	}
+	// The atomic writer only renames the temp file into place on Close, so a
+	// Close error means the destination was not updated.
+	if err = wc.Close(); err != nil {
+		return "", "", false, fmt.Errorf("failed to finalize push to file %q: %w", secretFile.FileConfig.Path, err)
+	}
+	return plan.absolutePath, checksum, true, nil
+}
+
+// writePlan holds everything resolved before any content is rendered.
+type writePlan struct {
+	secrets      []*filetemplates.Secret
+	fileTemplate string
+	absolutePath string
+	permissions  os.FileMode
+}
+
+// plan validates the file config against the provider results and resolves
+// the template, destination path and permissions.
+func (secretFile *SecretFile) plan(providerResults []provider.Result) (*writePlan, error) {
+	err := secretFile.validate()
+	if err != nil {
+		return nil, err
 	}
 
 	// Make sure all the secret specs are accounted for
 	secrets, err := validateSecretsAgainstSpecs(providerResults, secretFile.SecretSpecs(), secretFile.Ignores, secretFile.IgnoreAll)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Determine file template from
@@ -58,26 +140,51 @@ func (secretFile *SecretFile) writeWithDeps(
 		secretFile.SecretSpecs(),
 	)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// Open and push to file
-	absolutePath, err = secretFile.absoluteFilePath()
+	absolutePath, err := secretFile.absoluteFilePath()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	filePermissions := secretFile.FileConfig.Permissions
 	if filePermissions == 0 {
 		filePermissions = defaultFilePermissions
 	}
-	wc, err := depOpenWriteCloser(absolutePath, filePermissions, secretFile.FileConfig.Overwrite)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		_ = wc.Close()
-	}()
+	return &writePlan{
+		secrets:      secrets,
+		fileTemplate: fileTemplate,
+		absolutePath: absolutePath,
+		permissions:  filePermissions,
+	}, nil
+}
 
+// pushPlan opens the destination and pushes the rendered plan to it.
+func (secretFile *SecretFile) pushPlan(
+	plan *writePlan,
+	depOpenWriteCloser openWriteCloserFunc,
+	depPushToWriter pushToWriterFunc,
+	overwrite bool,
+) error {
+	wc, err := depOpenWriteCloser(plan.absolutePath, plan.permissions, overwrite)
+	if err != nil {
+		return err
+	}
+	err = secretFile.renderPlan(plan, depPushToWriter, wc)
+	// Close performs the atomic rename; its failure means nothing was written.
+	if closeErr := wc.Close(); err == nil && closeErr != nil {
+		err = fmt.Errorf("failed to finalize push to file %q: %w", secretFile.FileConfig.Path, closeErr)
+	}
+	return err
+}
+
+// renderPlan renders the plan's template into w. Errors and panics are masked
+// because template execution has access to the secret values.
+func (secretFile *SecretFile) renderPlan(
+	plan *writePlan,
+	depPushToWriter pushToWriterFunc,
+	w io.Writer,
+) (err error) {
 	maskError := fmt.Errorf("failed to execute template, with secret values, on push to file %q", secretFile.FileConfig.Path)
 	defer func() {
 		if r := recover(); r != nil {
@@ -85,21 +192,22 @@ func (secretFile *SecretFile) writeWithDeps(
 		}
 	}()
 	err = depPushToWriter(
-		wc,
+		w,
 		secretFile.FileConfig.Path,
-		fileTemplate,
-		secrets,
+		plan.fileTemplate,
+		plan.secrets,
 	)
 	if err != nil {
 		err = maskError
 	}
-	return absolutePath, err
+	return err
 }
 
 func (secretFile *SecretFile) absoluteFilePath() (string, error) {
 	filePath := secretFile.FileConfig.Path
 
-	pathContainsFilename := !strings.HasSuffix(filePath, "/") && len(filePath) > 0
+	// os.IsPathSeparator also matches a trailing backslash on Windows.
+	pathContainsFilename := len(filePath) > 0 && !os.IsPathSeparator(filePath[len(filePath)-1])
 
 	if !pathContainsFilename {
 		return "", fmt.Errorf(

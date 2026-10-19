@@ -16,7 +16,12 @@ import (
 // Any non-directory file in a provider directory is assumed to be a provider.
 func isProviderFile(_ os.FileInfo) bool { return true }
 
-// setCallProcessGroup is a no-op on Windows. Process groups (Setpgid) and the
-// associated syscall.Kill(-pgid, sig) are not available on Windows; cmd.Wait
-// is not expected to block there in the same way.
-func setCallProcessGroup(_ *exec.Cmd, _ time.Duration) {}
+// setCallProcessGroup on Windows cannot kill a process group (Setpgid and
+// syscall.Kill(-pgid, sig) do not exist): cancelling kills the provider
+// process only, and WaitDelay makes cmd.Wait return even if a child it left
+// behind keeps the output pipes open.
+func setCallProcessGroup(cmd *exec.Cmd, timeout time.Duration) {
+	if timeout > 0 {
+		cmd.WaitDelay = min(timeout/2, maxWaitDelay)
+	}
+}
