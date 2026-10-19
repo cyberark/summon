@@ -265,6 +265,21 @@ bin/swa/start-swa-services.sh --detach
 2. Confirm SWA Server is running: `tmux list-sessions | grep swa-server`.
 3. Check `agent/config.yaml` — `serverAddress` must match the Server listen address.
 
+### S2 or S9 — `authn-cert` returns 401
+
+The Firefly CA rotates every time the SWA Server restarts. Edge must replicate the new CA
+before cert auth works.
+
+1. Re-run `bin/swa/setup-swa.sh` (Step 13 updates the `authn-cert/<id>/ca-cert` variable
+   in Conjur Cloud from the live Agent bundle). The same command also re-runs all other
+   setup steps safely.
+2. Wait ~60 s for Edge to replicate the new CA, then re-run the scenarios.
+
+If the error is `No valid credentials found` rather than `401 Unauthorized`, a caller-shell
+credential variable (`NETRC_FILE` or `CONJUR_NETRC_PATH`) is leaking into the summon
+subprocess and interfering with the SPIFFE cert auth path. The scenario scripts already
+clear these; verify that no outer script re-exports them after sourcing `enterprise-env.sh`.
+
 ### `authn-jwt` returns 401
 
 1. Confirm the JWT service ID matches `CONJUR_AUTHN_JWT_SERVICE_ID`.
