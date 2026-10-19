@@ -48,6 +48,13 @@ summon --version
 | `CONJUR_AUTHN_JWT_SERVICE_ID` | `swa-e2e-jwt` | authn-jwt service ID provisioned by `bin/swa/setup-swa.sh` |
 | `SPIFFE_ENDPOINT_SOCKET` | `unix:///tmp/swa-e2e-agent.sock` | SWA Agent workload API socket |
 
+### Optional — Edge scenarios
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SWA_EDGE_URL` | _(empty)_ | SWA Edge proxy URL; Edge scenarios are skipped when empty |
+| `SWA_EDGE_CA_CERT` | _(empty)_ | PEM-encoded CA cert for the Edge TLS connection |
+
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -183,6 +190,7 @@ Copy the output and attach it as the test execution record.
 | # | Scenario | Requires | Notes |
 |---|----------|----------|-------|
 | 1 | JWT-SVID → authn-jwt → secret retrieved | SWA services running | Calls `FetchJWTSVID` via SPIFFE Workload API; also verifies `SUMMON_PROVIDER=conjur` env routing |
+| 2 | cert auth via SWA Edge → secret retrieved | SWA Edge URL set in `SWA_EDGE_URL` | Skipped when `SWA_EDGE_URL` is empty |
 | 3 | missing socket → error with socket path in message | — | Verifies no secret in output |
 | 4 | socket present, wrong protocol → gRPC handshake error | `fake-unix-socket-server.py` | Verifies no secret in output |
 | 5 | `CONJUR_AUTHN_JWT_SERVICE_ID` absent → config error | — | Verifies error names the missing variable; no secret in output |

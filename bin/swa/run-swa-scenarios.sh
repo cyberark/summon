@@ -38,7 +38,11 @@ setup_env() {
   CONJUR_APPLIANCE_URL="${CONJUR_APPLIANCE_URL:?ERROR: CONJUR_APPLIANCE_URL is required}"
   CONJUR_ACCOUNT="${CONJUR_ACCOUNT:-conjur}"
   CONJUR_AUTHN_JWT_SERVICE_ID="${CONJUR_AUTHN_JWT_SERVICE_ID:-swa-e2e-jwt}"
+  CONJUR_AUTHN_CERT_SERVICE_ID="${CONJUR_AUTHN_CERT_SERVICE_ID:-swa-e2e-cert}"
+  export -n CONJUR_AUTHN_CERT_SERVICE_ID
   SPIFFE_ENDPOINT_SOCKET="${SPIFFE_ENDPOINT_SOCKET:?ERROR: SPIFFE_ENDPOINT_SOCKET is required (run bin/swa/start-swa-services.sh first)}"
+  SWA_EDGE_URL="${SWA_EDGE_URL:-}"
+  SWA_EDGE_CA_CERT="${SWA_EDGE_CA_CERT:-}"
 
   SWA_WORKDIR="${SWA_WORKDIR:-/tmp/swa-e2e}"
   TEST_VAR_PATH="${TEST_VAR_PATH:-data/swa-e2e/test-secret}"
@@ -83,7 +87,9 @@ print_banner() {
   echo "  Date (UTC)     : $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   echo "  Conjur tenant  : ${CONJUR_APPLIANCE_URL}"
   echo "  JWT service ID : ${CONJUR_AUTHN_JWT_SERVICE_ID}"
+  echo "  Cert service ID: ${CONJUR_AUTHN_CERT_SERVICE_ID}"
   echo "  Socket         : ${SPIFFE_ENDPOINT_SOCKET}"
+  [[ -n "$SWA_EDGE_URL" ]] && echo "  Edge URL       : ${SWA_EDGE_URL}"
   echo ""
 }
 
