@@ -195,11 +195,24 @@ services:
     profiles:
       - spiffe
 
-  # Enterprise appliance for authn-cert integration tests (TEST_CERT=true).
+  # Enterprise appliance for authn-cert and SWA self-hosted integration tests.
   conjur-leader:
     image: ${REGISTRY_URL:-registry.tld}/conjur-appliance:${APPLIANCE_TAG:-5.0-stable}
     hostname: conjur-leader-1.mycompany.local
     restart: unless-stopped
+    ports:
+      # kics-scan ignore-line
+      - "127.0.0.1:${ENTERPRISE_APPLIANCE_PORT:-8443}:443"
+    cap_drop:
+      - ALL
+    cap_add: # kics-scan ignore-line
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+      - AUDIT_WRITE
     security_opt:
       # Enterprise appliance needs keyctl for its session keyring; Docker's default seccomp blocks it.
       # kics-scan ignore-line
@@ -219,6 +232,7 @@ services:
     profiles:
       - cert
       - spiffe
+      - swa-enterprise
 
 networks:
   conjur:

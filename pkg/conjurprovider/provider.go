@@ -174,6 +174,55 @@ func validateAuthnTokenFile(ctx context.Context) error {
 	return f.Close()
 }
 
+// validateSpiffeConfig returns a configuration error when SPIFFE_ENDPOINT_SOCKET
+// is set but no authenticator service ID is configured. Without a service ID,
+// the SPIFFE SVID cannot be targeted at any Conjur authenticator, so failing
+// early with a named-variable message is more useful than falling through to
+// an OIDC "no credentials" error.
+func validateSpiffeConfig() error {
+	if os.Getenv("SPIFFE_ENDPOINT_SOCKET") == "" {
+		return nil
+	}
+	if os.Getenv("CONJUR_AUTHN_JWT_SERVICE_ID") != "" ||
+		os.Getenv("CONJUR_AUTHN_CERT_SERVICE_ID") != "" {
+		return nil
+	}
+	return fmt.Errorf(
+		"configuration error: SPIFFE_ENDPOINT_SOCKET is set but no authenticator service ID is configured — " +
+			"set CONJUR_AUTHN_JWT_SERVICE_ID (for JWT-SVID) or CONJUR_AUTHN_CERT_SERVICE_ID (for X.509-SVID)",
+	)
+}
+
+// validateCertFiles returns a configuration error when CONJUR_AUTHN_CERT_SERVICE_ID
+// is set for static file-based cert auth (i.e. SPIFFE_ENDPOINT_SOCKET is absent)
+// but the configured cert or key file does not exist on disk. This check runs
+// before any network call so the operator receives a file-system error rather
+// than a Conjur API rejection.
+func validateCertFiles() error {
+	if os.Getenv("CONJUR_AUTHN_CERT_SERVICE_ID") == "" {
+		return nil
+	}
+	// SPIFFE socket provides the cert dynamically; skip static file validation.
+	if os.Getenv("SPIFFE_ENDPOINT_SOCKET") != "" {
+		return nil
+	}
+	certFile := os.Getenv("CONJUR_AUTHN_CERT_FILE")
+	keyFile := os.Getenv("CONJUR_AUTHN_CERT_KEY_FILE")
+	if certFile == "" {
+		return fmt.Errorf("configuration error: CONJUR_AUTHN_CERT_SERVICE_ID is set but CONJUR_AUTHN_CERT_FILE is not configured")
+	}
+	if keyFile == "" {
+		return fmt.Errorf("configuration error: CONJUR_AUTHN_CERT_SERVICE_ID is set but CONJUR_AUTHN_CERT_KEY_FILE is not configured")
+	}
+	if _, err := os.Stat(certFile); err != nil {
+		return fmt.Errorf("configuration error: cannot read certificate file %s: %w", certFile, err)
+	}
+	if _, err := os.Stat(keyFile); err != nil {
+		return fmt.Errorf("configuration error: cannot read key file %s: %w", keyFile, err)
+	}
+	return nil
+}
+
 // New loads Conjur configuration from the environment and creates a
 // ConjurProvider. Configuration loading, validation, and auth setup are
 // handled by conjur-api-go.
@@ -183,6 +232,12 @@ func validateAuthnTokenFile(ctx context.Context) error {
 // the library's token refresh, which cannot be cancelled through a context, is
 // still bounded by it.
 func New(maxHTTPTimeout time.Duration) (*ConjurProvider, error) {
+	if err := validateSpiffeConfig(); err != nil {
+		return nil, err
+	}
+	if err := validateCertFiles(); err != nil {
+		return nil, err
+	}
 	cfg, err := loadConjurConfig(maxHTTPTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("configuration error: failed to load Conjur configuration: %w", err)

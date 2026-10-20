@@ -8,8 +8,9 @@ ENV GOARCH=amd64
 COPY go.mod go.sum ./
 COPY vendor/ vendor/
 
-# hadolint ignore=DL3008
+# hadolint ignore=DL3005,DL3008
 RUN apt-get update -y && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends bash git && \
     rm -rf /var/lib/apt/lists/* && \
     go install github.com/jstemmer/go-junit-report@latest && \

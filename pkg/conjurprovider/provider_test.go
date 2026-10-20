@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	conjurapi "github.com/cyberark/conjur-api-go/conjurapi"
@@ -116,6 +117,21 @@ func TestNew(t *testing.T) {
 		require.NotNil(t, provider)
 	})
 
+	t.Run("returns configuration error when SPIFFE socket set without service ID", func(t *testing.T) {
+		isolateHome(t)
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "unix:///tmp/spiffe.sock")
+		t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "")
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
+		t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example")
+		t.Setenv("CONJUR_ACCOUNT", "conjur")
+
+		_, err := New(0)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error:")
+		assert.Contains(t, err.Error(), "SPIFFE_ENDPOINT_SOCKET is set but no authenticator service ID is configured")
+	})
+
 	t.Run("returns configuration error for missing authn-cert files", func(t *testing.T) {
 		// Detailed cert/key validation cases (missing key file, permission denied,
 		// readable file pair, inline-PEM path skip, conflicting inline+file paths)
@@ -125,6 +141,7 @@ func TestNew(t *testing.T) {
 		isolateHome(t)
 		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
 		t.Setenv("CONJUR_AUTHN_CERT_FILE", "/missing/cert.pem")
+		t.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", "/missing/key.pem")
 		t.Setenv("CONJUR_APPLIANCE_URL", "https://conjur.example")
 		t.Setenv("CONJUR_ACCOUNT", "conjur")
 
@@ -132,8 +149,120 @@ func TestNew(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration error:")
-		assert.Contains(t, err.Error(), "client certificate file not found")
+		assert.Contains(t, err.Error(), "cannot read certificate file")
 		assert.NotContains(t, err.Error(), "authentication failed")
+	})
+}
+
+// ---- validateSpiffeConfig ----
+
+func TestValidateSpiffeConfig(t *testing.T) {
+	t.Run("no socket — passes", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+		assert.NoError(t, validateSpiffeConfig())
+	})
+
+	t.Run("socket with JWT service ID — passes", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "unix:///tmp/spiffe.sock")
+		t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "swa-e2e-jwt")
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
+		assert.NoError(t, validateSpiffeConfig())
+	})
+
+	t.Run("socket with cert service ID — passes", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "unix:///tmp/spiffe.sock")
+		t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "")
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "swa-e2e-cert")
+		assert.NoError(t, validateSpiffeConfig())
+	})
+
+	t.Run("socket with no service ID — config error", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "unix:///tmp/spiffe.sock")
+		t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "")
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
+
+		err := validateSpiffeConfig()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error:")
+		assert.Contains(t, err.Error(), "SPIFFE_ENDPOINT_SOCKET is set but no authenticator service ID is configured")
+	})
+}
+
+// ---- validateCertFiles ----
+
+func TestValidateCertFiles(t *testing.T) {
+	t.Run("no cert service ID — passes", func(t *testing.T) {
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
+		assert.NoError(t, validateCertFiles())
+	})
+
+	t.Run("cert service ID with SPIFFE socket — skips file check", func(t *testing.T) {
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "unix:///tmp/spiffe.sock")
+		t.Setenv("CONJUR_AUTHN_CERT_FILE", "")
+		t.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", "")
+		assert.NoError(t, validateCertFiles())
+	})
+
+	t.Run("cert file env var unset — config error", func(t *testing.T) {
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+		t.Setenv("CONJUR_AUTHN_CERT_FILE", "")
+		t.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", "")
+
+		err := validateCertFiles()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error:")
+		assert.Contains(t, err.Error(), "CONJUR_AUTHN_CERT_FILE is not configured")
+	})
+
+	t.Run("key file env var unset — config error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		certFile := filepath.Join(tmpDir, "cert.pem")
+		require.NoError(t, os.WriteFile(certFile, []byte("cert"), 0600))
+
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+		t.Setenv("CONJUR_AUTHN_CERT_FILE", certFile)
+		t.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", "")
+
+		err := validateCertFiles()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error:")
+		assert.Contains(t, err.Error(), "CONJUR_AUTHN_CERT_KEY_FILE is not configured")
+	})
+
+	t.Run("cert file missing — config error", func(t *testing.T) {
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+		t.Setenv("CONJUR_AUTHN_CERT_FILE", "/nonexistent/cert.pem")
+		t.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", "/nonexistent/key.pem")
+
+		err := validateCertFiles()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error:")
+		assert.Contains(t, err.Error(), "cannot read certificate file")
+	})
+
+	t.Run("key file missing — config error", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		certFile := filepath.Join(tmpDir, "cert.pem")
+		require.NoError(t, os.WriteFile(certFile, []byte("cert"), 0600))
+
+		t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "acme-vm")
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+		t.Setenv("CONJUR_AUTHN_CERT_FILE", certFile)
+		t.Setenv("CONJUR_AUTHN_CERT_KEY_FILE", "/nonexistent/key.pem")
+
+		err := validateCertFiles()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "configuration error:")
+		assert.Contains(t, err.Error(), "cannot read key file")
 	})
 }
 
