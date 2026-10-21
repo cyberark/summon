@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
@@ -141,6 +142,7 @@ func validateAuthnTokenFile(ctx context.Context) error {
 	if path == "" {
 		return nil
 	}
+	path = filepath.Clean(path)
 	wait, err := authnTokenFileWait()
 	if err != nil {
 		return err
@@ -316,14 +318,15 @@ func (p *ConjurProvider) checkTokenFile() error {
 	if p.tokenFile == "" {
 		return nil
 	}
-	info, err := os.Stat(p.tokenFile)
+	tokenFile := filepath.Clean(p.tokenFile)
+	info, err := os.Stat(tokenFile)
 	if err != nil {
 		return fmt.Errorf("authentication token file unavailable: CONJUR_AUTHN_TOKEN_FILE is not accessible: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return fmt.Errorf("authentication token file unavailable: CONJUR_AUTHN_TOKEN_FILE is not a regular file: %s", p.tokenFile)
+		return fmt.Errorf("authentication token file unavailable: CONJUR_AUTHN_TOKEN_FILE is not a regular file: %s", tokenFile)
 	}
-	f, err := os.Open(p.tokenFile)
+	f, err := os.Open(tokenFile)
 	if err != nil {
 		return fmt.Errorf("authentication token file unavailable: CONJUR_AUTHN_TOKEN_FILE is not readable: %w", err)
 	}

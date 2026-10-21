@@ -891,3 +891,32 @@ func TestCallInteractiveModeNoGoroutineLeak(t *testing.T) {
 	}
 	assert.LessOrEqual(t, runtime.NumGoroutine(), baseline, "goroutines leaked")
 }
+
+// TestCall_MissingBinaryRejectsViaLookPath verifies that Call returns an error
+// that wraps "provider binary not found" when the binary does not exist.
+// This documents the exec.LookPath gate added for Snyk CWE-78.
+func TestCall_MissingBinaryRejectsViaLookPath(t *testing.T) {
+	requirePOSIX(t)
+	_, err := Call(context.Background(), "/non/existent/provider", "somevar")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "provider binary not found")
+}
+
+// TestCallInteractiveMode_MissingBinaryRejectsViaLookPath verifies that
+// CallInteractiveMode returns an error that wraps "provider binary not found"
+// when the binary does not exist.
+func TestCallInteractiveMode_MissingBinaryRejectsViaLookPath(t *testing.T) {
+	requirePOSIX(t)
+	secrets := secretsyml.SecretsMap{
+		"KEY": {Path: "some/var"},
+	}
+	_, errorsCh, cleanup := CallInteractiveMode(context.Background(), "/non/existent/provider", secrets)
+	defer cleanup()
+	select {
+	case err := <-errorsCh:
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "provider binary not found")
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for error")
+	}
+}

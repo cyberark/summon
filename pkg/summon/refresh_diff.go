@@ -5,6 +5,7 @@ package summon
 import (
 	"crypto/sha256"
 	"os"
+	"path/filepath"
 	"slices"
 
 	prov "github.com/cyberark/summon/pkg/provider"
@@ -33,7 +34,7 @@ func checksumResults(results []prov.Result, specs secretsyml.SecretsMap) (map[st
 		}
 		spec := specs[r.Key]
 		if spec.IsFile() {
-			content, err := os.ReadFile(r.Value)
+			content, err := os.ReadFile(filepath.Clean(r.Value))
 			if err != nil {
 				return nil, err
 			}

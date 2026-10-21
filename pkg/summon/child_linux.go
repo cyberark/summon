@@ -5,6 +5,7 @@ package summon
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -27,7 +28,7 @@ func groupAlive(pgid int) bool {
 		if _, err := strconv.Atoi(e.Name()); err != nil {
 			continue
 		}
-		b, err := os.ReadFile("/proc/" + e.Name() + "/stat")
+		b, err := os.ReadFile(filepath.Join("/proc", e.Name(), "stat"))
 		if err != nil {
 			continue // the process vanished while scanning
 		}

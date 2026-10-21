@@ -199,8 +199,17 @@ func printProviderVersions(providerPath string) (string, error) {
 
 	timeout := providerVersionTimeout()
 	for _, provider := range providers {
+		if providerPath == "" {
+			fmt.Fprintf(&providerVersions, "%s: unknown version\n", provider)
+			continue
+		}
+		providerBin, err := exec.LookPath(filepath.Join(providerPath, provider))
+		if err != nil {
+			fmt.Fprintf(&providerVersions, "%s: unknown version\n", provider)
+			continue
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		version, err := exec.CommandContext(ctx, filepath.Join(providerPath, provider), "--version").Output()
+		version, err := exec.CommandContext(ctx, providerBin, "--version").Output()
 		cancel()
 		if err != nil {
 			fmt.Fprintf(&providerVersions, "%s: unknown version\n", provider)

@@ -2,6 +2,7 @@ package summon
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -26,7 +27,7 @@ func NewTempFactory(path string) TempFactory {
 	if path == "" {
 		path = defaultTempPath()
 	}
-	return TempFactory{path: path}
+	return TempFactory{path: filepath.Clean(path)}
 }
 
 // defaultTempPath returns the best possible temp folder path for temp files

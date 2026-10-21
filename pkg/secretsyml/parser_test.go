@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type testCase struct {
@@ -690,4 +691,18 @@ summon.files:
 	// Test with non-existent file
 	_, err = ParseFromFile("/nonexistent/file.yml", "", nil)
 	assert.Error(t, err)
+}
+
+// TestParseFromFile_CleanedPath verifies that ParseFromFile normalises a path
+// containing redundant segments before reading the file (Snyk CWE-22).
+func TestParseFromFile_CleanedPath(t *testing.T) {
+	dir := t.TempDir()
+	p := dir + "/secrets.yml"
+	require.NoError(t, os.WriteFile(p, []byte("KEY: !var some/var\n"), 0o600))
+
+	// Path with a redundant ./subdir/../ that still resolves to the file.
+	dirty := dir + "/subdir/../secrets.yml"
+	config, err := ParseFromFile(dirty, "", nil)
+	require.NoError(t, err)
+	assert.Contains(t, config.EnvSecrets, "KEY")
 }

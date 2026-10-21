@@ -44,3 +44,24 @@ func TestChecksumResults(t *testing.T) {
 	assert.Equal(t, sumOf("file-content"), sums["FILE"])
 	assert.NotContains(t, sums, "BROKEN")
 }
+
+// TestChecksumResults_CleanedPath verifies that a !file path with redundant
+// segments is cleaned before ReadFile so the correct content is hashed
+// (Snyk CWE-22).
+func TestChecksumResults_CleanedPath(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "f")
+	require.NoError(t, os.WriteFile(filePath, []byte("clean-content"), 0o600))
+
+	specs := secretsyml.SecretsMap{
+		"FILE": {Tags: []secretsyml.YamlTag{secretsyml.File}, Path: "q"},
+	}
+	// Supply a path with a redundant ./subdir/../ that resolves to filePath.
+	dirty := dir + "/subdir/../f"
+	results := []prov.Result{{Key: "FILE", Value: dirty}}
+
+	sums, err := checksumResults(results, specs)
+
+	require.NoError(t, err)
+	assert.Equal(t, sumOf("clean-content"), sums["FILE"])
+}
