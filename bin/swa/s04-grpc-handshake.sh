@@ -7,7 +7,6 @@
 # scenario 3. Also verifies that the test secret does not appear in the error
 # output.
 #
-# Covers: CNJR-15383 scenario #6 (socket exists; gRPC handshake fails)
 # Note: this scenario always runs regardless of SWA_EDGE_URL — it uses a local
 # fake socket server, not real Edge infrastructure.
 
@@ -42,7 +41,8 @@ if [[ -S "$FAKE_SOCK" ]]; then
     "CONJUR_APPLIANCE_URL=${CONJUR_APPLIANCE_URL}" \
     "CONJUR_ACCOUNT=${CONJUR_ACCOUNT}" \
     "CONJUR_AUTHN_JWT_SERVICE_ID=${CONJUR_AUTHN_JWT_SERVICE_ID}" \
-    "SPIFFE_ENDPOINT_SOCKET=unix://${FAKE_SOCK}"
+    "SPIFFE_ENDPOINT_SOCKET=unix://${FAKE_SOCK}" \
+    "CONJUR_AUTHN_TOKEN="
 else
   record FAIL "S4: socket exists; gRPC handshake fails" "could not create fake socket within 5s"
 fi

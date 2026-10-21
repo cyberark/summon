@@ -13,7 +13,6 @@
 #
 # Prints SKIP when SWA_EDGE_URL is unset.
 #
-# Covers: CNJR-15383 scenario #2 (X.509-SVID → authn-cert → secret retrieved)
 
 # ┌──────────────────────────────────────────────────────────────────────────┐
 # │ Scenario 2 — X.509-SVID → authn-cert → secret retrieved (Edge required) │
@@ -34,11 +33,25 @@ fi
 SWA_CERT_CONJURRC=$(mktemp /tmp/swa-cert-conjurrc-XXXXXX.yml)
 printf 'account: %s\nappliance_url: %s\nenvironment: self-hosted\n' "$CONJUR_ACCOUNT" "$SWA_EDGE_URL" > "$SWA_CERT_CONJURRC"
 
+
+# Reconstruct the workload SPIFFE ID and corresponding Conjur host path.
+# setup-swa.sh registers a Conjur host whose ID equals the SPIFFE URI of the
+# workload (under data/swa-e2e/). Providing the host ID in the request URL
+# (request mode) is more robust against Edge versions that do not support
+# SPIFFE-mode host lookup by SAN-URI annotation.
+_S2_TRUST_DOMAIN="${TRUST_DOMAIN:-swa-e2e.conjur.cloud}"
+_S2_NODE_GROUP="${NODE_GROUP:-swa-e2e-server-agent}"
+_S2_WORKLOAD_SPIFFE_ID="spiffe://${_S2_TRUST_DOMAIN}/${_S2_NODE_GROUP}/workload/${USER}"
+_S2_CERT_HOST_ID="data/swa-e2e/${_S2_WORKLOAD_SPIFFE_ID}"
+
 CERT_EXTRA_VARS=(
   "CONJURRC=${SWA_CERT_CONJURRC}"
   "CONJUR_APPLIANCE_URL=${SWA_EDGE_URL}"
   "CONJUR_ACCOUNT=${CONJUR_ACCOUNT}"
   "CONJUR_AUTHN_CERT_SERVICE_ID=${CONJUR_AUTHN_CERT_SERVICE_ID}"
+  # Provide the host ID explicitly (request mode) so Edge does not need to
+  # perform a SPIFFE SAN-URI annotation lookup in the Conjur policy.
+  "CONJUR_AUTHN_CERT_HOST_ID=${_S2_CERT_HOST_ID}"
   "SPIFFE_ENDPOINT_SOCKET=${SPIFFE_ENDPOINT_SOCKET}"
   # Edge serves /api but is self-hosted; skip the environment probe so that
   # cert authentication is not rejected as "unsupported in SaaS".

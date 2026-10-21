@@ -73,6 +73,7 @@ pipeline {
     booleanParam(name: 'TEST_CERT', defaultValue: false, description: 'Run authn-cert integration tests against Conjur Enterprise (auto-enabled on main/master)')
     booleanParam(name: 'TEST_SPIFFE', defaultValue: false, description: 'Run SPIFFE Workload API integration tests (X.509-SVID and JWT-SVID) (auto-enabled on main/master)')
     booleanParam(name: 'TEST_SAAS', defaultValue: false, description: 'Run Secrets Manager SaaS JWT tests')
+    booleanParam(name: 'TEST_SWA', defaultValue: false, description: 'Run Secure Workload Access (SWA) E2E scenarios against Conjur Cloud + Edge (opt-in; does not auto-enable on main/master)')
   }
 
   stages {
@@ -300,6 +301,69 @@ pipeline {
               junit allowEmptyResults: true, testResults: 'output/integration/*.xml'
             } else {
               echo 'Skipping SPIFFE junit publication: output/integration/junit.xml not found'
+            }
+          }
+        }
+      }
+    }
+
+    stage('Run Secure Workload Access (SWA) E2E tests') {
+      // SWA (Secure Workload Access) E2E scenarios against Conjur Cloud + Edge.
+      // Opt-in only — does NOT auto-enable on main/master because Edge provisioning
+      // and Artifactory binary download add non-trivial setup time.
+      //
+      // Notes:
+      //   - Edge name must use underscores, not hyphens (e.g. ci_test_edge)
+      //   - controlPlane.url = bare tenant URL; SWA Server prepends /api internally
+      //   - JWT path: no Edge needed. X.509 path: Edge required.
+      when {
+        expression { params.TEST_SWA }
+      }
+      stages {
+        stage('Create SWA tenant') {
+          steps {
+            script {
+              SWA_TENANT = getConjurCloudTenant()
+            }
+          }
+        }
+        stage('Authenticate and Run SWA scenarios') {
+          steps {
+            script {
+              def idToken = getConjurCloudTenant.tokens(
+                infrapool: infrapool,
+                identity_url: "${SWA_TENANT.identity_information.idaptive_tenant_fqdn}",
+                username: "${SWA_TENANT.login_name}"
+              )
+              def conjToken = getConjurCloudTenant.tokens(
+                infrapool: infrapool,
+                conjur_url: "${SWA_TENANT.conjur_cloud_url}",
+                identity_token: "${idToken}"
+              )
+              // Configure jf CLI on the infrapool agent using standard
+              // devDeployer/prodDeployer credentials — no SWA-specific key needed.
+              conjEntArtifactory.jfCliLoginInfrapool(infrapool)
+
+              // Pass credentials via withEnv so the session token is scoped to
+              // this step only and is not promoted to the controller's global env
+              // (where it would be visible in env dumps and the build environment page).
+              withEnv(["INFRAPOOL_CONJUR_APPLIANCE_URL=${SWA_TENANT.conjur_cloud_url}",
+                       "INFRAPOOL_CONJUR_AUTHN_TOKEN=${conjToken}"]) {
+                infrapool.agentDir('./pristine-checkout') {
+                  // jf CLI is pre-configured on this agent by conjEntArtifactory.jfCliLoginInfrapool().
+                  // ci-run.sh calls `jf rt download` directly — no SWA-specific Artifactory key needed.
+                  infrapool.agentSh 'bin/swa/ci-run.sh'
+                }
+              }
+            }
+          }
+        }
+      }
+      post {
+        always {
+          script {
+            if (binding.hasVariable('SWA_TENANT') && SWA_TENANT?.id) {
+              deleteConjurCloudTenant(SWA_TENANT.id)
             }
           }
         }

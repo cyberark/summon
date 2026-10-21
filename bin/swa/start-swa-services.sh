@@ -174,6 +174,23 @@ wait_for_agent_socket() {
     exit 1
   fi
   echo "  Socket ready."
+
+  # Wait until the agent has attested and can serve SVIDs (socket ≠ SVIDs ready).
+  echo "  Waiting for Agent to issue SVIDs (up to 60s)..."
+  SVID_DIR=$(mktemp -d)
+  deadline=$(($(date +%s) + 60))
+  while (( $(date +%s) < deadline )); do
+    if "${SWA_BIN_DIR}/swa-agent" api fetch x509 \
+        -s "${SOCKET_PATH}" \
+        --write "${SVID_DIR}" --silent 2>/dev/null; then
+      echo "  SVIDs ready."
+      rm -rf "${SVID_DIR}"
+      return
+    fi
+    sleep 2
+  done
+  rm -rf "${SVID_DIR}"
+  echo "  WARNING: Agent SVID fetch timed out — proceeding; enterprise step may retry." >&2
 }
 
 write_env_file() {

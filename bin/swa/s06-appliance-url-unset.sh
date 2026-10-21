@@ -1,28 +1,40 @@
 #!/usr/bin/env bash
-# s06-appliance-url-unset.sh — Scenario 6: CONJUR_APPLIANCE_URL unset
+# s06-appliance-url-unset.sh — Scenario 6: cert auth over HTTP → HTTPS required
 #
-# Passing CONJUR_APPLIANCE_URL= (empty) alongside an empty CONJURRC triggers
-# the "Must specify an ApplianceURL" validation error before any network call
-# is made. Also verifies that the test secret does not appear in the error
-# output.
+# Verifies that summon emits a config-time error (not a secret leak) when cert
+# authentication is requested but the appliance URL is HTTP, not HTTPS. conjur-
+# api-go requires HTTPS for cert auth and returns the error before any network
+# call is made.
 #
-# Covers: CNJR-15383 scenario #8 (CONJUR_APPLIANCE_URL unset → config error)
+# A CONJURRC with an explicit HTTP appliance URL overrides any system-level
+# /etc/conjur.conf so the validation fires consistently in CI environments that
+# have a pre-configured system conjurrc.
+#
 
 # ┌──────────────────────────────────────────────────────────────────────────┐
-# │ Scenario 6 — CONJUR_APPLIANCE_URL unset                                  │
+# │ Scenario 6 — cert auth over HTTP URL → validation error                  │
 # └──────────────────────────────────────────────────────────────────────────┘
 
-# Pass CONJUR_APPLIANCE_URL= (empty) to override the parent shell's value.
-# Use an empty CONJURRC so no URL is loaded from file either.
-# Both are needed: env mergeValue skips empty env vars, so the conjurrc fallback
-# must also be cleared to get the "Must specify an ApplianceURL" validation error.
-echo "Running scenario 6: CONJUR_APPLIANCE_URL unset..."
-: > /tmp/swa-e2e-empty-conjurrc.yml
+echo "Running scenario 6: cert auth over HTTP → HTTPS required error..."
+
+# Write a CONJURRC with an HTTP appliance URL. The non-empty value overrides
+# any HTTPS URL that may be present in the system /etc/conjur.conf, so the
+# "Certificate authentication requires an HTTPS connection" Validate() check
+# fires before any network call. CONJUR_APPLIANCE_URL echoes the same HTTP
+# URL so mergeEnv does not accidentally restore the system URL.
+_S6_CONJURRC=$(mktemp /tmp/swa-e2e-s6-conjurrc-XXXXXX.yml)
+printf 'account: %s\nappliance_url: http://conjur.invalid.example.com\n' \
+    "${CONJUR_ACCOUNT}" > "${_S6_CONJURRC}"
+
 run_summon_sad \
-  "S6: CONJUR_APPLIANCE_URL unset → validation error" \
-  "ApplianceURL\|appliance" \
-  "CONJUR_APPLIANCE_URL=" \
+  "S6: cert auth → HTTPS connection required" \
+  "HTTPS\|Certificate authentication requires" \
+  --clean \
   "CONJUR_ACCOUNT=${CONJUR_ACCOUNT}" \
-  "CONJUR_AUTHN_JWT_SERVICE_ID=${CONJUR_AUTHN_JWT_SERVICE_ID}" \
+  "CONJURRC=${_S6_CONJURRC}" \
+  "CONJUR_APPLIANCE_URL=http://conjur.invalid.example.com" \
+  "CONJUR_AUTHN_CERT_SERVICE_ID=${CONJUR_AUTHN_CERT_SERVICE_ID}" \
   "SPIFFE_ENDPOINT_SOCKET=${SPIFFE_ENDPOINT_SOCKET}" \
-  "CONJURRC=/tmp/swa-e2e-empty-conjurrc.yml"
+  "SUMMON_PROVIDER=conjur"
+
+rm -f "${_S6_CONJURRC}"

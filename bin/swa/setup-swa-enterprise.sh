@@ -170,13 +170,19 @@ setup_cloud_connection() {
   echo "Workload ID  : ${WORKLOAD_SPIFFE_ID}"
   echo ""
 
-  # ── Read Conjur Cloud OIDC token (for JWKS fetch) ─────────────────────────────
+  # ── Read Conjur Cloud token (for JWKS fetch) ──────────────────────────────────
 
-  CONJUR_CLOUD_TOKEN=$(oidc_token_b64 "$NETRC_FILE") || {
+  # CI path: conjToken from getConjurCloudTenant.tokens() is already the base64-encoded
+  # Conjur access token — use it directly without additional encoding.
+  if [[ -n "${CONJUR_AUTHN_TOKEN:-}" ]]; then
+    CONJUR_CLOUD_TOKEN="${CONJUR_AUTHN_TOKEN}"
+  else
+    CONJUR_CLOUD_TOKEN=$(oidc_token_b64 "$NETRC_FILE") || {
       echo "ERROR: no OIDC token found in ${NETRC_FILE}." >&2
-    echo "  Run: CONJURRC=${CONJURRC_FILE} conjur login" >&2
-    exit 1
-  }
+      echo "  Set CONJUR_AUTHN_TOKEN (CI) or run: CONJURRC=${CONJURRC_FILE} conjur login" >&2
+      exit 1
+    }
+  fi
 
   # Write the Authorization header to a temp config file so the token never appears
   # on the command line (visible in ps aux for the duration of each HTTP call).
@@ -226,11 +232,12 @@ step_configure_master() {
 
   announce "Step 2: Configuring Conjur Enterprise master"
 
-  TIMEOUT=120; ELAPSED=0
+  # evoke configure master initializes postgres internally; retry until it succeeds
+  # (the appliance needs a moment after container start before accepting the command).
+  TIMEOUT=300; ELAPSED=0
   until docker compose --profile swa-enterprise exec -T conjur-leader \
       evoke configure master \
       --hostname=conjur-leader-1.mycompany.local \
-      --master-altnames="conjur-leader.mycompany.local,conjur-leader-1.mycompany.local,localhost" \
       --accept-eula \
       --admin-password="${CONJUR_ADMIN_PASSWORD}" \
       conjur; do
@@ -297,63 +304,66 @@ step_fetch_x509_bundle() {
   fi
 
   _BUNDLE_DIR=$(mktemp -d)
-  if ! "${SWA_BIN_DIR}/swa-agent" api fetch x509 \
+  # Retry: the agent socket may be open while node attestation still completes.
+  TIMEOUT=60; ELAPSED=0
+  until "${SWA_BIN_DIR}/swa-agent" api fetch x509 \
         -s "${AGENT_SOCKET}" \
-        --pem \
         --write "${_BUNDLE_DIR}" \
-        --output json \
-        --silent 2>/dev/null; then
-    echo "ERROR: swa-agent api fetch x509 failed." >&2
-    rm -rf "${_BUNDLE_DIR}"
-    exit 1
-  fi
-  _FULL_BUNDLE="${_BUNDLE_DIR}/bundle.0.pem"
-  _SVID="${_BUNDLE_DIR}/svid.0.pem"
-  [[ ! -f "${_FULL_BUNDLE}" ]] && {
+        --silent; do
+    if (( ELAPSED >= TIMEOUT )); then
+      echo "ERROR: swa-agent api fetch x509 failed after ${TIMEOUT}s." >&2
+      rm -rf "${_BUNDLE_DIR}"
+      exit 1
+    fi
+    echo "  Agent not ready yet; retrying in 5s..." >&2
+    sleep 5; (( ELAPSED += 5 ))
+    rm -rf "${_BUNDLE_DIR}"; _BUNDLE_DIR=$(mktemp -d)
+  done
+  # Diagnose what files swa-agent actually wrote.
+  echo "  Files written by swa-agent:" >&2
+  ls -1 "${_BUNDLE_DIR}/" >&2
+
+  _FULL_BUNDLE=""
+  _SVID=""
+  # Accept both .pem (swa-agent ≥ v1.2 / SPIRE with --pem) and .der (older/default).
+  for ext in pem der; do
+    [[ -z "${_FULL_BUNDLE}" && -f "${_BUNDLE_DIR}/bundle.0.${ext}" ]] && _FULL_BUNDLE="${_BUNDLE_DIR}/bundle.0.${ext}"
+    [[ -z "${_SVID}" && -f "${_BUNDLE_DIR}/svid.0.${ext}" ]] && _SVID="${_BUNDLE_DIR}/svid.0.${ext}"
+  done
+
+  if [[ -z "${_FULL_BUNDLE}" ]]; then
     echo "ERROR: empty X.509 bundle from SWA Agent — is the Agent running?" >&2
     rm -rf "${_BUNDLE_DIR}"; exit 1
-  }
-  _BUNDLE_CERTS=$(grep -c 'BEGIN CERTIFICATE' "${_FULL_BUNDLE}")
-  echo "  X.509 trust bundle fetched (${_BUNDLE_CERTS} cert(s))."
-
-  # Conjur Enterprise authn-cert requires exactly ONE root certificate in ca-cert.
-  # The SPIFFE trust bundle contains multiple rotating roots (one per active CA key).
-  # Find the root CA that issued the current SVID (direct signature match) so we
-  # store the correct, minimal ca-cert value.
-  echo "  Finding the signing CA for the current SVID..."
-  FIREFLY_CA=""
-  if [[ -f "${_SVID}" ]]; then
-    # Split the bundle into individual certs and verify each against the SVID.
-    python3 - "${_FULL_BUNDLE}" "${_SVID}" <<'PYEOF'
-import subprocess, re, tempfile, os, sys
-bundle_path, svid_path = sys.argv[1], sys.argv[2]
-with open(bundle_path, 'r') as f:
-    bundle = f.read()
-certs = re.findall(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----', bundle, re.DOTALL)
-for i, cert in enumerate(certs):
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.pem', delete=False) as f:
-        f.write(cert + '\n')
-        cafile = f.name
-    result = subprocess.run(['openssl', 'verify', '-CAfile', cafile, svid_path],
-                            capture_output=True, text=True)
-    os.unlink(cafile)
-    if 'OK' in result.stdout:
-        r = subprocess.run(['openssl', 'x509', '-in', '-', '-noout', '-subject', '-enddate'],
-                               input=cert, capture_output=True, text=True)
-        print(f"  Signing CA: {r.stdout.strip()}", flush=True)
-        with open('/tmp/_swa_ent_signing_ca.pem', 'w') as out:
-            out.write(cert + '\n')
-        break
-PYEOF
-    if [[ -f /tmp/_swa_ent_signing_ca.pem ]]; then
-      FIREFLY_CA="$(cat /tmp/_swa_ent_signing_ca.pem)"
-      rm -f /tmp/_swa_ent_signing_ca.pem
-    fi
   fi
 
-  # Fall back to the full bundle if the signing CA could not be identified.
-  # This will fail Conjur Enterprise's "exactly one root" check but is better
-  # than an empty value; the operator should investigate.
+  # Convert DER to PEM in-place if needed.
+  if [[ "${_FULL_BUNDLE}" == *.der ]]; then
+    # SPIFFE bundles are always X.509 DER, never PKCS12.
+    openssl x509 -inform DER -in "${_FULL_BUNDLE}" -out "${_BUNDLE_DIR}/bundle.0.pem" 2>/dev/null || true
+    [[ -f "${_BUNDLE_DIR}/bundle.0.pem" ]] && _FULL_BUNDLE="${_BUNDLE_DIR}/bundle.0.pem"
+  fi
+  if [[ -n "${_SVID}" && "${_SVID}" == *.der ]]; then
+    openssl x509 -inform DER -in "${_SVID}" -out "${_BUNDLE_DIR}/svid.0.pem" 2>/dev/null || true
+    [[ -f "${_BUNDLE_DIR}/svid.0.pem" ]] && _SVID="${_BUNDLE_DIR}/svid.0.pem"
+  fi
+
+  _BUNDLE_CERTS=$(grep -c 'BEGIN CERTIFICATE' "${_FULL_BUNDLE}" 2>/dev/null || echo "0")
+  echo "  X.509 trust bundle fetched (${_BUNDLE_CERTS} cert(s)) from ${_FULL_BUNDLE}."
+
+  # Conjur Enterprise authn-cert requires exactly ONE root certificate in ca-cert.
+  # Identify the signing CA by matching the SVID's issuer DN against cert subjects in
+  # the bundle — more reliable than openssl verify which requires self-signed CAs.
+  echo "  Finding the signing CA for the current SVID..."
+  FIREFLY_CA=""
+  if [[ -n "${_SVID}" && -f "${_SVID}" ]]; then
+    FIREFLY_CA=$(python3 "$(dirname "$0")/find-signing-ca.py" \
+      "${_FULL_BUNDLE}" "${_SVID}" "${SWA_SERVER_ADDR}")
+  else
+    echo "  WARNING: SVID file not found at ${_SVID:-<unset>} — cannot match signing CA." >&2
+  fi
+
+  # Final fallback: use the full bundle. Conjur Enterprise will reject it if it
+  # contains more than one root CA (ROOT_CA_COUNT error). Better than no value.
   if [[ -z "${FIREFLY_CA}" ]]; then
     echo "  WARNING: could not identify signing CA; using full bundle (may fail if >1 root)." >&2
     FIREFLY_CA="$(cat "${_FULL_BUNDLE}")"
