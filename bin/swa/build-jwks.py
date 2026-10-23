@@ -11,6 +11,7 @@ Uses only Python standard library.
 """
 import base64
 import json
+import os
 import sys
 
 
@@ -33,7 +34,7 @@ def read_tlv(data: bytes, pos: int):
 
 
 def rsa_pub_to_jwk(pem_file: str) -> dict:
-    pem = open(pem_file).read()  # noqa: SIM115 - developer CLI tool; path is caller-supplied by design
+    pem = open(os.path.realpath(pem_file)).read()  # noqa: SIM115 - developer CLI tool; path is caller-supplied by design
     b64_body = "".join(
         line for line in pem.splitlines() if not line.startswith("-----")
     )
