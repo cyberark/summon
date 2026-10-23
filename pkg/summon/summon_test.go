@@ -195,7 +195,7 @@ func TestHandleResultsFromProvider(t *testing.T) {
 		assert.Len(t, results, 1)
 		assert.Equal(t, "FILE_KEY", results[0].Key)
 		assert.Empty(t, results[0].Value)
-		assert.ErrorContains(t, results[0].Error, "/nonexistent/dir")
+		assert.ErrorContains(t, results[0].Error, filepath.Join("nonexistent", "dir"))
 	})
 }
 
@@ -254,7 +254,7 @@ func TestFilterNonVariables(t *testing.T) {
 		assert.Len(t, results, 1)
 		assert.Equal(t, "FILE_KEY", results[0].Key)
 		assert.Empty(t, results[0].Value)
-		assert.ErrorContains(t, results[0].Error, "/nonexistent/dir")
+		assert.ErrorContains(t, results[0].Error, filepath.Join("nonexistent", "dir"))
 	})
 }
 
@@ -516,7 +516,7 @@ func TestNonInteractiveProviderFallback(t *testing.T) {
 				assert.Len(t, results, 1)
 				assert.Equal(t, "FILE_KEY", results[0].Key)
 				assert.Empty(t, results[0].Value)
-				assert.ErrorContains(t, results[0].Error, "/nonexistent/dir")
+				assert.ErrorContains(t, results[0].Error, filepath.Join("nonexistent", "dir"))
 			},
 		},
 	}

@@ -6,7 +6,6 @@
 # names the missing variable. Also verifies that the test secret does not appear
 # in the error output.
 #
-# Covers: CNJR-15383 scenario #7 (CONJUR_AUTHN_JWT_SERVICE_ID absent → config error)
 
 # ┌──────────────────────────────────────────────────────────────────────────┐
 # │ Scenario 5 — CONJUR_AUTHN_JWT_SERVICE_ID absent → config error           │

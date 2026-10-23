@@ -9,7 +9,6 @@
 # set CONJUR_ENTERPRISE_JWT_HOST_ID, CONJUR_ENTERPRISE_CA_CERT, and
 # CONJUR_ENTERPRISE_GODEBUG (all exported by sourcing /tmp/swa-e2e/enterprise-env.sh).
 #
-# Covers: CNJR-15383 extended scope — Enterprise self-hosted JWT path
 #         (beyond original 9-scenario AC table; added to validate SWA + Enterprise)
 
 echo "Running scenario 8: JWT-SVID → self-hosted Conjur Enterprise (JWT)..."
@@ -27,6 +26,8 @@ ENTERPRISE_JWT_VARS=(
     "CONJUR_AUTHN_JWT_SERVICE_ID=${CONJUR_ENTERPRISE_JWT_SERVICE_ID}"
     "SPIFFE_ENDPOINT_SOCKET=${SPIFFE_ENDPOINT_SOCKET}"
     "CONJUR_ENVIRONMENT=self-hosted"
+    # Clear the CI provisioning token so summon takes the SPIFFE path.
+    "CONJUR_AUTHN_TOKEN="
   )
 
   # Provide explicit host identity when the appliance uses URL-path-based auth

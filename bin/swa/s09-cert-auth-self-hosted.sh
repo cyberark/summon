@@ -10,7 +10,6 @@
 # set CONJUR_ENTERPRISE_CERT_HOST_ID, CONJUR_ENTERPRISE_CA_CERT, and
 # CONJUR_ENTERPRISE_GODEBUG (all exported by sourcing /tmp/swa-e2e/enterprise-env.sh).
 #
-# Covers: CNJR-15383 extended scope — Enterprise self-hosted cert auth path
 #         (beyond original 9-scenario AC table; added to validate SWA + Enterprise)
 
 echo "Running scenario 9: X.509-SVID → self-hosted Conjur Enterprise (cert)..."
@@ -34,8 +33,9 @@ _s9_conjurrc=$(mktemp /tmp/swa-enterprise-conjurrc-XXXXXX.yml)
     "CONJUR_AUTHN_CERT_SERVICE_ID=${CONJUR_ENTERPRISE_CERT_SERVICE_ID}"
     "SPIFFE_ENDPOINT_SOCKET=${SPIFFE_ENDPOINT_SOCKET}"
     "CONJUR_ENVIRONMENT=self-hosted"
-    # Clear any caller-shell credential paths so OIDC tokens from a Conjur Cloud
-    # netrc cannot interfere with the SPIFFE X.509-SVID cert auth path.
+    # Clear the CI provisioning token and any credential paths so OIDC tokens from
+    # a Conjur Cloud netrc or parent env cannot interfere with the cert auth path.
+    "CONJUR_AUTHN_TOKEN="
     "NETRC_FILE="
     "CONJUR_NETRC_PATH="
   )

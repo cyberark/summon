@@ -6,8 +6,6 @@
 # Workload API socket. SUMMON_PROVIDER=conjur is set globally by the entrypoint,
 # which also verifies env-based provider routing.
 #
-# Covers: CNJR-15383 scenario #1 (JWT-SVID → authn-jwt → secret retrieved)
-#         CNJR-15383 scenario #3 (env-only routing via SUMMON_PROVIDER=conjur)
 
 # ┌──────────────────────────────────────────────────────────────────────────┐
 # │ Scenario 1 — JWT-SVID → authn-jwt → secret retrieved                    │

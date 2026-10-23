@@ -25,6 +25,16 @@ func TestValidateAuthnTokenFile(t *testing.T) {
 		assert.NoError(t, validateAuthnTokenFile(context.Background()))
 	})
 
+	t.Run("path with redundant segments is normalised before access (Snyk CWE-22)", func(t *testing.T) {
+		dir := t.TempDir()
+		p := filepath.Join(dir, "token")
+		require.NoError(t, os.WriteFile(p, []byte("{}"), 0o600))
+		// Supply a path with a redundant ./subdir/../ that resolves to p after Clean.
+		dirty := dir + "/subdir/../token"
+		t.Setenv("CONJUR_AUTHN_TOKEN_FILE", dirty)
+		assert.NoError(t, validateAuthnTokenFile(context.Background()))
+	})
+
 	t.Run("configuration error when file does not exist", func(t *testing.T) {
 		p := filepath.Join(t.TempDir(), "missing")
 		t.Setenv("CONJUR_AUTHN_TOKEN_FILE", p)

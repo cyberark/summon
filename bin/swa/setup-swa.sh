@@ -65,7 +65,7 @@ main() {
   step_7_generate_jwt
   step_8_write_bootstrap_config
   step_9_write_agent_config
-  step_10_configure_authn_jwt
+  configure_authn
   step_11_create_test_secret
   step_12_register_workload_host
   step_13_update_cert_ca
@@ -166,11 +166,26 @@ resolve_api_base() {
 # ── Load OIDC session token ────────────────────────────────────────────────
 
 load_auth_token() {
-  CONJUR_TOKEN=$(oidc_token_b64 "$NETRC_FILE") || {
-    echo "ERROR: no OIDC token found in ${NETRC_FILE}." >&2
-    echo "  Run: CONJURRC=${CONJURRC_FILE} conjur login" >&2
-    exit 1
-  }
+  # CI path: accept a Conjur session token injected by getConjurCloudTenant.tokens().
+  # The conjToken returned by the pipeline library is already a base64-encoded Conjur
+  # access token (the raw response from the /authenticate endpoint), ready to embed in
+  # Authorization: Token token="<value>" without additional encoding.
+  local _ci_token="${CONJUR_AUTHN_TOKEN:-}"
+  if [[ -n "${_ci_token}" ]]; then
+    # Reject whitespace-only values — they produce a syntactically valid but
+    # semantically empty Authorization header, causing confusing 401 errors.
+    if [[ -z "${_ci_token//[[:space:]]}" ]]; then
+      echo "ERROR: CONJUR_AUTHN_TOKEN is set but contains only whitespace." >&2
+      exit 1
+    fi
+    CONJUR_TOKEN="${_ci_token}"
+  else
+    CONJUR_TOKEN=$(oidc_token_b64 "$NETRC_FILE") || {
+      echo "ERROR: no OIDC token found in ${NETRC_FILE}." >&2
+      echo "  Set CONJUR_AUTHN_TOKEN (CI) or run: CONJURRC=${CONJURRC_FILE} conjur login" >&2
+      exit 1
+    }
+  fi
 
   # Write the Authorization header to a temp config file so the token never appears
   # on the command line (visible in ps aux for the duration of each HTTP call).
@@ -490,9 +505,14 @@ EOF
   echo "  Written: ${SWA_WORKDIR}/agent/config.yaml"
 }
 
-# ── Step 10: Configure Conjur authn-jwt authenticator ─────────────────────
+# ── Step 10: Configure Conjur authenticators ──────────────────────────────
 
-step_10_configure_authn_jwt() {
+configure_authn() {
+  configure_authn_jwt
+  configure_authn_cert
+}
+
+configure_authn_jwt() {
   announce "Step 10: Configuring Conjur authn-jwt/${JWT_SERVICE_ID}"
 
   # The JWKS is served by the SWA trust domain endpoint (public, no auth required).
@@ -544,6 +564,56 @@ YAML
   fi
 }
 
+# ── Step 10b: Configure authn-cert for SPIFFE X.509-SVID authentication ───
+
+configure_authn_cert() {
+  CERT_SERVICE_ID="${CERT_SERVICE_ID:-swa-e2e-cert}"
+
+  announce "Step 10b: Configuring Conjur authn-cert/${CERT_SERVICE_ID}"
+
+  # Create the authn-cert policy: webservice, consumers group, permit, ca-cert
+  # variable. This is required before step 13 can set the CA cert value and
+  # before the Edge can validate SVIDs.
+  cat > /tmp/swa-authn-cert-policy.yml <<YAML
+- !policy
+  id: ${CERT_SERVICE_ID}
+  body:
+  - !webservice
+
+  - !group consumers
+
+  - !permit
+    role: !group consumers
+    privilege: [ read, authenticate ]
+    resource: !webservice
+
+  - !variable ca-cert
+YAML
+
+  echo "  Loading policy into conjur/authn-cert..."
+  load_policy "conjur/authn-cert" /tmp/swa-authn-cert-policy.yml
+
+  echo ""
+  echo "  Enabling authenticator..."
+  # Conjur Cloud uses the enterprise-compatible URL format for authn-cert:
+  #   PATCH /{authn-cert}/{service_id}/{account}  (form body: enabled=true)
+  # The /authenticators/{type}/{service_id} path used by authn-jwt does not
+  # support authn-cert on Conjur Cloud (returns 404 for all type variants).
+  _URL="${API_BASE}/authn-cert/${CERT_SERVICE_ID}/${CONJUR_ACCOUNT}"
+  _ENABLE_CODE=$(curl -sk -o /tmp/swa_http_out.json -w "%{http_code}" \
+    -X PATCH \
+    --config "${_AUTH_CONF}" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    --data "enabled=true" \
+    "${_URL}")
+  if [[ "$_ENABLE_CODE" == "200" || "$_ENABLE_CODE" == "204" || "$_ENABLE_CODE" == "201" ]]; then
+    echo "  Authenticator enabled (HTTP ${_ENABLE_CODE})."
+  else
+    echo "  WARNING: authn-cert enable returned HTTP ${_ENABLE_CODE}." >&2
+    cat /tmp/swa_http_out.json >&2
+  fi
+}
+
 # ── Step 11: Create test secret ────────────────────────────────────────────
 
 step_11_create_test_secret() {
@@ -579,9 +649,12 @@ step_12_register_workload_host() {
   # We register the current user's SPIFFE ID so the E2E test runner can authenticate.
   WORKLOAD_USER="${WORKLOAD_USER:-${USER}}"
   WORKLOAD_SPIFFE_ID="spiffe://${TRUST_DOMAIN}/${NODE_GROUP}/workload/${WORKLOAD_USER}"
+  CERT_SERVICE_ID="${CERT_SERVICE_ID:-swa-e2e-cert}"
   echo "  Workload SPIFFE ID: ${WORKLOAD_SPIFFE_ID}"
   echo "  (override with WORKLOAD_USER=<user> if the test runner differs)"
 
+  # Include both authn-jwt and authn-cert annotations so the workload can
+  # authenticate via either authenticator.
   WORKLOAD_HOST_POLICY=$(cat <<YAML
 - !policy
   id: swa-e2e
@@ -590,6 +663,7 @@ step_12_register_workload_host() {
     id: "${WORKLOAD_SPIFFE_ID}"
     annotations:
       authn-jwt/${JWT_SERVICE_ID}/sub: "${WORKLOAD_SPIFFE_ID}"
+      authn-cert/${CERT_SERVICE_ID}/san-uri: "${WORKLOAD_SPIFFE_ID}"
 
   - !permit
     role: !host "${WORKLOAD_SPIFFE_ID}"
@@ -602,18 +676,32 @@ YAML
   echo "${WORKLOAD_HOST_POLICY}" > /tmp/swa-workload-host-policy.yml
   load_policy "data" /tmp/swa-workload-host-policy.yml
 
+  WORKLOAD_HOST_ID="conjur:host:data/swa-e2e/${WORKLOAD_SPIFFE_ID}"
+  WORKLOAD_HOST_ID_ENC=$(urlencode "${WORKLOAD_HOST_ID}")
+
   # Grant the workload host access to the authn-jwt consumers group via REST API.
   # Policy YAML cross-branch !grant is not supported; the REST /roles endpoint is used.
   echo "  Granting host to authn-jwt consumers group..."
-  WORKLOAD_HOST_ID="conjur:host:data/swa-e2e/${WORKLOAD_SPIFFE_ID}"
-  WORKLOAD_HOST_ID_ENC=$(urlencode "${WORKLOAD_HOST_ID}")
   GRANT_CODE=$(http_call POST \
     "/roles/conjur/group/conjur%2Fauthn-jwt%2F${JWT_SERVICE_ID}%2Fconsumers?members&member=${WORKLOAD_HOST_ID_ENC}")
   case "$GRANT_CODE" in
     204) echo "  Granted (204)." ;;
     422) echo "  Already a member (422) — continuing." ;;
     *)
-      echo "  WARNING: grant returned HTTP ${GRANT_CODE}." >&2
+      echo "  WARNING: grant to authn-jwt returned HTTP ${GRANT_CODE}." >&2
+      cat /tmp/swa_http_out.json >&2 ;;
+  esac
+
+  # Grant the workload host access to the authn-cert consumers group so it can
+  # authenticate via X.509-SVID (S2 scenario via Edge).
+  echo "  Granting host to authn-cert consumers group..."
+  GRANT_CERT_CODE=$(http_call POST \
+    "/roles/conjur/group/conjur%2Fauthn-cert%2F${CERT_SERVICE_ID}%2Fconsumers?members&member=${WORKLOAD_HOST_ID_ENC}")
+  case "$GRANT_CERT_CODE" in
+    204) echo "  Granted (204)." ;;
+    422) echo "  Already a member (422) — continuing." ;;
+    *)
+      echo "  WARNING: grant to authn-cert returned HTTP ${GRANT_CERT_CODE}." >&2
       cat /tmp/swa_http_out.json >&2 ;;
   esac
 }
@@ -643,9 +731,7 @@ step_13_update_cert_ca() {
   BUNDLE_DIR=$(mktemp -d)
   if "${SWA_BIN_DIR}/swa-agent" api fetch x509 \
       -s "${AGENT_SOCKET}" \
-      --pem \
       --write "${BUNDLE_DIR}" \
-      --output json \
       --silent 2>/dev/null; then
     BUNDLE_FILE="${BUNDLE_DIR}/bundle.0.pem"
     SVID_FILE="${BUNDLE_DIR}/svid.0.pem"
@@ -665,7 +751,7 @@ for cert in certs:
     with tempfile.NamedTemporaryFile(mode='w', suffix='.pem', delete=False) as f:
         f.write(cert + '\n')
         cafile = f.name
-    result = subprocess.run(['openssl', 'verify', '-CAfile', cafile, svid_path],
+    result = subprocess.run(['openssl', 'verify', '-partial_chain', '-CAfile', cafile, svid_path],
                             capture_output=True, text=True)
     os.unlink(cafile)
     if 'OK' in result.stdout:

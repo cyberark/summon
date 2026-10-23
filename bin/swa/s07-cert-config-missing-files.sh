@@ -6,7 +6,6 @@
 # returns a cert config validation error before making network calls. Also
 # verifies that the test secret does not appear in the error output.
 #
-# Covers: CNJR-15383 scenario #9 (cert service ID set; cert or key files absent)
 
 # ┌──────────────────────────────────────────────────────────────────────────┐
 # │ Scenario 7 — CONJUR_AUTHN_CERT_SERVICE_ID set; cert or key absent        │

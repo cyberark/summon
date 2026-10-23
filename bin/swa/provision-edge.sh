@@ -17,7 +17,7 @@
 # Environment:
 #   CONJURRC_FILE   Path to conjurrc (default: ~/.conjurrc-swa)
 #   NETRC_FILE      Path to netrc   (default: ~/.netrc-swa)
-#   EDGE_IMAGE      Docker image    (default: localhost/cyberark/edge:1.9.1)
+#   EDGE_IMAGE      Docker image    (default: ${REGISTRY_URL:-registry.tld}/cyberark/edge:1.9.1)
 #   EDGE_DATA_DIR   Bind-mount dir  (default: /tmp/swa-e2e/edge)
 
 set -euo pipefail
@@ -37,6 +37,7 @@ main() {
   remove_stale_container
   start_edge_container
   extract_tls_cert
+  write_edge_env
   print_summary
 }
 
@@ -48,7 +49,9 @@ setup_env() {
   EDGE_NAME="sm_edge_swa_e2e"
   EDGE_PORT=443
   RESTART_ONLY=false
-  EDGE_IMAGE="${EDGE_IMAGE:-localhost/cyberark/edge:1.9.1}"
+  # Use REGISTRY_URL when set (exported by ci-run.sh from INFRAPOOL_REGISTRY_URL on
+  # infrapool agents); fall back to the internal mirror default for local dev.
+  EDGE_IMAGE="${EDGE_IMAGE:-${REGISTRY_URL:-registry.tld}/cyberark/edge:1.9.1}"
   EDGE_DATA_DIR="${EDGE_DATA_DIR:-/tmp/swa-e2e/edge}"
 
   while [[ $# -gt 0 ]]; do
@@ -73,14 +76,30 @@ validate_edge_name() {
 }
 
 read_conjur_credentials() {
-  # ── Read Conjur URL and token ──────────────────────────────────────────────
+  # ── Read Conjur URL ────────────────────────────────────────────────────────
 
-  API_BASE=$(appliance_url_from_conjurrc "$CONJURRC_FILE")
-  [[ -z "$API_BASE" ]] && { echo "ERROR: appliance_url not found in ${CONJURRC_FILE}" >&2; exit 1; }
+  # CI path: accept URL directly from env (exported by ci-run.sh from INFRAPOOL_*).
+  if [[ -n "${CONJUR_APPLIANCE_URL:-}" ]]; then
+    API_BASE="${CONJUR_APPLIANCE_URL%/}"
+    [[ "${API_BASE}" != */api ]] && API_BASE="${API_BASE}/api"
+  elif [[ -f "$CONJURRC_FILE" ]]; then
+    API_BASE=$(appliance_url_from_conjurrc "$CONJURRC_FILE")
+    [[ -z "$API_BASE" ]] && { echo "ERROR: appliance_url not found in ${CONJURRC_FILE}" >&2; exit 1; }
+  else
+    echo "ERROR: Set CONJUR_APPLIANCE_URL or provide ${CONJURRC_FILE}." >&2; exit 1
+  fi
 
-  CONJUR_TOKEN=$(oidc_token_b64 "$NETRC_FILE") || {
-    echo "ERROR: no OIDC token in ${NETRC_FILE}. Run: CONJURRC=${CONJURRC_FILE} conjur login" >&2; exit 1
-  }
+  # ── Read Conjur token ──────────────────────────────────────────────────────
+
+  # CI path: conjToken from getConjurCloudTenant.tokens() is already the base64-encoded
+  # Conjur access token — use it directly without additional encoding.
+  if [[ -n "${CONJUR_AUTHN_TOKEN:-}" ]]; then
+    CONJUR_TOKEN="${CONJUR_AUTHN_TOKEN}"
+  else
+    CONJUR_TOKEN=$(oidc_token_b64 "$NETRC_FILE") || {
+      echo "ERROR: no OIDC token in ${NETRC_FILE}. Run: CONJURRC=${CONJURRC_FILE} conjur login" >&2; exit 1
+    }
+  fi
 
   AUTH_HEADER="Authorization: Token token=\"${CONJUR_TOKEN}\""
 }
@@ -135,7 +154,17 @@ fetch_installer_token() {
 prepare_data_dir() {
   # ── Prepare data directory ─────────────────────────────────────────────────
 
-  mkdir -p "${EDGE_DATA_DIR}"
+  # Pre-create the subdirectories that the Edge container creates on startup.
+  # The Edge container runs as a non-root user whose UID does not match the
+  # Jenkins agent user.  Without world-write on the bind-mount subdirectories
+  # the container panics immediately with "permission denied" on its log file.
+  # 0777 is required here; chown-to-UID is not an option because the Edge
+  # container UID is managed by the SWA team and may change across versions.
+  mkdir -p "${EDGE_DATA_DIR}" \
+           "${EDGE_DATA_DIR}/logs" \
+           "${EDGE_DATA_DIR}/data" \
+           "${EDGE_DATA_DIR}/certs"
+  chmod -R 0777 "${EDGE_DATA_DIR}"
   echo "  Data directory: ${EDGE_DATA_DIR}"
 }
 
@@ -164,18 +193,23 @@ start_edge_container() {
     --restart unless-stopped \
     "${EDGE_IMAGE}"
 
-  echo "  Waiting for Edge to initialise and replicate (up to 45s)..."
-  deadline=$(($(date +%s) + 45))
+  # Wait for Edge TLS port to accept connections — more reliable than log scanning
+  # because log messages vary across Edge versions.
+  echo "  Waiting for Edge TLS port ${EDGE_PORT} (up to 180s)..."
+  deadline=$(($(date +%s) + 180))
   started=false
   while (( $(date +%s) < deadline )); do
-    if docker logs "${EDGE_NAME}" 2>&1 | grep -qiE "Replicated|Starting server|replicated"; then
+    if openssl s_client -connect "localhost:${EDGE_PORT}" -servername localhost \
+        </dev/null 2>/dev/null | grep -q 'BEGIN CERTIFICATE'; then
       started=true; break
     fi
-    sleep 2
+    sleep 3
   done
 
   if [[ "$started" != "true" ]]; then
-    echo "  WARNING: Edge may not have replicated yet — check: docker logs ${EDGE_NAME}"
+    echo "  WARNING: Edge TLS port not responding after 180s." >&2
+    echo "  Last 40 lines of Edge container logs:" >&2
+    docker logs --tail 40 "${EDGE_NAME}" 2>&1 | sed 's/^/    /' >&2 || true
   fi
 }
 
@@ -184,40 +218,65 @@ extract_tls_cert() {
 
   echo ""
   echo "=== Edge TLS certificate ==="
-  EDGE_CERT=$(echo | openssl s_client \
-    -connect "localhost:${EDGE_PORT}" \
-    -servername localhost 2>/dev/null \
-    | openssl x509 2>/dev/null)
 
   CERT_PATH="${EDGE_DATA_DIR}/edge-tls.crt"
+
+  # By this point start_edge_container() has already confirmed the TLS port is
+  # up. Try a few times in case the cert isn't fully ready yet.
+  EDGE_CERT=""
+  for _attempt in 1 2 3 4 5; do
+    EDGE_CERT=$(echo | openssl s_client \
+      -connect "localhost:${EDGE_PORT}" \
+      -servername localhost 2>/dev/null \
+      | openssl x509 2>/dev/null) || true
+    [[ -n "$EDGE_CERT" ]] && break
+    sleep 3
+  done
+
   if [[ -n "$EDGE_CERT" ]]; then
     echo "$EDGE_CERT" > "$CERT_PATH"
-    CN=$(echo "$EDGE_CERT" | openssl x509 -noout -subject 2>/dev/null | sed 's/.*CN=//')
+    CN=$(echo "$EDGE_CERT" | openssl x509 -noout -subject 2>/dev/null | sed 's/.*CN=//') || true
     echo "  CN: ${CN}"
     echo "  Written to: ${CERT_PATH}"
   else
-    echo "  WARNING: could not fetch TLS cert yet — Edge may still be starting. Re-run after a few seconds."
+    echo "  WARNING: could not fetch TLS cert — Edge TLS port not responding."
   fi
+}
+
+write_edge_env() {
+  # ── Write edge-env.sh for ci-run.sh to source ─────────────────────────────
+
+  SWA_WORKDIR="${SWA_WORKDIR:-/tmp/swa-e2e}"
+  EDGE_ENV="${SWA_WORKDIR}/edge-env.sh"
+  mkdir -p "${SWA_WORKDIR}"
+  {
+    echo "export SWA_EDGE_URL=\"https://localhost:${EDGE_PORT}/api\""
+    echo "export SWA_EDGE_CONTAINER=\"${EDGE_NAME}\""
+    if [[ -f "${CERT_PATH:-}" ]]; then
+      # Inline the cert so the sourcing script doesn't need the file path.
+      echo "export SWA_EDGE_CA_CERT=\"$(cat "${CERT_PATH}")\""
+    fi
+  } > "${EDGE_ENV}"
+  echo "  Written: ${EDGE_ENV}"
 }
 
 print_summary() {
   # ── Summary ───────────────────────────────────────────────────────────────
 
+  SWA_WORKDIR="${SWA_WORKDIR:-/tmp/swa-e2e}"
+  EDGE_ENV="${SWA_WORKDIR}/edge-env.sh"
+
   echo ""
   echo "=== Edge ready ==="
   echo ""
   echo "  SWA_EDGE_URL=https://localhost:${EDGE_PORT}/api"
-  if [[ -f "$CERT_PATH" ]]; then
-    echo "  SWA_EDGE_CA_CERT=$(cat "$CERT_PATH")"
+  if [[ -f "${CERT_PATH:-}" ]]; then
+    echo "  SWA_EDGE_CA_CERT=$(cat "${CERT_PATH}")"
   fi
   echo "  SWA_EDGE_CONTAINER=${EDGE_NAME}"
   echo ""
   echo "  To export for use with run-swa-scenarios.sh:"
-  echo "    export SWA_EDGE_URL=https://localhost:${EDGE_PORT}/api"
-  echo "    export SWA_EDGE_CONTAINER=${EDGE_NAME}"
-  if [[ -f "$CERT_PATH" ]]; then
-    echo "    export SWA_EDGE_CA_CERT=\$(cat ${CERT_PATH})"
-  fi
+  echo "    source ${EDGE_ENV}"
 }
 
 main "$@"

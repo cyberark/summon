@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"maps"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,8 +25,8 @@ func ParseFromString(content, env string, subs map[string]string) (*ParsedConfig
 }
 
 // ParseFromFile reads and parses a secrets.yml file into a ParsedConfig.
-func ParseFromFile(filepath, env string, subs map[string]string) (*ParsedConfig, error) {
-	data, err := os.ReadFile(filepath)
+func ParseFromFile(secretsFilePath, env string, subs map[string]string) (*ParsedConfig, error) {
+	data, err := os.ReadFile(filepath.Clean(secretsFilePath))
 	if err != nil {
 		return nil, err
 	}

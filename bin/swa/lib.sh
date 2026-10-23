@@ -12,6 +12,23 @@ FAIL=0
 SKIP=0
 declare -a RESULTS=()
 
+# ── Standard env-var bundles for happy-path scenarios ───────────────────────
+#
+# JWT_VARS: minimum env for a SPIFFE JWT-SVID → authn-jwt call.
+# Scenarios source lib.sh after run-swa-scenarios.sh calls setup_env(), so all
+# these variables are already resolved at the time the array is built.
+# shellcheck disable=SC2034  # used by s01-jwt-svid-happy-path.sh and other sourcing scripts
+JWT_VARS=(
+  "CONJUR_APPLIANCE_URL=${CONJUR_APPLIANCE_URL}"
+  "CONJUR_ACCOUNT=${CONJUR_ACCOUNT}"
+  "CONJUR_AUTHN_JWT_SERVICE_ID=${CONJUR_AUTHN_JWT_SERVICE_ID}"
+  "SPIFFE_ENDPOINT_SOCKET=${SPIFFE_ENDPOINT_SOCKET}"
+  # Clear the CI provisioning token so summon takes the SPIFFE path, not the
+  # token-auth path.  By the time scenarios run, the token has been used for
+  # provisioning and must not leak into scenario invocations.
+  "CONJUR_AUTHN_TOKEN="
+)
+
 record() {
   local status="$1" label="$2" detail="${3:-}"
   RESULTS+=("${status}|${label}|${detail}")
@@ -102,6 +119,7 @@ run_summon_sad() {
   set +e
   if [[ "$clean_env" == "true" ]]; then
     env -i PATH="${PATH}" \
+      HOME="/tmp" \
       SUMMON_PROVIDER="${SUMMON_PROVIDER:-conjur}" \
       "${env_args[@]+"${env_args[@]}"}" \
       "${SUMMON_BINARY}" "${summon_extra[@]+"${summon_extra[@]}"}" \

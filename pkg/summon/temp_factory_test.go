@@ -2,6 +2,7 @@ package summon
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,7 +83,9 @@ func TestTempFactory_PushError(t *testing.T) {
 
 	_, err := tf.Push("value")
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "/nonexistent/dir")
+	// Use filepath.Join so the expected substring uses the OS path separator
+	// (backslash on Windows, forward slash on Unix).
+	assert.ErrorContains(t, err, filepath.Join("nonexistent", "dir"))
 }
 
 func TestDefaultTempPath_HomeFallback(t *testing.T) {

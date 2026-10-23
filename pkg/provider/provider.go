@@ -190,15 +190,19 @@ func Call(ctx context.Context, provider, specPath string) (string, error) {
 		stdOut bytes.Buffer
 		stdErr bytes.Buffer
 	)
+	providerBin, err := exec.LookPath(provider)
+	if err != nil {
+		return "", fmt.Errorf("provider binary not found: %w", err)
+	}
 	timeout := callTimeout()
 	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(callCtx, provider, specPath)
+	cmd := exec.CommandContext(callCtx, providerBin, specPath)
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &stdErr
 	setCallProcessGroup(cmd, timeout)
-	err := cmd.Run()
+	err = cmd.Run()
 
 	if err != nil {
 		if ctx.Err() != nil {
@@ -364,7 +368,13 @@ func CallInteractiveMode(ctx context.Context, provider string, secrets secretsym
 		return providerTimeoutError(provider, timeout)
 	}
 
-	cmd := exec.CommandContext(ctxTimeout, provider)
+	providerBin, lookErr := exec.LookPath(provider)
+	if lookErr != nil {
+		sendErr(fmt.Errorf("provider binary not found: %w", lookErr))
+		return resultsCh, errorsCh, func() { closeDone(); ctxCancel() }
+	}
+
+	cmd := exec.CommandContext(ctxTimeout, providerBin)
 	setCallProcessGroup(cmd, timeout)
 
 	// Get a pipe to the command's stdinPipe
