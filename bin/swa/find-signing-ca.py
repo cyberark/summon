@@ -119,7 +119,9 @@ def main():
         print("Usage: find-signing-ca.py <bundle.pem> <svid.pem> <swa-server-addr>",
               file=sys.stderr)
         sys.exit(1)
-    bundle_path, svid_path, server_addr = sys.argv[1], sys.argv[2], sys.argv[3]
+    bundle_path = os.path.realpath(sys.argv[1])
+    svid_path = os.path.realpath(sys.argv[2])
+    server_addr = sys.argv[3]
     _validate_inputs(bundle_path, svid_path, server_addr)
 
     svid_issuer = subprocess.run(  # nosec B603 B607 — list form; svid_path validated by _validate_inputs

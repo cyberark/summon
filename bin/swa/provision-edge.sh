@@ -17,7 +17,7 @@
 # Environment:
 #   CONJURRC_FILE   Path to conjurrc (default: ~/.conjurrc-swa)
 #   NETRC_FILE      Path to netrc   (default: ~/.netrc-swa)
-#   EDGE_IMAGE      Docker image    (default: ${REGISTRY_URL:-registry.tld}/cyberark/edge:1.9.1)
+#   EDGE_IMAGE      Docker image    (default: ${REGISTRY_URL:-registry.tld}/cyberark/edge:latest)
 #   EDGE_DATA_DIR   Bind-mount dir  (default: /tmp/swa-e2e/edge)
 
 set -euo pipefail
@@ -51,7 +51,7 @@ setup_env() {
   RESTART_ONLY=false
   # Use REGISTRY_URL when set (exported by ci-run.sh from INFRAPOOL_REGISTRY_URL on
   # infrapool agents); fall back to the internal mirror default for local dev.
-  EDGE_IMAGE="${EDGE_IMAGE:-${REGISTRY_URL:-registry.tld}/cyberark/edge:1.9.1}"
+  EDGE_IMAGE="${EDGE_IMAGE:-${REGISTRY_URL:-registry.tld}/cyberark/edge:latest}"
   EDGE_DATA_DIR="${EDGE_DATA_DIR:-/tmp/swa-e2e/edge}"
 
   while [[ $# -gt 0 ]]; do
