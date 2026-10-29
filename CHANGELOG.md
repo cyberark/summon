@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [0.14.0] - 2026-10-08
 
 ### Security
+- Zero secret byte buffers through a shared `memzero.Clear` helper that keeps the
+  buffer live with `runtime.KeepAlive`, so the compiler cannot drop the clear as
+  a dead store.
 - Upgraded Go to 1.27.3.
 
 ### Security
@@ -198,7 +201,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   [cyberark/summon#240](https://github.com/cyberark/summon/pull/240)
 
 ### Security
-- Force golang.org/x/text to use v0.3.8 
+- Force golang.org/x/text to use v0.3.8
   [cyberark/summon#241](https://github.com/cyberark/summon/pull/241)
 - Update aruba (0.6.2 -> 2.0.0), cucumber (2.0.0 -> 7.1.0) and other necessary
   dependencies in acceptance/Gemfile.lock
@@ -208,13 +211,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.9.4] - 2022-08-18
 ### Security
-- Replaced gopkg.in/yaml.v2 v2.2.2 with v2.2.8 to address 
+- Replaced gopkg.in/yaml.v2 v2.2.2 with v2.2.8 to address
   SNYK-GOLANG-GOPKGINYAMLV2-1533594 and CVE-2019-11254
   [cyberark/summon#236](https://github.com/cyberark/summon/pull/236)
 
 ## [0.9.3] - 2022-06-15
 ### Changed
-- Updated dependencies in go.mod (github.com/stretchr/testify -> 1.7.2, 
+- Updated dependencies in go.mod (github.com/stretchr/testify -> 1.7.2,
   github.com/urfave/cli -> 1.22.9, golang.org/x/net -> v0.0.0-20220607020251-c690dde0001d,
   gopkg.in/yaml.v3 -> v3.0.1)
   [cyberark/summon#234](https://github.com/cyberark/summon/pull/234)
@@ -226,7 +229,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [0.9.1] - 2021-12-22
 ### Changed
-- Update go to 1.17 & switch to github.com/urfave/cli 
+- Update go to 1.17 & switch to github.com/urfave/cli
   from github.com/codegangsta/cli
   [cyberark/summon#226](https://github.com/cyberark/summon/pull/226)
 

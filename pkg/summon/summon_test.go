@@ -545,6 +545,11 @@ func TestFilterConjurEnv(t *testing.T) {
 			expected: []string{"HOME=/root", "PATH=/usr/bin"},
 		},
 		{
+			name:     "does not remove SPIFFE_ENDPOINT_SOCKET (platform capability endpoint, design decision #9)",
+			input:    []string{"SPIFFE_ENDPOINT_SOCKET=unix:///run/spire/sockets/agent.sock", "HOME=/root"},
+			expected: []string{"SPIFFE_ENDPOINT_SOCKET=unix:///run/spire/sockets/agent.sock", "HOME=/root"},
+		},
+		{
 			name:     "keeps entries without CONJUR_ prefix",
 			input:    []string{"HOME=/root", "PATH=/usr/bin", "FOO=bar"},
 			expected: []string{"HOME=/root", "PATH=/usr/bin", "FOO=bar"},

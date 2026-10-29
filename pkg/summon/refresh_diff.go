@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/cyberark/summon/internal/memzero"
 	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 )
@@ -19,7 +20,7 @@ type checksum = [sha256.Size]byte
 // immediately after use.
 func sumOf(value string) checksum {
 	b := []byte(value)
-	defer clear(b)
+	defer memzero.Clear(b)
 	return sha256.Sum256(b)
 }
 
@@ -39,7 +40,7 @@ func checksumResults(results []prov.Result, specs secretsyml.SecretsMap) (map[st
 				return nil, err
 			}
 			sums[r.Key] = sha256.Sum256(content)
-			clear(content)
+			memzero.Clear(content)
 			continue
 		}
 		sums[r.Key] = sumOf(r.Value)

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/cyberark/summon/internal/memzero"
 )
 
 // devSHM is the default *nix shared-memory directory path
@@ -75,10 +77,10 @@ func (tf *TempFactory) Push(value string) (string, error) {
 
 	b := []byte(value)
 	if _, err := f.Write(b); err != nil {
-		clear(b)
+		memzero.Clear(b)
 		return "", err
 	}
-	clear(b)
+	memzero.Clear(b)
 	name := f.Name()
 	tf.files = append(tf.files, name)
 	return name, nil
