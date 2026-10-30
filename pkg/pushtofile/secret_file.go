@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cyberark/summon/internal/memzero"
 	filetemplates "github.com/cyberark/summon/pkg/file_templates"
 	"github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
@@ -81,7 +82,7 @@ func (secretFile *SecretFile) writeIfChanged(
 	}
 
 	var rendered bytes.Buffer
-	defer func() { clear(rendered.Bytes()) }()
+	defer func() { memzero.Clear(rendered.Bytes()) }()
 	if err = secretFile.renderPlan(plan, pushToWriter, &rendered); err != nil {
 		return "", "", false, err
 	}

@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cyberark/summon/internal/memzero"
 	"github.com/cyberark/summon/pkg/conjurprovider"
 	"github.com/cyberark/summon/pkg/secretsyml"
 )
@@ -225,7 +226,7 @@ func Call(ctx context.Context, provider, specPath string) (string, error) {
 	// buffer bytes to narrow the window during which the raw secret value
 	// sits in the process heap.
 	result := strings.TrimSpace(stdOut.String())
-	clear(stdOut.Bytes())
+	memzero.Clear(stdOut.Bytes())
 	return result, nil
 }
 
@@ -495,25 +496,26 @@ func CallInteractiveMode(ctx context.Context, provider string, secrets secretsym
 			case keyVal = <-secretEnvVarCh:
 			case <-ctxTimeout.Done():
 				sendErr(ended())
+				memzero.Clear(decoded)
 				return
 			case <-done:
+				memzero.Clear(decoded)
 				return
 			}
-			select {
-			case resultsCh <- Result{
+			res := Result{
 				Key:   keyVal,
 				Value: string(decoded),
 				Error: nil,
-			}:
+			}
+			memzero.Clear(decoded)
+			select {
+			case resultsCh <- res:
 			case <-ctxTimeout.Done():
 				sendErr(ended())
-				clear(decoded)
 				return
 			case <-done:
-				clear(decoded)
 				return
 			}
-			clear(decoded)
 			index++
 			if index >= len(secrets) {
 				break

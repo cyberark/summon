@@ -12,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/cyberark/summon/internal/memzero"
 	"github.com/cyberark/summon/pkg/conjurprovider"
 	prov "github.com/cyberark/summon/pkg/provider"
 	"github.com/cyberark/summon/pkg/secretsyml"
@@ -105,7 +106,7 @@ func fetchSecretsBuiltin(ctx context.Context, secrets secretsyml.SecretsMap, sc 
 		var value string
 		if len(secretBytes) > 0 {
 			value = string(secretBytes)
-			clear(secretBytes) // zero secret bytes immediately after string conversion
+			memzero.Clear(secretBytes) // zero secret bytes immediately after string conversion
 		}
 
 		if value == "" && spec.DefaultValue != "" {
@@ -195,7 +196,7 @@ func nonInteractiveProviderFallback(ctx context.Context, secrets secretsyml.Secr
 					return
 				}
 				value = string(valueBytes)
-				clear(valueBytes)
+				memzero.Clear(valueBytes)
 			} else {
 				// If the spec isn't a variable, use its value as-is
 				value = spec.Path
