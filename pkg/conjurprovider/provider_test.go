@@ -156,6 +156,18 @@ func TestNew(t *testing.T) {
 
 // ---- validateSpiffeConfig ----
 
+func TestValidateSpiffeConfig_EmptySocketNamesVariable(t *testing.T) {
+	t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+	t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "swa-jwt")
+	t.Setenv("CONJUR_AUTHN_JWT_TOKEN", "")
+	t.Setenv("JWT_TOKEN_PATH", "")
+	err := validateSpiffeConfig()
+	assert.ErrorContains(t, err, "SPIFFE_ENDPOINT_SOCKET is set but empty")
+
+	t.Setenv("CONJUR_AUTHN_JWT_TOKEN", "static")
+	assert.NoError(t, validateSpiffeConfig())
+}
+
 func TestValidateSpiffeConfig(t *testing.T) {
 	t.Run("no socket — passes", func(t *testing.T) {
 		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")

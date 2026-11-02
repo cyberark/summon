@@ -185,23 +185,36 @@ func validateAuthnTokenFile(ctx context.Context) error {
 	return f.Close()
 }
 
-// validateSpiffeConfig returns a configuration error when SPIFFE_ENDPOINT_SOCKET
-// is set but no authenticator service ID is configured. Without a service ID,
-// the SPIFFE SVID cannot be targeted at any Conjur authenticator, so failing
-// early with a named-variable message is more useful than falling through to
-// an OIDC "no credentials" error.
+// validateSpiffeConfig validates the SPIFFE Workload API settings before any
+// network call so the operator gets an error that names the variable at fault:
+//
+//   - SPIFFE_ENDPOINT_SOCKET set but empty while JWT-SVID auth is configured
+//     (CONJUR_AUTHN_JWT_SERVICE_ID with no static token): without this check the
+//     library reports "Must specify a JWT token", which never mentions the socket.
+//   - SPIFFE_ENDPOINT_SOCKET set but no authenticator service ID: the SVID cannot
+//     be targeted at any Conjur authenticator.
 func validateSpiffeConfig() error {
-	if os.Getenv(envSpiffeEndpointSocket) == "" {
+	socket, set := os.LookupEnv(envSpiffeEndpointSocket)
+	if socket == "" {
+		if set && os.Getenv(envJWTServiceID) != "" &&
+			os.Getenv(envAuthnJWTToken) == "" &&
+			os.Getenv(envJWTTokenPath) == "" {
+			return fmt.Errorf(
+				"configuration error: SPIFFE_ENDPOINT_SOCKET is set but empty — " +
+					"set it to the SPIFFE Workload API socket (for example unix:///run/spire/agent.sock) " +
+					"or unset it and provide CONJUR_AUTHN_JWT_TOKEN or JWT_TOKEN_PATH",
+			)
+		}
 		return nil
 	}
-	if os.Getenv(envJWTServiceID) != "" ||
-		os.Getenv(envCertServiceID) != "" {
-		return nil
+	if os.Getenv(envJWTServiceID) == "" &&
+		os.Getenv(envCertServiceID) == "" {
+		return fmt.Errorf(
+			"configuration error: SPIFFE_ENDPOINT_SOCKET is set but no authenticator service ID is configured — " +
+				"set CONJUR_AUTHN_JWT_SERVICE_ID (for JWT-SVID) or CONJUR_AUTHN_CERT_SERVICE_ID (for X.509-SVID)",
+		)
 	}
-	return fmt.Errorf(
-		"configuration error: SPIFFE_ENDPOINT_SOCKET is set but no authenticator service ID is configured — " +
-			"set CONJUR_AUTHN_JWT_SERVICE_ID (for JWT-SVID) or CONJUR_AUTHN_CERT_SERVICE_ID (for X.509-SVID)",
-	)
+	return nil
 }
 
 // validateCertFiles returns a configuration error when CONJUR_AUTHN_CERT_SERVICE_ID
