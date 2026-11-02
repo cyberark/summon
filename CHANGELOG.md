@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   directory found". (CNJR-15385)
 - `SPIFFE_ENDPOINT_SOCKET=""` with JWT-SVID authentication configured now reports an
   error naming `SPIFFE_ENDPOINT_SOCKET` instead of "Must specify a JWT token". (CNJR-15385)
+- A bare absolute `SPIFFE_ENDPOINT_SOCKET` path (no scheme) is normalized to
+  `unix://<path>`; a relative path is rejected with a configuration error. (CNJR-15385)
 - Fix interactive child commands stopping (state T, SIGTTIN) when summon is run
   in a terminal; the regression was introduced in 0.13.0 by the Setpgid change
   (commit 5af7e13) that placed the child in a background process group without
