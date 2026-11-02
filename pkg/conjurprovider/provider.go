@@ -27,6 +27,15 @@ const BuiltinProviderName = "conjur"
 // stored on SubprocessConfig.Provider for logging and built-in fetch dispatch.
 const BuiltinProviderPath = "conjur (built-in)"
 
+// Environment variables read when validating the Conjur provider configuration.
+const (
+	envSpiffeEndpointSocket = "SPIFFE_ENDPOINT_SOCKET"
+	envJWTServiceID         = "CONJUR_AUTHN_JWT_SERVICE_ID"
+	envCertServiceID        = "CONJUR_AUTHN_CERT_SERVICE_ID"
+	envAuthnJWTToken        = "CONJUR_AUTHN_JWT_TOKEN"
+	envJWTTokenPath         = "JWT_TOKEN_PATH"
+)
+
 // ConjurClient is a test seam that wraps the conjurapi.Client. Declaring this
 // interface allows unit tests to inject mocks so no real network calls are made.
 type ConjurClient interface {
@@ -182,11 +191,11 @@ func validateAuthnTokenFile(ctx context.Context) error {
 // early with a named-variable message is more useful than falling through to
 // an OIDC "no credentials" error.
 func validateSpiffeConfig() error {
-	if os.Getenv("SPIFFE_ENDPOINT_SOCKET") == "" {
+	if os.Getenv(envSpiffeEndpointSocket) == "" {
 		return nil
 	}
-	if os.Getenv("CONJUR_AUTHN_JWT_SERVICE_ID") != "" ||
-		os.Getenv("CONJUR_AUTHN_CERT_SERVICE_ID") != "" {
+	if os.Getenv(envJWTServiceID) != "" ||
+		os.Getenv(envCertServiceID) != "" {
 		return nil
 	}
 	return fmt.Errorf(
@@ -201,11 +210,11 @@ func validateSpiffeConfig() error {
 // before any network call so the operator receives a file-system error rather
 // than a Conjur API rejection.
 func validateCertFiles() error {
-	if os.Getenv("CONJUR_AUTHN_CERT_SERVICE_ID") == "" {
+	if os.Getenv(envCertServiceID) == "" {
 		return nil
 	}
 	// SPIFFE socket provides the cert dynamically; skip static file validation.
-	if os.Getenv("SPIFFE_ENDPOINT_SOCKET") != "" {
+	if os.Getenv(envSpiffeEndpointSocket) != "" {
 		return nil
 	}
 	certFile := os.Getenv("CONJUR_AUTHN_CERT_FILE")

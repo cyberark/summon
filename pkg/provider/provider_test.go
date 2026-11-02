@@ -79,6 +79,22 @@ func TestResolveEmptyProviderFallsBackToBuiltin(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestResolveFallsBackToBuiltinWhenNoProviderDir(t *testing.T) {
+	requirePOSIX(t)
+	if _, err := os.Stat("/usr/local/lib/summon"); err == nil {
+		t.Skip("default provider dir exists on this machine")
+	}
+	t.Setenv("SUMMON_PROVIDER", "")
+	t.Setenv("SUMMON_PROVIDER_PATH", "")
+	t.Setenv("CONJUR_APPLIANCE_URL", "")
+	t.Setenv("CONJUR_ACCOUNT", "")
+	_, err := Resolve("")
+	// The error must come from the built-in Conjur provider's configuration,
+	// not from the missing provider directory.
+	assert.Error(t, err)
+	assert.NotContains(t, err.Error(), "no provider directory found")
+}
+
 func TestProviderResolutionOfAbsPath(t *testing.T) {
 	requirePOSIX(t)
 	expected := "/bin/bash"
