@@ -34,6 +34,7 @@ func newTokenFileProvider(t *testing.T) (*ConjurProvider, string) {
 	t.Setenv("CONJUR_ACCOUNT", "acct")
 	t.Setenv("CONJUR_AUTHN_TOKEN_FILE", path)
 	t.Setenv("SUMMON_AUTHN_TOKEN_FILE_WAIT", "0")
+	t.Setenv("SPIFFE_ENDPOINT_SOCKET", "") // prevent ambient CI value from tripping SPIFFE validation
 	p, err := New(0)
 	require.NoError(t, err)
 	// The library caches the token after the first retrieval and from then on
