@@ -156,6 +156,50 @@ func TestNew(t *testing.T) {
 
 // ---- validateSpiffeConfig ----
 
+func TestValidateSpiffeConfig_EmptySocketNamesVariable(t *testing.T) {
+	t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+	t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "swa-jwt")
+	t.Setenv("CONJUR_AUTHN_JWT_TOKEN", "")
+	t.Setenv("JWT_TOKEN_PATH", "")
+	err := validateSpiffeConfig()
+	assert.ErrorContains(t, err, "SPIFFE_ENDPOINT_SOCKET is set but empty")
+
+	t.Setenv("CONJUR_AUTHN_JWT_TOKEN", "static")
+	assert.NoError(t, validateSpiffeConfig())
+}
+
+func TestNormalizeSpiffeEndpointEnv(t *testing.T) {
+	t.Run("bare absolute path becomes a unix URL", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "/run/spire/agent.sock")
+		assert.NoError(t, normalizeSpiffeEndpointEnv())
+		assert.Equal(t, "unix:///run/spire/agent.sock", os.Getenv("SPIFFE_ENDPOINT_SOCKET"))
+	})
+
+	t.Run("value with a scheme is unchanged", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "unix:///run/spire/agent.sock")
+		assert.NoError(t, normalizeSpiffeEndpointEnv())
+		assert.Equal(t, "unix:///run/spire/agent.sock", os.Getenv("SPIFFE_ENDPOINT_SOCKET"))
+	})
+
+	t.Run("empty value is left alone", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")
+		assert.NoError(t, normalizeSpiffeEndpointEnv())
+		assert.Equal(t, "", os.Getenv("SPIFFE_ENDPOINT_SOCKET"))
+	})
+
+	t.Run("relative path is a configuration error", func(t *testing.T) {
+		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "relative/agent.sock")
+		assert.ErrorContains(t, normalizeSpiffeEndpointEnv(), "not an absolute path")
+	})
+}
+
+func TestValidateSpiffeConfig_DoesNotModifyEnvironment(t *testing.T) {
+	t.Setenv("CONJUR_AUTHN_JWT_SERVICE_ID", "swa-jwt")
+	t.Setenv("SPIFFE_ENDPOINT_SOCKET", "/run/spire/agent.sock")
+	assert.NoError(t, validateSpiffeConfig())
+	assert.Equal(t, "/run/spire/agent.sock", os.Getenv("SPIFFE_ENDPOINT_SOCKET"))
+}
+
 func TestValidateSpiffeConfig(t *testing.T) {
 	t.Run("no socket — passes", func(t *testing.T) {
 		t.Setenv("SPIFFE_ENDPOINT_SOCKET", "")

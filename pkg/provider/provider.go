@@ -137,14 +137,20 @@ func resolve(providerArg string, daemon bool, fetchTimeout time.Duration) (Provi
 
 	if provider == "" {
 		defaultPath, err := GetDefaultPath()
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrNoProviderDir) {
 			return nil, err
 		}
-		providers, _ := GetAllProviders(defaultPath)
-		if len(providers) == 1 {
-			provider = providers[0]
-		} else if len(providers) > 1 {
-			return nil, fmt.Errorf("more than one provider found in %s, please specify one with --provider or $SUMMON_PROVIDER", defaultPath)
+		// A missing provider directory just means no external provider is
+		// installed; fall through to the built-in Conjur provider below.
+		if err == nil {
+			providers, _ := GetAllProviders(defaultPath)
+			if len(providers) == 1 {
+				provider = providers[0]
+			} else if len(providers) > 1 {
+				return nil, fmt.Errorf("more than one provider found in %s, please specify one with --provider or $SUMMON_PROVIDER", defaultPath)
+			} else {
+				slog.Warn("provider directory contains no executable providers, falling back to built-in Conjur provider", "path", defaultPath)
+			}
 		}
 	}
 
@@ -565,6 +571,10 @@ func windowsProgramFilesDir(programW6432 string) string {
 	return `C:\Program Files`
 }
 
+// ErrNoProviderDir is returned (wrapped) by GetDefaultPath when no provider
+// directory exists. Resolve treats it as "no external provider installed".
+var ErrNoProviderDir = errors.New("no provider directory found")
+
 func GetDefaultPath() (string, error) {
 	pathOverride := os.Getenv("SUMMON_PROVIDER_PATH")
 
@@ -618,15 +628,15 @@ func GetDefaultPath() (string, error) {
 		return libDir, nil
 	}
 
-	return "", fmt.Errorf("No provider directory found. Please set the " +
-		"environment variable SUMMON_PROVIDER_PATH to the directory " +
-		"containing providers.\n" +
-		"Provider paths searched: \n" +
-		"	/usr/local/lib/summon\n" +
-		"	${summon bin dir}/Providers,\n" +
-		"	${summon bin dir}/../lib/summon\n" +
-		"	Environment Variable: SUMMON_PROVIDER_PATH\n" +
-		"	C:\\Program Files\\Cyberark Conjur\\Summon\\Providers")
+	return "", fmt.Errorf("%w. Please set the "+
+		"environment variable SUMMON_PROVIDER_PATH to the directory "+
+		"containing providers.\n"+
+		"Provider paths searched: \n"+
+		"	/usr/local/lib/summon\n"+
+		"	${summon bin dir}/Providers,\n"+
+		"	${summon bin dir}/../lib/summon\n"+
+		"	Environment Variable: SUMMON_PROVIDER_PATH\n"+
+		"	C:\\Program Files\\Cyberark Conjur\\Summon\\Providers", ErrNoProviderDir)
 }
 
 // GetAllProviders returns the names of provider files in providerDir.

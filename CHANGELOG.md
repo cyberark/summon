@@ -13,8 +13,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   buffer live with `runtime.KeepAlive`, so the compiler cannot drop the clear as
   a dead store.
 - Upgraded Go to 1.27.3.
-
-### Security
 - Update Go to 1.27.2 and golang.org/x/net to v0.61.0 (GO-2026-6603, 6605, 6607,
   6608, 6610, 6611, 6612, 6613, 6617)
 - Suppress core dumps on macOS, BSD and Solaris as well as Linux: summon sets
@@ -48,10 +46,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   the final atomic rename was ignored, so Summon carried on and the secret file
   was left missing or stale; it now reports "failed to finalize push to file"
   and returns an error.
-
-## [0.13.2] - 2026-09-29
-
-### Fixed
+- An empty `SUMMON_PROVIDER` (or none set) with no provider directory installed now
+  falls back to the built-in Conjur provider instead of failing with "No provider
+  directory found". (CNJR-15385)
+- `SPIFFE_ENDPOINT_SOCKET=""` with JWT-SVID authentication configured now reports an
+  error naming `SPIFFE_ENDPOINT_SOCKET` instead of "Must specify a JWT token". (CNJR-15385)
+- A bare absolute `SPIFFE_ENDPOINT_SOCKET` path (no scheme) is normalized to
+  `unix://<path>`; a relative path is rejected with a configuration error. (CNJR-15385)
 - Fix interactive child commands stopping (state T, SIGTTIN) when summon is run
   in a terminal; the regression was introduced in 0.13.0 by the Setpgid change
   (commit 5af7e13) that placed the child in a background process group without
@@ -426,8 +427,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Initial release
 
 [Unreleased]: https://github.com/cyberark/summon/compare/v0.14.0...HEAD
-[0.14.0]: https://github.com/cyberark/summon/compare/v0.13.2...v0.14.0
-[0.13.2]: https://github.com/cyberark/summon/compare/v0.13.1...v0.13.2
+[0.14.0]: https://github.com/cyberark/summon/compare/v0.13.1...v0.14.0
 [0.13.1]: https://github.com/cyberark/summon/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/cyberark/summon/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/cyberark/summon/compare/v0.11.1...v0.12.0

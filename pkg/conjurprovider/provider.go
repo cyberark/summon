@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/cyberark/conjur-api-go/conjurapi"
@@ -26,6 +27,15 @@ const BuiltinProviderName = "conjur"
 // BuiltinProviderPath is the identifier returned by ConjurProvider.Path and
 // stored on SubprocessConfig.Provider for logging and built-in fetch dispatch.
 const BuiltinProviderPath = "conjur (built-in)"
+
+// Environment variables read when validating the Conjur provider configuration.
+const (
+	envSpiffeEndpointSocket = "SPIFFE_ENDPOINT_SOCKET"
+	envJWTServiceID         = "CONJUR_AUTHN_JWT_SERVICE_ID"
+	envCertServiceID        = "CONJUR_AUTHN_CERT_SERVICE_ID"
+	envAuthnJWTToken        = "CONJUR_AUTHN_JWT_TOKEN"
+	envJWTTokenPath         = "JWT_TOKEN_PATH"
+)
 
 // ConjurClient is a test seam that wraps the conjurapi.Client. Declaring this
 // interface allows unit tests to inject mocks so no real network calls are made.
@@ -176,23 +186,73 @@ func validateAuthnTokenFile(ctx context.Context) error {
 	return f.Close()
 }
 
-// validateSpiffeConfig returns a configuration error when SPIFFE_ENDPOINT_SOCKET
-// is set but no authenticator service ID is configured. Without a service ID,
-// the SPIFFE SVID cannot be targeted at any Conjur authenticator, so failing
-// early with a named-variable message is more useful than falling through to
-// an OIDC "no credentials" error.
+// validateSpiffeConfig validates the SPIFFE Workload API settings before any
+// network call so the operator gets an error that names the variable at fault:
+//
+//   - SPIFFE_ENDPOINT_SOCKET set but empty while JWT-SVID auth is configured
+//     (CONJUR_AUTHN_JWT_SERVICE_ID with no static token): without this check the
+//     library reports "Must specify a JWT token", which never mentions the socket.
+//   - SPIFFE_ENDPOINT_SOCKET set but no authenticator service ID: the SVID cannot
+//     be targeted at any Conjur authenticator.
+//
+// It only reads the environment; see normalizeSpiffeEndpointEnv for the rewrite.
 func validateSpiffeConfig() error {
-	if os.Getenv("SPIFFE_ENDPOINT_SOCKET") == "" {
+	socket, set := os.LookupEnv(envSpiffeEndpointSocket)
+	if socket == "" {
+		if set && os.Getenv(envJWTServiceID) != "" &&
+			os.Getenv(envAuthnJWTToken) == "" &&
+			os.Getenv(envJWTTokenPath) == "" {
+			return fmt.Errorf(
+				"configuration error: SPIFFE_ENDPOINT_SOCKET is set but empty — " +
+					"set it to the SPIFFE Workload API socket (for example unix:///run/spire/agent.sock) " +
+					"or unset it and provide CONJUR_AUTHN_JWT_TOKEN or JWT_TOKEN_PATH",
+			)
+		}
 		return nil
 	}
-	if os.Getenv("CONJUR_AUTHN_JWT_SERVICE_ID") != "" ||
-		os.Getenv("CONJUR_AUTHN_CERT_SERVICE_ID") != "" {
+	if os.Getenv(envJWTServiceID) == "" &&
+		os.Getenv(envCertServiceID) == "" {
+		return fmt.Errorf(
+			"configuration error: SPIFFE_ENDPOINT_SOCKET is set but no authenticator service ID is configured — " +
+				"set CONJUR_AUTHN_JWT_SERVICE_ID (for JWT-SVID) or CONJUR_AUTHN_CERT_SERVICE_ID (for X.509-SVID)",
+		)
+	}
+	return nil
+}
+
+// normalizeSpiffeEndpointEnv rewrites SPIFFE_ENDPOINT_SOCKET in the process
+// environment when it is a bare absolute path (no scheme): conjur-api-go accepts
+// it but go-spiffe rejects it at connect time, so it becomes unix://<path>. A
+// bare relative path is a configuration error. An unset or empty value is left
+// alone.
+func normalizeSpiffeEndpointEnv() error {
+	socket := os.Getenv(envSpiffeEndpointSocket)
+	if socket == "" {
 		return nil
 	}
-	return fmt.Errorf(
-		"configuration error: SPIFFE_ENDPOINT_SOCKET is set but no authenticator service ID is configured — " +
-			"set CONJUR_AUTHN_JWT_SERVICE_ID (for JWT-SVID) or CONJUR_AUTHN_CERT_SERVICE_ID (for X.509-SVID)",
-	)
+	normalized, err := normalizeSpiffeSocket(socket)
+	if err != nil {
+		return err
+	}
+	if normalized == socket {
+		return nil
+	}
+	return os.Setenv(envSpiffeEndpointSocket, normalized)
+}
+
+// normalizeSpiffeSocket converts a bare absolute socket path to a unix:// URL.
+// Values that already carry a scheme are returned unchanged for conjur-api-go
+// to validate.
+func normalizeSpiffeSocket(socket string) (string, error) {
+	if strings.Contains(socket, "://") {
+		return socket, nil
+	}
+	if !strings.HasPrefix(socket, "/") {
+		return "", fmt.Errorf(
+			"configuration error: SPIFFE_ENDPOINT_SOCKET %q has no scheme and is not an absolute path — "+
+				"use unix:///absolute/path or an absolute socket path", socket)
+	}
+	return "unix://" + socket, nil
 }
 
 // validateCertFiles returns a configuration error when CONJUR_AUTHN_CERT_SERVICE_ID
@@ -201,11 +261,11 @@ func validateSpiffeConfig() error {
 // before any network call so the operator receives a file-system error rather
 // than a Conjur API rejection.
 func validateCertFiles() error {
-	if os.Getenv("CONJUR_AUTHN_CERT_SERVICE_ID") == "" {
+	if os.Getenv(envCertServiceID) == "" {
 		return nil
 	}
 	// SPIFFE socket provides the cert dynamically; skip static file validation.
-	if os.Getenv("SPIFFE_ENDPOINT_SOCKET") != "" {
+	if os.Getenv(envSpiffeEndpointSocket) != "" {
 		return nil
 	}
 	certFile := os.Getenv("CONJUR_AUTHN_CERT_FILE")
@@ -235,6 +295,9 @@ func validateCertFiles() error {
 // still bounded by it.
 func New(maxHTTPTimeout time.Duration) (*ConjurProvider, error) {
 	if err := validateSpiffeConfig(); err != nil {
+		return nil, err
+	}
+	if err := normalizeSpiffeEndpointEnv(); err != nil {
 		return nil, err
 	}
 	if err := validateCertFiles(); err != nil {
