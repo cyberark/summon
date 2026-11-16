@@ -149,7 +149,9 @@ func TestNew(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "configuration error:")
-		assert.Contains(t, err.Error(), "cannot read certificate file")
+		// The error message varies between conjur-api-go editions; assert that the
+		// cert file path is mentioned rather than hard-coding a specific phrasing.
+		assert.Contains(t, err.Error(), "/missing/cert.pem")
 		assert.NotContains(t, err.Error(), "authentication failed")
 	})
 }

@@ -17,6 +17,13 @@ import (
 // file, against a server that answers every secret request with "s3cret".
 func newTokenFileProvider(t *testing.T) (*ConjurProvider, string) {
 	t.Helper()
+	// Isolate HOME so no ~/.conjurrc is picked up, and clear cert-service-ID so
+	// that an ambient CONJUR_AUTHN_CERT_SERVICE_ID (passed from the CI host into
+	// the integration test container) does not switch the authn type to "cert"
+	// and trigger conjur-api-go's HTTPS-required validation against the plain
+	// HTTP test server.
+	isolateHome(t)
+	t.Setenv("CONJUR_AUTHN_CERT_SERVICE_ID", "")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("s3cret"))
 	}))
@@ -27,6 +34,7 @@ func newTokenFileProvider(t *testing.T) (*ConjurProvider, string) {
 	t.Setenv("CONJUR_ACCOUNT", "acct")
 	t.Setenv("CONJUR_AUTHN_TOKEN_FILE", path)
 	t.Setenv("SUMMON_AUTHN_TOKEN_FILE_WAIT", "0")
+	t.Setenv("SPIFFE_ENDPOINT_SOCKET", "") // prevent ambient CI value from tripping SPIFFE validation
 	p, err := New(0)
 	require.NoError(t, err)
 	// The library caches the token after the first retrieval and from then on
